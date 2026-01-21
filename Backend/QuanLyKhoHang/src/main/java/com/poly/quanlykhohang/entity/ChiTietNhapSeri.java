@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "CTNhap_Seri")
+@Table(name = "CTNMaMay") // Tên bảng trong SQL
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -12,17 +12,17 @@ public class ChiTietNhapSeri {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "MaCTNhap") // Tên cột khóa chính trong SQL
     private Long id;
 
-    // Liên kết ngược về bảng Cấp 2 (ChiTietPhieuNhap)
-    // Cột này trong DB tên là CTPhieuNhapID
     @ManyToOne
-    @JoinColumn(name = "CTPhieuNhapID", nullable = false)
+    @JoinColumn(name = "MaCTPN", nullable = false) // FK trỏ về ChiTietPhieuNhap
     private ChiTietPhieuNhap chiTietPhieuNhap;
 
-    // Liên kết tới cái máy cụ thể vừa được tạo ra trong kho
     @ManyToOne
     @JoinColumn(name = "MaMay", nullable = false)
     private MayIn mayIn;
+
+    @Column(name = "GhiChu")
+    private String ghiChu;
 }

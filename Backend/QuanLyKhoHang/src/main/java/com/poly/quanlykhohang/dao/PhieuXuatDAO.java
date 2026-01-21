@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface PhieuXuatDAO extends JpaRepository<PhieuXuat, Long> {
+public interface PhieuXuatDAO extends JpaRepository<PhieuXuat, String> {
 
     // Báo cáo doanh thu xuất kho theo khoảng thời gian
     List<PhieuXuat> findByNgayXuatBetween(LocalDateTime start, LocalDateTime end);

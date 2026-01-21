@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface PhieuNhapDAO extends JpaRepository<PhieuNhap, Long> {
+public interface PhieuNhapDAO extends JpaRepository<PhieuNhap, String> {
 
     // Tìm phiếu nhập theo ngày (Báo cáo)
     List<PhieuNhap> findByNgayNhapBetween(LocalDateTime fromDate, LocalDateTime toDate);

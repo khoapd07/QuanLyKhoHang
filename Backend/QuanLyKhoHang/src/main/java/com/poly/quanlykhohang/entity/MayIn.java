@@ -13,7 +13,7 @@ public class MayIn {
 
     @Id
     @Column(name = "MaMay", length = 50)
-    private String maSeri; // Số Seri (Khóa chính)
+    private String maMay; // <--- ĐÃ SỬA: Đổi từ maSeri thành maMay cho chuẩn
 
     // Liên kết với bảng Sản Phẩm
     @ManyToOne
@@ -26,7 +26,7 @@ public class MayIn {
     private Kho kho;
 
     @Column(name = "SoSeri", unique = true)
-    private String soSeri; // Nếu bạn dùng cột riêng, còn không thì dùng luôn MaMay
+    private String soSeri; // Số Serial thực tế in trên máy
 
     @Column(name = "NgayTao")
     private LocalDateTime ngayTao;

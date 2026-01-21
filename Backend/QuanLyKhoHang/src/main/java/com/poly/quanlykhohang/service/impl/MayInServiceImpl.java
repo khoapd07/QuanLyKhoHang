@@ -23,6 +23,7 @@ public class MayInServiceImpl implements MayInService {
 
     @Override
     public MayIn timTheoSeri(String soSeri) {
+        // Hàm này vẫn đúng vì MayInDAO có findBySoSeri
         return mayInDAO.findBySoSeri(soSeri)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy máy có seri: " + soSeri));
     }
@@ -36,12 +37,16 @@ public class MayInServiceImpl implements MayInService {
     public Map<String, Object> traCuuLichSuMay(String soSeri) {
         Map<String, Object> history = new HashMap<>();
 
-        // 1. Lấy thông tin hiện tại
+        // 1. Lấy thông tin hiện tại (Để lấy được MaMay chuẩn)
         MayIn mayIn = timTheoSeri(soSeri);
         history.put("thongTinMay", mayIn);
 
+        // --- SỬA LỖI LOGIC: Dùng MaMay (ID) để tìm lịch sử, không dùng chuỗi soSeri ---
+
         // 2. Tìm nguồn gốc Nhập (Trace Backward)
-        Optional<ChiTietNhapSeri> nhapEntry = chiTietNhapSeriDAO.findByMayIn_MaSeri(soSeri);
+        // Gọi hàm findByMayIn_MaMay (Đã sửa trong DAO)
+        Optional<ChiTietNhapSeri> nhapEntry = chiTietNhapSeriDAO.findByMayIn_MaMay(mayIn.getMaMay());
+
         if (nhapEntry.isPresent()) {
             PhieuNhap pn = nhapEntry.get().getChiTietPhieuNhap().getPhieuNhap();
             history.put("ngayNhap", pn.getNgayNhap());
@@ -50,7 +55,9 @@ public class MayInServiceImpl implements MayInService {
         }
 
         // 3. Tìm lịch sử Xuất (Trace Forward)
-        Optional<ChiTietXuatSeri> xuatEntry = chiTietXuatSeriDAO.findExportInfoBySerial(soSeri);
+        // Gọi hàm findExportInfoByMachineId (Đã sửa trong DAO)
+        Optional<ChiTietXuatSeri> xuatEntry = chiTietXuatSeriDAO.findExportInfoByMachineId(mayIn.getMaMay());
+
         if (xuatEntry.isPresent()) {
             PhieuXuat px = xuatEntry.get().getChiTietPhieuXuat().getPhieuXuat();
             history.put("ngayXuat", px.getNgayXuat());
@@ -87,7 +94,6 @@ public class MayInServiceImpl implements MayInService {
                 .orElseThrow(() -> new RuntimeException("Kho đích không tồn tại"));
 
         mayIn.setKho(khoMoi);
-        // Có thể thêm logic ghi log vào bảng Lịch sử chuyển kho ở đây (nếu có)
         mayInDAO.save(mayIn);
     }
 }

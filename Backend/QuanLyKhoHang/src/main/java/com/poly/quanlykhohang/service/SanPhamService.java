@@ -8,5 +8,5 @@ public interface SanPhamService {
     SanPham timTheoMa(String maSP);
     SanPham luuSanPham(SanPham sanPham);
     void xoaSanPham(String maSP);
-    List<SanPham> timSanPhamSapHetHang();
+
 }

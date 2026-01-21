@@ -14,16 +14,15 @@ import java.util.List;
 public class PhieuXuat {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "SoPhieu")
-    private Long soPhieu;
+    @Column(name = "SoPhieu", length = 50)
+    private String soPhieu;
 
     @ManyToOne
-    @JoinColumn(name = "MaDonVi") // Khách hàng
+    @JoinColumn(name = "MaDonVi")
     private DonVi khachHang;
 
     @ManyToOne
-    @JoinColumn(name = "MaKho") // Xuất từ kho nào
+    @JoinColumn(name = "MaKho")
     private Kho khoXuat;
 
     @Column(name = "NgayXuat")
@@ -38,7 +37,6 @@ public class PhieuXuat {
     @Column(name = "GhiChu")
     private String ghiChu;
 
-    // Quan hệ 1-Nhiều: Một phiếu có nhiều dòng chi tiết sản phẩm
     @OneToMany(mappedBy = "phieuXuat", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChiTietPhieuXuat> danhSachChiTiet;
 }

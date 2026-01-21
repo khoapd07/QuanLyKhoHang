@@ -19,6 +19,14 @@ public class PhieuXuatServiceImpl implements PhieuXuatService {
     @Override
     @Transactional
     public PhieuXuat taoPhieuXuat(PhieuXuat phieuXuat) {
+        if (phieuXuat.getSoPhieu() == null || phieuXuat.getSoPhieu().trim().isEmpty()) {
+            throw new RuntimeException("Vui lòng nhập số phiếu xuất!");
+        }
+
+        // 2. Kiểm tra trùng lặp (Tránh lỗi DB)
+        if (phieuXuatDAO.existsById(phieuXuat.getSoPhieu())) {
+            throw new RuntimeException("Phiếu xuất " + phieuXuat.getSoPhieu() + " đã tồn tại!");
+        }
         // 1. Set ngày xuất
         if (phieuXuat.getNgayXuat() == null) {
             phieuXuat.setNgayXuat(LocalDateTime.now());
@@ -34,7 +42,7 @@ public class PhieuXuatServiceImpl implements PhieuXuatService {
 
                 // --- LOGIC QUAN TRỌNG: TRỪ KHO ---
                 // Tìm máy trong kho theo mã Seri
-                String maSeriCanBan = seriEntry.getMayIn().getMaSeri();
+                String maSeriCanBan = seriEntry.getMayIn().getMaMay();
                 MayIn mayInKho = mayInDAO.findById(maSeriCanBan)
                         .orElseThrow(() -> new RuntimeException("Không tìm thấy máy có seri: " + maSeriCanBan));
 

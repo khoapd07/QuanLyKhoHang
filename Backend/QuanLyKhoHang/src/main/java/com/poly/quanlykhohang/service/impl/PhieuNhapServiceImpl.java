@@ -19,6 +19,14 @@ public class PhieuNhapServiceImpl implements PhieuNhapService {
     @Override
     @Transactional // Quan trọng: Nếu lỗi ở bước nào, Rollback toàn bộ
     public PhieuNhap taoPhieuNhap(PhieuNhap phieuNhap) {
+        if (phieuNhap.getSoPhieu() == null || phieuNhap.getSoPhieu().trim().isEmpty()) {
+            throw new RuntimeException("Vui lòng nhập số phiếu!");
+        }
+
+        // 2. LOGIC QUAN TRỌNG: Kiểm tra trùng mã phiếu
+        if (phieuNhapDAO.existsById(phieuNhap.getSoPhieu())) {
+            throw new RuntimeException("Số phiếu " + phieuNhap.getSoPhieu() + " đã tồn tại! Vui lòng kiểm tra lại.");
+        }
         // 1. Set ngày nhập hiện tại nếu chưa có
         if (phieuNhap.getNgayNhap() == null) {
             phieuNhap.setNgayNhap(LocalDateTime.now());
@@ -36,8 +44,8 @@ public class PhieuNhapServiceImpl implements PhieuNhapService {
                 MayIn mayMoi = seriEntry.getMayIn();
 
                 // Kiểm tra xem máy này đã tồn tại chưa (tránh nhập trùng seri)
-                if(mayInDAO.existsById(mayMoi.getMaSeri())) {
-                    throw new RuntimeException("Lỗi: Mã seri " + mayMoi.getMaSeri() + " đã tồn tại trong hệ thống!");
+                if(mayInDAO.existsById(mayMoi.getMaMay())) {
+                    throw new RuntimeException("Lỗi: Mã seri " + mayMoi.getMaMay() + " đã tồn tại trong hệ thống!");
                 }
 
                 // Thiết lập thông tin mặc định cho máy mới

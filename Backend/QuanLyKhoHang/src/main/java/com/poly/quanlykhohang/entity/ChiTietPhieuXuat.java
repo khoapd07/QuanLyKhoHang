@@ -14,21 +14,19 @@ public class ChiTietPhieuXuat {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID") // Hoặc CTPhieuXuatID
+    @Column(name = "MaCTPX") // <--- Quan trọng: Phải khớp SQL
     private Long id;
 
-    // Liên kết ngược về bảng Cha (PhieuXuat)
     @ManyToOne
     @JoinColumn(name = "SoPhieu", nullable = false)
     private PhieuXuat phieuXuat;
 
-    // Liên kết với Sản phẩm (Để biết dòng này bán máy loại gì)
     @ManyToOne
     @JoinColumn(name = "MaSP", nullable = false)
     private SanPham sanPham;
 
     @Column(name = "SoLuong")
-    private Integer soLuong; // Tổng số lượng của dòng này (VD: 5 cái Canon)
+    private Integer soLuong;
 
     @Column(name = "DonGia")
     private BigDecimal donGia;
@@ -36,7 +34,6 @@ public class ChiTietPhieuXuat {
     @Column(name = "GhiChu")
     private String ghiChu;
 
-    // Quan hệ 1-Nhiều: Một dòng chi tiết chứa danh sách các seri cụ thể (Cấp 3)
     @OneToMany(mappedBy = "chiTietPhieuXuat", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChiTietXuatSeri> danhSachSeri;
 }

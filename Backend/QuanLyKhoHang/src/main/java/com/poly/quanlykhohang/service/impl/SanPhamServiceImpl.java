@@ -34,8 +34,4 @@ public class SanPhamServiceImpl implements SanPhamService {
         sanPhamDAO.deleteById(maSP);
     }
 
-    @Override
-    public List<SanPham> timSanPhamSapHetHang() {
-        return sanPhamDAO.findLowStockProducts();
-    }
 }

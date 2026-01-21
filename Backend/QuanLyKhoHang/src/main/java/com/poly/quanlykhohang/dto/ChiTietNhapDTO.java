@@ -7,10 +7,8 @@ import java.util.List;
 @Data
 public class ChiTietNhapDTO {
     private String maSP;        // Mã sản phẩm (VD: SP001)
-    private Integer soLuong;    // Số lượng
+    private Integer soLuong;    // Số lượng nhập
     private BigDecimal donGia;  // Giá nhập
     private String ghiChu;
-
-    // Quan trọng: Danh sách số Seri đi kèm (nếu quản lý theo seri)
-    private List<String> danhSachSeri;
+    private List<String> danhSachSeri; // List seri (VD: ["SN001", "SN002"])
 }

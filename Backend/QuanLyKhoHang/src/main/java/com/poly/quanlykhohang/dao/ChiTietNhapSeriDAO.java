@@ -8,6 +8,8 @@ import java.util.Optional;
 @Repository
 public interface ChiTietNhapSeriDAO extends JpaRepository<ChiTietNhapSeri, Long> {
 
-    // Truy xuất nguồn gốc: Máy này nhập ở phiếu nào?
-    Optional<ChiTietNhapSeri> findByMayIn_MaSeri(String maSeri);
+    // 🔴 CŨ (Sẽ lỗi): findByMayIn_MaSeri
+    // 🟢 MỚI (Sửa thành): findByMayIn_MaMay
+    // Giải thích: Tìm trong MayIn, lấy thuộc tính maMay
+    Optional<ChiTietNhapSeri> findByMayIn_MaMay(String maMay);
 }
