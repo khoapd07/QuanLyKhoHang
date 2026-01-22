@@ -5,10 +5,12 @@ import com.poly.quanlykhohang.dto.*;
 import com.poly.quanlykhohang.entity.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -18,42 +20,37 @@ public class GiaoDichKhoService {
 
     @Autowired private PhieuNhapDAO phieuNhapDAO;
     @Autowired private ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
-    @Autowired private ChiTietNhapSeriDAO chiTietNhapSeriDAO;
 
     @Autowired private PhieuXuatDAO phieuXuatDAO;
     @Autowired private ChiTietPhieuXuatDAO chiTietPhieuXuatDAO;
-    @Autowired private ChiTietXuatSeriDAO chiTietXuatSeriDAO;
 
     @Autowired private DonViDAO donViDAO;
     @Autowired private KhoDAO khoDAO;
     @Autowired private SanPhamDAO sanPhamDAO;
     @Autowired private MayInDAO mayInDAO;
 
-    // === MỚI: LẤY DANH SÁCH TÓM TẮT (Ẩn chi tiết để JSON gọn nhẹ) ===
+    // === LẤY DANH SÁCH TÓM TẮT ===
     public List<PhieuNhap> layDanhSachPhieuNhapTomTat() {
-        // 1. Lấy tất cả phiếu, sắp xếp mới nhất lên đầu
         List<PhieuNhap> list = phieuNhapDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
-
-        // 2. Duyệt qua từng phiếu và SET DANH SÁCH CHI TIẾT = NULL
-        // Mục đích: Khi trả về JSON, phần này sẽ biến mất hoặc null, giúp danh sách gọn gàng
+        // Ẩn chi tiết để JSON nhẹ
         for (PhieuNhap pn : list) {
             pn.setDanhSachChiTiet(null);
         }
         return list;
     }
 
-    // === MỚI: LẤY CHI TIẾT 1 PHIẾU (Hiện đầy đủ) ===
+    // === LẤY CHI TIẾT ===
     public PhieuNhap layPhieuNhapChiTiet(String soPhieu) {
         return phieuNhapDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu: " + soPhieu));
-        // Mặc định Hibernate sẽ load chi tiết khi được gọi, nên trả về nguyên object là có đủ data
     }
 
-    // ================== 1. NHẬP KHO (Giữ nguyên logic cũ) ==================
+    // ================== 1. NHẬP KHO (LOGIC MỚI) ==================
     @Transactional(rollbackFor = Exception.class)
     public PhieuNhap nhapKho(PhieuNhapDTO dto) {
+        // 1. Tạo Header Phiếu Nhập
         PhieuNhap phieuNhap = new PhieuNhap();
-        phieuNhap.setSoPhieu("PN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        phieuNhap.setSoPhieu(Year.now() + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         phieuNhap.setNgayNhap(LocalDateTime.now());
         phieuNhap.setGhiChu(dto.getGhiChu());
 
@@ -66,26 +63,20 @@ public class GiaoDichKhoService {
         phieuNhap.setKhoNhap(kho);
 
         PhieuNhap savedPhieu = phieuNhapDAO.save(phieuNhap);
-        List<ChiTietPhieuNhap> listChiTiet = new ArrayList<>(); // List tạm để hiển thị lại ngay sau khi lưu
+        List<ChiTietPhieuNhap> listChiTiet = new ArrayList<>();
 
+        // 2. Duyệt qua DTO gửi lên
         if (dto.getChiTietPhieuNhap() != null) {
             for (ChiTietNhapDTO ctDto : dto.getChiTietPhieuNhap()) {
-                ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
                 SanPham sp = sanPhamDAO.findById(ctDto.getMaSP())
                         .orElseThrow(() -> new RuntimeException("Lỗi SP: " + ctDto.getMaSP()));
 
-                ctEntity.setSanPham(sp);
-                ctEntity.setSoLuong(ctDto.getSoLuong());
-                ctEntity.setDonGia(ctDto.getDonGia());
-                ctEntity.setPhieuNhap(savedPhieu);
-                ctEntity.setGhiChu(ctDto.getGhiChu());
-
-                ChiTietPhieuNhap savedChiTiet = chiTietPhieuNhapDAO.save(ctEntity);
-                listChiTiet.add(savedChiTiet);
-
+                // Với mỗi Serial trong danh sách -> Tạo 1 dòng Chi Tiết + 1 Máy In
                 if (ctDto.getDanhSachSeri() != null) {
                     for (String seriStr : ctDto.getDanhSachSeri()) {
-                        if(mayInDAO.findBySoSeri(seriStr).isPresent()){
+
+                        // A. Tạo Máy In trước
+                        if (mayInDAO.findBySoSeri(seriStr).isPresent()) {
                             throw new RuntimeException("Số seri " + seriStr + " đã tồn tại!");
                         }
 
@@ -97,23 +88,31 @@ public class GiaoDichKhoService {
                         mayMoi.setSoSeri(seriStr);
                         mayMoi.setSanPham(sp);
                         mayMoi.setKho(kho);
-                        mayMoi.setTrangThai(1);
+                        mayMoi.setSoPhieuNhap(savedPhieu.getSoPhieu()); // Lưu vết phiếu nhập
+                        mayMoi.setTrangThai(1); // 1 = Tồn kho
                         mayMoi.setNgayTao(LocalDateTime.now());
-                        mayInDAO.save(mayMoi);
 
-                        ChiTietNhapSeri seriLog = new ChiTietNhapSeri();
-                        seriLog.setMayIn(mayMoi);
-                        seriLog.setChiTietPhieuNhap(savedChiTiet);
-                        chiTietNhapSeriDAO.save(seriLog);
+                        MayIn maySaved = mayInDAO.save(mayMoi);
+
+                        // B. Tạo dòng Chi Tiết Phiếu Nhập (Link trực tiếp tới Máy)
+                        ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
+                        ctEntity.setPhieuNhap(savedPhieu);
+                        ctEntity.setSanPham(sp);
+                        ctEntity.setMayIn(maySaved); // <--- QUAN TRỌNG: Link 1-1
+                        ctEntity.setDonGia(ctDto.getDonGia());
+                        ctEntity.setGhiChu(ctDto.getGhiChu());
+
+                        ChiTietPhieuNhap savedChiTiet = chiTietPhieuNhapDAO.save(ctEntity);
+                        listChiTiet.add(savedChiTiet);
                     }
                 }
             }
         }
-        savedPhieu.setDanhSachChiTiet(listChiTiet); // Gán lại để trả về response cho đẹp
+        savedPhieu.setDanhSachChiTiet(listChiTiet);
         return savedPhieu;
     }
 
-    // ================== 2. XUẤT KHO (Giữ nguyên) ==================
+    // ================== 2. XUẤT KHO (LOGIC MỚI) ==================
     @Transactional(rollbackFor = Exception.class)
     public PhieuXuat xuatKho(PhieuXuatDTO dto) {
         PhieuXuat phieuXuat = new PhieuXuat();
@@ -133,33 +132,31 @@ public class GiaoDichKhoService {
 
         if (dto.getChiTietPhieuXuat() != null) {
             for (ChiTietXuatDTO ctDto : dto.getChiTietPhieuXuat()) {
-                ChiTietPhieuXuat ctEntity = new ChiTietPhieuXuat();
                 SanPham sp = sanPhamDAO.findById(ctDto.getMaSP())
                         .orElseThrow(() -> new RuntimeException("Lỗi SP: " + ctDto.getMaSP()));
 
-                ctEntity.setSanPham(sp);
-                ctEntity.setSoLuong(ctDto.getSoLuong());
-                ctEntity.setDonGia(ctDto.getDonGia());
-                ctEntity.setPhieuXuat(savedPhieu);
-
-                ChiTietPhieuXuat savedChiTiet = chiTietPhieuXuatDAO.save(ctEntity);
-
+                // Với mỗi Serial -> Tìm máy -> Update -> Tạo dòng chi tiết xuất
                 if (ctDto.getDanhSachSeri() != null) {
                     for (String seriStr : ctDto.getDanhSachSeri()) {
+
+                        // A. Tìm máy và update trạng thái
                         MayIn mayInDb = mayInDAO.findBySoSeri(seriStr)
                                 .orElseThrow(() -> new RuntimeException("Không tìm thấy máy: " + seriStr));
 
                         if (mayInDb.getTrangThai() != 1) {
-                            throw new RuntimeException("Máy không khả dụng.");
+                            throw new RuntimeException("Máy " + seriStr + " không khả dụng.");
                         }
-
-                        mayInDb.setTrangThai(2); // Đã bán
+                        mayInDb.setTrangThai(2); // 2 = Đã bán
                         mayInDAO.save(mayInDb);
 
-                        ChiTietXuatSeri seriLog = new ChiTietXuatSeri();
-                        seriLog.setMayIn(mayInDb);
-                        seriLog.setChiTietPhieuXuat(savedChiTiet);
-                        chiTietXuatSeriDAO.save(seriLog);
+                        // B. Tạo dòng Chi Tiết Phiếu Xuất
+                        ChiTietPhieuXuat ctEntity = new ChiTietPhieuXuat();
+                        ctEntity.setPhieuXuat(savedPhieu);
+                        ctEntity.setSanPham(sp);
+                        ctEntity.setMayIn(mayInDb); // <--- QUAN TRỌNG: Link 1-1
+                        ctEntity.setDonGia(ctDto.getDonGia());
+
+                        chiTietPhieuXuatDAO.save(ctEntity);
                     }
                 }
             }
@@ -171,46 +168,102 @@ public class GiaoDichKhoService {
     @Transactional(rollbackFor = Exception.class)
     public PhieuNhap capNhatPhieuNhap(String soPhieu, PhieuNhapDTO dto) {
         PhieuNhap phieuCu = phieuNhapDAO.findById(soPhieu)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập: " + soPhieu));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu: " + soPhieu));
 
         phieuCu.setGhiChu(dto.getGhiChu());
-
         if (dto.getMaDonVi() != null) {
             DonVi ncc = donViDAO.findById(dto.getMaDonVi())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy NCC: " + dto.getMaDonVi()));
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy NCC"));
             phieuCu.setNhaCungCap(ncc);
         }
         return phieuNhapDAO.save(phieuCu);
     }
 
-    // ================== XÓA PHIẾU (Giữ nguyên) ==================
+    // ================== XÓA PHIẾU (LOGIC MỚI) ==================
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuNhap(String soPhieu) {
         PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập: " + soPhieu));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu: " + soPhieu));
 
+        // 1. Kiểm tra: Tất cả máy trong phiếu này phải còn tồn kho (Trạng thái = 1)
         if (phieuNhap.getDanhSachChiTiet() != null) {
             for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
-                if (ct.getDanhSachSeri() != null) {
-                    for (ChiTietNhapSeri seriLog : ct.getDanhSachSeri()) {
-                        MayIn mayIn = seriLog.getMayIn();
-                        if (mayIn.getTrangThai() != 1) {
-                            throw new RuntimeException("Không thể xóa! Máy " + mayIn.getSoSeri() + " đã bán.");
-                        }
-                    }
+                // Với DB mới, ta lấy trực tiếp MayIn từ ChiTietPhieuNhap
+                MayIn mayIn = ct.getMayIn();
+                if (mayIn != null && mayIn.getTrangThai() != 1) {
+                    throw new RuntimeException("Không thể xóa! Máy " + mayIn.getSoSeri() + " đã bán.");
                 }
             }
         }
-        // Xóa máy trước
+
+        // 2. Xóa Máy In trước (Vì MayIn ko có Cascade delete từ phía PhieuNhap)
         if (phieuNhap.getDanhSachChiTiet() != null) {
             for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
-                if (ct.getDanhSachSeri() != null) {
-                    for (ChiTietNhapSeri seriLog : ct.getDanhSachSeri()) {
-                        mayInDAO.delete(seriLog.getMayIn());
-                    }
+                MayIn mayIn = ct.getMayIn();
+                if (mayIn != null) {
+                    mayInDAO.delete(mayIn);
                 }
             }
         }
+
+        // 3. Xóa Phiếu (Sẽ tự xóa các dòng ChiTietPhieuNhap do Cascade)
         phieuNhapDAO.delete(phieuNhap);
+    }
+    // ... (Các phần import và code cũ giữ nguyên) ...
+
+    // ========================================================================
+    //                          PHẦN BỔ SUNG CHO PHIẾU XUẤT
+    // ========================================================================
+
+    // 1. LẤY DANH SÁCH XUẤT (TÓM TẮT)
+    public List<PhieuXuat> layDanhSachPhieuXuatTomTat() {
+        List<PhieuXuat> list = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
+        for (PhieuXuat px : list) {
+            px.setDanhSachChiTiet(null); // Ẩn chi tiết để nhẹ JSON
+        }
+        return list;
+    }
+
+    // 2. LẤY CHI TIẾT 1 PHIẾU XUẤT
+    public PhieuXuat layPhieuXuatChiTiet(String soPhieu) {
+        return phieuXuatDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
+    }
+
+    // 3. CẬP NHẬT PHIẾU XUẤT (Chỉ cho sửa thông tin chung)
+    @Transactional(rollbackFor = Exception.class)
+    public PhieuXuat capNhatPhieuXuat(String soPhieu, PhieuXuatDTO dto) {
+        PhieuXuat phieuCu = phieuXuatDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
+
+        phieuCu.setGhiChu(dto.getGhiChu());
+
+        if (dto.getMaDonVi() != null) {
+            DonVi khach = donViDAO.findById(dto.getMaDonVi())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy Khách hàng"));
+            phieuCu.setKhachHang(khach);
+        }
+        return phieuXuatDAO.save(phieuCu);
+    }
+
+    // 4. XÓA PHIẾU XUẤT (HỦY BÁN HÀNG -> TRẢ MÁY VỀ KHO)
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaPhieuXuat(String soPhieu) {
+        PhieuXuat phieuXuat = phieuXuatDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
+
+        // Logic phục hồi: Duyệt qua các máy đã bán trong phiếu này
+        if (phieuXuat.getDanhSachChiTiet() != null) {
+            for (ChiTietPhieuXuat ct : phieuXuat.getDanhSachChiTiet()) {
+                MayIn mayIn = ct.getMayIn();
+                if (mayIn != null) {
+                    // Trả trạng thái về 1 (Tồn kho) để có thể bán lại
+                    mayIn.setTrangThai(1);
+                    mayInDAO.save(mayIn);
+                }
+            }
+        }
+        // Sau khi trả máy về kho xong thì xóa phiếu
+        phieuXuatDAO.delete(phieuXuat);
     }
 }

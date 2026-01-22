@@ -17,19 +17,22 @@ import java.util.Optional;
 public class MayInServiceImpl implements MayInService {
 
     private final MayInDAO mayInDAO;
-    private final ChiTietNhapSeriDAO chiTietNhapSeriDAO;
-    private final ChiTietXuatSeriDAO chiTietXuatSeriDAO;
     private final KhoDAO khoDAO;
+
+    // [THAY ĐỔI] Dùng DAO của bảng chi tiết mới thay cho bảng Serial cũ
+    private final ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
+    private final ChiTietPhieuXuatDAO chiTietPhieuXuatDAO;
 
     @Override
     public MayIn timTheoSeri(String soSeri) {
-        // Hàm này vẫn đúng vì MayInDAO có findBySoSeri
         return mayInDAO.findBySoSeri(soSeri)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy máy có seri: " + soSeri));
     }
 
     @Override
     public List<MayIn> timMayTonKhoTheoSanPham(String maSP) {
+        // Lưu ý: Bạn cần chắc chắn MayInDAO đã có hàm này
+        // Nếu báo lỗi, hãy kiểm tra lại file MayInDAO
         return mayInDAO.findAvailableMachinesByProduct(maSP);
     }
 
@@ -37,34 +40,42 @@ public class MayInServiceImpl implements MayInService {
     public Map<String, Object> traCuuLichSuMay(String soSeri) {
         Map<String, Object> history = new HashMap<>();
 
-        // 1. Lấy thông tin hiện tại (Để lấy được MaMay chuẩn)
+        // 1. Lấy thông tin hiện tại
         MayIn mayIn = timTheoSeri(soSeri);
         history.put("thongTinMay", mayIn);
 
-        // --- SỬA LỖI LOGIC: Dùng MaMay (ID) để tìm lịch sử, không dùng chuỗi soSeri ---
-
-        // 2. Tìm nguồn gốc Nhập (Trace Backward)
-        // Gọi hàm findByMayIn_MaMay (Đã sửa trong DAO)
-        Optional<ChiTietNhapSeri> nhapEntry = chiTietNhapSeriDAO.findByMayIn_MaMay(mayIn.getMaMay());
+        // 2. Tìm nguồn gốc Nhập (Dựa vào bảng CTPhieuNhap mới)
+        Optional<ChiTietPhieuNhap> nhapEntry = chiTietPhieuNhapDAO.findByMayIn(mayIn);
 
         if (nhapEntry.isPresent()) {
-            PhieuNhap pn = nhapEntry.get().getChiTietPhieuNhap().getPhieuNhap();
+            PhieuNhap pn = nhapEntry.get().getPhieuNhap();
             history.put("ngayNhap", pn.getNgayNhap());
-            history.put("nhaCungCap", pn.getNhaCungCap().getTenDonVi());
+
+            if (pn.getNhaCungCap() != null) {
+                history.put("nhaCungCap", pn.getNhaCungCap().getTenDonVi());
+            }
             history.put("phieuNhap", pn.getSoPhieu());
+        } else {
+            // Fallback: Nếu không tìm thấy trong chi tiết (do dữ liệu cũ), thử lấy từ trường SoPhieuNhap trong MayIn
+            if (mayIn.getSoPhieuNhap() != null) {
+                history.put("phieuNhap", mayIn.getSoPhieuNhap());
+                history.put("ghiChu", "Dữ liệu nhập từ hệ thống cũ");
+            }
         }
 
-        // 3. Tìm lịch sử Xuất (Trace Forward)
-        // Gọi hàm findExportInfoByMachineId (Đã sửa trong DAO)
-        Optional<ChiTietXuatSeri> xuatEntry = chiTietXuatSeriDAO.findExportInfoByMachineId(mayIn.getMaMay());
+        // 3. Tìm lịch sử Xuất (Dựa vào bảng CTPhieuXuat mới)
+        Optional<ChiTietPhieuXuat> xuatEntry = chiTietPhieuXuatDAO.findByMayIn(mayIn);
 
         if (xuatEntry.isPresent()) {
-            PhieuXuat px = xuatEntry.get().getChiTietPhieuXuat().getPhieuXuat();
+            PhieuXuat px = xuatEntry.get().getPhieuXuat();
             history.put("ngayXuat", px.getNgayXuat());
-            history.put("khachHang", px.getKhachHang().getTenDonVi());
+
+            if (px.getKhachHang() != null) {
+                history.put("khachHang", px.getKhachHang().getTenDonVi());
+            }
             history.put("phieuXuat", px.getSoPhieu());
 
-            // Logic tính bảo hành (Ví dụ mặc định bảo hành 12 tháng từ ngày xuất)
+            // Logic tính bảo hành (Ví dụ 12 tháng)
             LocalDateTime hanBaoHanh = px.getNgayXuat().plusMonths(12);
             history.put("hanBaoHanh", hanBaoHanh);
 

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/kho")
-// @CrossOrigin(origins = "*") // Đã cấu hình bên SecurityConfig rồi thì bỏ dòng này
 public class KhoController {
 
     @Autowired
@@ -20,28 +19,25 @@ public class KhoController {
     @Autowired
     private KhoService khoService;
 
-    // --- 1. API LẤY DANH SÁCH TÓM TẮT (Dùng cho bảng danh sách) ---
-    // GET: http://localhost:8080/api/kho/nhap
+    // ================== QUẢN LÝ NHẬP KHO ==================
+
+    // GET ALL (Tóm tắt)
     @GetMapping("/nhap")
     public ResponseEntity<?> layDanhSachPhieuNhap() {
-        // API này sẽ trả về list phiếu nhưng list chi tiết sản phẩm sẽ là null
         return ResponseEntity.ok(giaoDichService.layDanhSachPhieuNhapTomTat());
     }
 
-    // --- 2. API LẤY CHI TIẾT CỤ THỂ (Dùng khi bấm vào xem) ---
-    // GET: http://localhost:8080/api/kho/nhap/{soPhieu}
+    // GET DETAIL
     @GetMapping("/nhap/{soPhieu}")
     public ResponseEntity<?> layChiTietPhieuNhap(@PathVariable String soPhieu) {
         try {
-            // API này trả về đầy đủ thông tin sản phẩm, serial của phiếu đó
             return ResponseEntity.ok(giaoDichService.layPhieuNhapChiTiet(soPhieu));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- CÁC API POST/PUT/DELETE GIỮ NGUYÊN ---
-
+    // POST (Tạo mới)
     @PostMapping("/nhap")
     public ResponseEntity<?> nhapKho(@RequestBody PhieuNhapDTO dto) {
         try {
@@ -52,6 +48,46 @@ public class KhoController {
         }
     }
 
+    // PUT (Cập nhật)
+    @PutMapping("/nhap/{soPhieu}")
+    public ResponseEntity<?> capNhatPhieuNhap(@PathVariable String soPhieu, @RequestBody PhieuNhapDTO dto) {
+        try {
+            return ResponseEntity.ok(giaoDichService.capNhatPhieuNhap(soPhieu, dto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi cập nhật: " + e.getMessage());
+        }
+    }
+
+    // DELETE (Xóa)
+    @DeleteMapping("/nhap/{soPhieu}")
+    public ResponseEntity<?> xoaPhieuNhap(@PathVariable String soPhieu) {
+        try {
+            giaoDichService.xoaPhieuNhap(soPhieu);
+            return ResponseEntity.ok("Đã xóa thành công phiếu nhập: " + soPhieu);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi xóa phiếu: " + e.getMessage());
+        }
+    }
+
+    // ================== QUẢN LÝ XUẤT KHO (MỚI BỔ SUNG) ==================
+
+    // 1. GET ALL XUẤT (Tóm tắt)
+    @GetMapping("/xuat")
+    public ResponseEntity<?> layDanhSachPhieuXuat() {
+        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuXuatTomTat());
+    }
+
+    // 2. GET DETAIL XUẤT
+    @GetMapping("/xuat/{soPhieu}")
+    public ResponseEntity<?> layChiTietPhieuXuat(@PathVariable String soPhieu) {
+        try {
+            return ResponseEntity.ok(giaoDichService.layPhieuXuatChiTiet(soPhieu));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 3. POST XUẤT (Tạo mới)
     @PostMapping("/xuat")
     public ResponseEntity<?> xuatKho(@RequestBody PhieuXuatDTO dto) {
         try {
@@ -62,23 +98,23 @@ public class KhoController {
         }
     }
 
-    @PutMapping("/nhap/{soPhieu}")
-    public ResponseEntity<?> capNhatPhieu(@PathVariable String soPhieu, @RequestBody PhieuNhapDTO dto) {
+    // 4. PUT XUẤT (Cập nhật ghi chú/khách hàng)
+    @PutMapping("/xuat/{soPhieu}")
+    public ResponseEntity<?> capNhatPhieuXuat(@PathVariable String soPhieu, @RequestBody PhieuXuatDTO dto) {
         try {
-            return ResponseEntity.ok(giaoDichService.capNhatPhieuNhap(soPhieu, dto));
+            return ResponseEntity.ok(giaoDichService.capNhatPhieuXuat(soPhieu, dto));
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Lỗi cập nhật: " + e.getMessage());
         }
     }
 
-    @DeleteMapping("/nhap/{soPhieu}")
-    public ResponseEntity<?> xoaPhieuNhap(@PathVariable String soPhieu) {
+    // 5. DELETE XUẤT (Hủy phiếu xuất - Trả hàng về kho)
+    @DeleteMapping("/xuat/{soPhieu}")
+    public ResponseEntity<?> xoaPhieuXuat(@PathVariable String soPhieu) {
         try {
-            giaoDichService.xoaPhieuNhap(soPhieu);
-            return ResponseEntity.ok("Đã xóa thành công phiếu nhập: " + soPhieu);
+            giaoDichService.xoaPhieuXuat(soPhieu);
+            return ResponseEntity.ok("Đã hủy phiếu xuất " + soPhieu + " và trả hàng về kho thành công.");
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Lỗi xóa phiếu: " + e.getMessage());
         }
     }

@@ -1,5 +1,6 @@
 package com.poly.quanlykhohang.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -18,19 +19,18 @@ public class ChiTietPhieuXuat {
 
     @ManyToOne
     @JoinColumn(name = "SoPhieu")
+    @JsonIgnore // <--- THÊM CÁI NÀY
     private PhieuXuat phieuXuat;
 
+    // ... các trường khác giữ nguyên ...
     @ManyToOne
     @JoinColumn(name = "MaSP")
     private SanPham sanPham;
 
-    // [MỚI] Link trực tiếp tới Máy xuất đi
     @ManyToOne
     @JoinColumn(name = "MaMay")
     private MayIn mayIn;
 
     @Column(name = "DonGia")
     private BigDecimal donGia;
-
-    // XÓA: private Integer soLuong;
 }
