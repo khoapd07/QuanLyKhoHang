@@ -14,11 +14,12 @@ public class ChiTietPhieuNhap {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "MaCTPN") // <--- Quan trọng: Phải khớp SQL
+    @Column(name = "MaCTPN")
     private Long id;
 
     @ManyToOne
     @JoinColumn(name = "SoPhieu", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private PhieuNhap phieuNhap;
 
     @ManyToOne

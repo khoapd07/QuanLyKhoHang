@@ -19,6 +19,7 @@ public class ChiTietPhieuXuat {
 
     @ManyToOne
     @JoinColumn(name = "SoPhieu", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private PhieuXuat phieuXuat;
 
     @ManyToOne
