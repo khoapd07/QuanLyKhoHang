@@ -3,7 +3,6 @@ package com.poly.quanlykhohang.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
-import java.util.List;
 
 @Entity
 @Table(name = "CTPhieuNhap")
@@ -15,19 +14,20 @@ public class ChiTietPhieuNhap {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "MaCTPN")
-    private Long id;
+    private Integer maCTPN;
 
     @ManyToOne
-    @JoinColumn(name = "SoPhieu", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JoinColumn(name = "SoPhieu") // Link về phiếu cha
     private PhieuNhap phieuNhap;
 
     @ManyToOne
-    @JoinColumn(name = "MaSP", nullable = false)
+    @JoinColumn(name = "MaSP")    // Nhập sản phẩm gì
     private SanPham sanPham;
 
-    @Column(name = "SoLuong")
-    private Integer soLuong;
+    // [QUAN TRỌNG] Thay đổi theo DB mới: Link trực tiếp tới Máy
+    @ManyToOne
+    @JoinColumn(name = "MaMay")
+    private MayIn mayIn;
 
     @Column(name = "DonGia")
     private BigDecimal donGia;
@@ -35,6 +35,5 @@ public class ChiTietPhieuNhap {
     @Column(name = "GhiChu")
     private String ghiChu;
 
-    @OneToMany(mappedBy = "chiTietPhieuNhap", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ChiTietNhapSeri> danhSachSeri;
+    // XÓA: private Integer soLuong; (Không còn dùng)
 }

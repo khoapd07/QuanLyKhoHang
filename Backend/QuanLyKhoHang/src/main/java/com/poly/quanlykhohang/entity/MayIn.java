@@ -25,6 +25,9 @@ public class MayIn {
     @JoinColumn(name = "MaKho")
     private Kho kho;
 
+    @Column(name = "SoPhieuNhap", length = 50)
+    private String soPhieuNhap;
+
     @Column(name = "SoSeri", unique = true)
     private String soSeri; // Số Serial thực tế in trên máy
 

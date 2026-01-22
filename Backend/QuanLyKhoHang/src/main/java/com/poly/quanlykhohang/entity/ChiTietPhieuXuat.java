@@ -3,7 +3,6 @@ package com.poly.quanlykhohang.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
-import java.util.List;
 
 @Entity
 @Table(name = "CTPhieuXuat")
@@ -14,27 +13,24 @@ public class ChiTietPhieuXuat {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "MaCTPX") // <--- Quan trọng: Phải khớp SQL
-    private Long id;
+    @Column(name = "MaCTPX")
+    private Integer maCTPX;
 
     @ManyToOne
-    @JoinColumn(name = "SoPhieu", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JoinColumn(name = "SoPhieu")
     private PhieuXuat phieuXuat;
 
     @ManyToOne
-    @JoinColumn(name = "MaSP", nullable = false)
+    @JoinColumn(name = "MaSP")
     private SanPham sanPham;
 
-    @Column(name = "SoLuong")
-    private Integer soLuong;
+    // [MỚI] Link trực tiếp tới Máy xuất đi
+    @ManyToOne
+    @JoinColumn(name = "MaMay")
+    private MayIn mayIn;
 
     @Column(name = "DonGia")
     private BigDecimal donGia;
 
-    @Column(name = "GhiChu")
-    private String ghiChu;
-
-    @OneToMany(mappedBy = "chiTietPhieuXuat", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ChiTietXuatSeri> danhSachSeri;
+    // XÓA: private Integer soLuong;
 }
