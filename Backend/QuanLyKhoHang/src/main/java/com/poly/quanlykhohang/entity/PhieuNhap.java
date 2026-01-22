@@ -34,6 +34,8 @@ public class PhieuNhap {
     @Column(name = "VAT")
     private BigDecimal thueVAT;
 
+
+
     @Column(name = "GhiChu")
     private String ghiChu;
 
