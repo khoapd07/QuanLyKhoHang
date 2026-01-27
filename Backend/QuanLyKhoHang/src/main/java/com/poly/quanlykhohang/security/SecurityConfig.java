@@ -31,16 +31,13 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Tắt CSRF
                 .cors(cors -> {}) // Kích hoạt CORS config (đã làm ở WebConfig)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/upload/**").permitAll() // Cho phép Login & Upload không cần token
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // Chỉ Admin mới vào được /api/admin
-
-
-
-
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/san-pham/**", "/api/don-vi/**").authenticated()
-                        // - Các thao tác còn lại (Thêm/Sửa/Xóa) bắt buộc là ADMIN
-                        .requestMatchers("/api/san-pham/**", "/api/don-vi/**").hasRole("ADMIN")
-
+//
+//                        .requestMatchers("/api/auth/**", "/api/upload/**").permitAll() // Cho phép Login & Upload không cần token
+//                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // Chỉ Admin mới vào được /api/admin
+//                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/san-pham/**", "/api/don-vi/**").authenticated()
+//                        // - Các thao tác còn lại (Thêm/Sửa/Xóa) bắt buộc là ADMIN
+//                        .requestMatchers("/api/san-pham/**", "/api/don-vi/**").hasRole("ADMIN")
+                        .requestMatchers("/**").permitAll()
                         .anyRequest().authenticated() // Còn lại phải đăng nhập hết
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Không dùng Session
