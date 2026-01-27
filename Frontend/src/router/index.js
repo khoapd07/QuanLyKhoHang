@@ -89,12 +89,16 @@ const router = createRouter({
 
 // Navigation Guard: Kiểm tra Token trước khi vào trang
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token');
-  if (to.meta.requiresAuth && !token) {
-    next('/login');
-  } else {
-    next();
-  }
+  // TẠM THỜI: Cho phép tất cả mọi người đi qua, không cần kiểm tra token
+  // const token = localStorage.getItem('token');
+  // if (to.meta.requiresAuth && !token) {
+  //   next('/login');
+  // } else {
+  //   next();
+  // }
+  
+  console.log("Dev Mode: Bypassing Auth check");
+  next();
 })
 
 export default router
