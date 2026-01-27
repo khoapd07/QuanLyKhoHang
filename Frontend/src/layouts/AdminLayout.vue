@@ -5,7 +5,7 @@
       <div class="container-fluid">
         <ul class="navbar-nav">
           <li class="nav-item">
-            <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+            <a class="nav-link" href="#" role="button" @click.prevent="toggleSidebar">
               <i class="bi bi-list"></i>
             </a>
           </li>
@@ -52,11 +52,11 @@
             <li class="nav-item">
               <router-link to="/dashboard" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-speedometer2"></i>
-                <p>Tổng quan (Dashboard)</p>
+                <p>Dashboard</p>
               </router-link>
             </li>
 
-            <li class="nav-header">QUẢN LÝ</li>
+            <li class="nav-header">DANH MỤC</li>
             
             <li class="nav-item">
               <router-link to="/san-pham" class="nav-link" active-class="active">
@@ -65,27 +65,59 @@
               </router-link>
             </li>
 
-            <li class="nav-item"> <a href="#" class="nav-link">
+            <li class="nav-item">
+              <router-link to="/nha-cung-cap" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-truck"></i>
+                <p>Nhà cung cấp</p>
+              </router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/khach-hang" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-people"></i>
+                <p>Khách hàng</p>
+              </router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/danh-sach-kho" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-house-door"></i>
+                <p>Danh sách Kho</p>
+              </router-link>
+            </li>
+
+            <li class="nav-header">NGHIỆP VỤ</li>
+
+            <li class="nav-item menu-open"> 
+              <a href="#" class="nav-link">
                 <i class="nav-icon bi bi-clipboard-data"></i>
                 <p>
-                  Nghiệp vụ Kho
+                  Quản lý Kho
                   <i class="nav-arrow bi bi-chevron-right"></i>
                 </p>
               </a>
               <ul class="nav nav-treeview">
                 <li class="nav-item">
                   <router-link to="/nhap-kho" class="nav-link" active-class="active">
-                    <i class="nav-icon bi bi-circle"></i>
+                    <i class="nav-icon bi bi-arrow-down-square"></i>
                     <p>Nhập kho</p>
                   </router-link>
                 </li>
                 <li class="nav-item">
                   <router-link to="/xuat-kho" class="nav-link" active-class="active">
-                    <i class="nav-icon bi bi-circle"></i>
+                    <i class="nav-icon bi bi-arrow-up-square"></i>
                     <p>Xuất kho</p>
                   </router-link>
                 </li>
               </ul>
+            </li>
+
+            <li class="nav-header">BÁO CÁO</li>
+            <li class="nav-item">
+              <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-pie-chart"></i>
+                <p>Báo cáo Tồn kho</p>
+              </router-link>
             </li>
 
           </ul>
@@ -122,16 +154,22 @@
 <script setup>
 import { onMounted } from 'vue';
 
-// AdminLTE v4 dùng data-attribute để toggle sidebar, 
-// nhưng trong Vue đôi khi cần kích hoạt lại các script UI khi component load
+// Hàm Toggle Sidebar thủ công (Fix lỗi không nhận JS của AdminLTE)
+function toggleSidebar() {
+  const body = document.querySelector('body');
+  if (window.innerWidth >= 992) {
+    body.classList.toggle('sidebar-collapse');
+  } else {
+    body.classList.toggle('sidebar-open');
+  }
+}
+
 onMounted(() => {
-  // Nếu cần thiết, có thể gọi hàm khởi tạo UI của AdminLTE tại đây
-  // Thường thì import js ở main.js là đủ.
+  // Có thể thêm logic khởi tạo nếu cần
 });
 </script>
 
 <style>
-/* Đè lại một chút style nếu cần */
 .app-wrapper {
   min-height: 100vh;
 }
