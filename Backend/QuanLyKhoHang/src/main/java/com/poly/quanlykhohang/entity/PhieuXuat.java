@@ -17,11 +17,11 @@ public class PhieuXuat {
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "MaDonVi")
     private DonVi khachHang;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "MaKho")
     private Kho khoXuat;
 
