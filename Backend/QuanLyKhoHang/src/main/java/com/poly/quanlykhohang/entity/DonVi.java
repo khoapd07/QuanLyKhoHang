@@ -26,6 +26,9 @@ public class DonVi {
     @Column(name = "DiaChi")
     private String diaChi;
 
+    @Column(name = "Email")
+    private String email;
+
     @Column(name = "MaSoThue")
     private String maSoThue;
 }

@@ -4,9 +4,12 @@ import com.poly.quanlykhohang.entity.DonVi;
 import java.util.List;
 
 public interface DonViService {
-    List<DonVi> layTatCa();
-    List<DonVi> layDanhSachNhaCungCap();
-    List<DonVi> layDanhSachKhachHang();
-    DonVi luuDonVi(DonVi donVi);
-    void xoaDonVi(String maDonVi);
+    List<DonVi> getAllDonVi();
+    DonVi getDonViById(String id);
+    DonVi saveDonVi(DonVi donVi);
+    void deleteDonVi(String id);
+
+    // Các hàm bổ trợ lọc
+    List<DonVi> getNhaCungCap();
+    List<DonVi> getKhachHang();
 }
