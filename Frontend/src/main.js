@@ -1,10 +1,15 @@
 import { createApp } from 'vue'
-import './style.css'
+import './style.css' // CSS riêng của bạn (nếu có)
 import App from './App.vue'
+import router from './router/index'
 
-// import router from './router' // <-- Import router
+// 1. Import CSS của AdminLTE và Bootstrap Icons
+import 'admin-lte/dist/css/adminlte.min.css'
+import 'bootstrap-icons/font/bootstrap-icons.min.css'
 
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+// 2. Import JS của AdminLTE (để chạy các hiệu ứng toggle menu mặc định)
+import 'admin-lte/dist/js/adminlte.min.js'
 
-createApp(App).mount('#app')
+const app = createApp(App)
+app.use(router)
+app.mount('#app')
