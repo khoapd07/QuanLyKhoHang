@@ -24,13 +24,13 @@
               <li class="user-header text-bg-primary">
                 <img src="https://assets.minimals.cc/public/assets/images/mock/avatar/avatar-25.webp" class="rounded-circle shadow" alt="User Image">
                 <p>
-                  Admin User - Quản lý Kho
-                  <small>Thành viên từ 2024</small>
+                  Quản lý kho
+                  <small>Dự án 2026</small>
                 </p>
               </li>
               <li class="user-footer">
                 <a href="#" class="btn btn-default btn-flat">Hồ sơ</a>
-                <a href="#" class="btn btn-default btn-flat float-end">Đăng xuất</a>
+                <a href="#" class="btn btn-default btn-flat float-end" @click="logout">Đăng xuất</a>
               </li>
             </ul>
           </li>
@@ -41,7 +41,7 @@
     <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div class="sidebar-brand">
         <a href="/" class="brand-link">
-          <span class="brand-text fw-light">QUẢN LÝ KHO</span>
+          <span class="brand-text fw-light">KHO MÁY IN</span>
         </a>
       </div>
 
@@ -52,7 +52,7 @@
             <li class="nav-item">
               <router-link to="/dashboard" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-speedometer2"></i>
-                <p>Dashboard</p>
+                <p>Tổng quan</p>
               </router-link>
             </li>
 
@@ -66,37 +66,29 @@
             </li>
 
             <li class="nav-item">
-              <router-link to="/nha-cung-cap" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-truck"></i>
-                <p>Nhà cung cấp</p>
+              <router-link to="/don-vi" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-building"></i>
+                <p>Đơn vị (NCC/Khách)</p>
               </router-link>
             </li>
 
             <li class="nav-item">
-              <router-link to="/khach-hang" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-people"></i>
-                <p>Khách hàng</p>
-              </router-link>
-            </li>
-
-            <li class="nav-item">
-              <router-link to="/danh-sach-kho" class="nav-link" active-class="active">
+              <router-link to="/kho" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-house-door"></i>
-                <p>Danh sách Kho</p>
+                <p>Kho bãi</p>
               </router-link>
             </li>
 
             <li class="nav-header">NGHIỆP VỤ</li>
-
-            <li class="nav-item menu-open"> 
-              <a href="#" class="nav-link">
+            <li class="nav-item menu-open" :class="{ 'menu-open': isKhoMenuOpen }">
+              <a href="#" class="nav-link" @click.prevent="toggleKhoMenu">
                 <i class="nav-icon bi bi-clipboard-data"></i>
                 <p>
                   Quản lý Kho
                   <i class="nav-arrow bi bi-chevron-right"></i>
                 </p>
               </a>
-              <ul class="nav nav-treeview">
+              <ul class="nav nav-treeview" :style="{ display: isKhoMenuOpen ? 'block' : 'none' }">
                 <li class="nav-item">
                   <router-link to="/nhap-kho" class="nav-link" active-class="active">
                     <i class="nav-icon bi bi-arrow-down-square"></i>
@@ -116,7 +108,15 @@
             <li class="nav-item">
               <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-pie-chart"></i>
-                <p>Báo cáo Tồn kho</p>
+                <p>Tồn kho</p>
+              </router-link>
+            </li>
+
+             <li class="nav-header">HỆ THỐNG</li>
+            <li class="nav-item">
+              <router-link to="/tai-khoan" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-people"></i>
+                <p>Tài khoản</p>
               </router-link>
             </li>
 
@@ -130,7 +130,7 @@
         <div class="container-fluid">
           <div class="row">
             <div class="col-sm-6">
-              <h3 class="mb-0">Hệ thống</h3>
+              <h3 class="mb-0">Hệ thống quản lý</h3>
             </div>
           </div>
         </div>
@@ -152,9 +152,27 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+// 1. THÊM 'ref' VÀO IMPORT
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-// Hàm Toggle Sidebar thủ công (Fix lỗi không nhận JS của AdminLTE)
+const router = useRouter();
+
+// 2. KHAI BÁO BIẾN TRẠNG THÁI (Bạn đang thiếu dòng này)
+const isKhoMenuOpen = ref(false); // Mặc định là false (đóng)
+
+// Hàm xử lý Đăng xuất
+function logout() {
+  localStorage.removeItem('token');
+  router.push('/login');
+}
+
+// Hàm này bây giờ sẽ hoạt động vì biến isKhoMenuOpen đã được khai báo
+function toggleKhoMenu() {
+  isKhoMenuOpen.value = !isKhoMenuOpen.value;
+}
+
+// Hàm Toggle Sidebar thủ công
 function toggleSidebar() {
   const body = document.querySelector('body');
   if (window.innerWidth >= 992) {
@@ -165,11 +183,11 @@ function toggleSidebar() {
 }
 
 onMounted(() => {
-  // Có thể thêm logic khởi tạo nếu cần
+  // Logic khởi tạo nếu cần
 });
 </script>
 
-<style>
+<style scoped>
 .app-wrapper {
   min-height: 100vh;
 }

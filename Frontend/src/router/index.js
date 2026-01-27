@@ -1,89 +1,95 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-// --- 1. IMPORT LAYOUT ---
+// =========================================================
+// 1. IMPORT LAYOUT (Khung giao diện chung)
+// =========================================================
 import AdminLayout from '../layouts/AdminLayout.vue'
 
-// --- 2. IMPORT CÁC COMPONENTS (PAGES) ---
-// Auth
+// =========================================================
+// 2. IMPORT COMPONENTS (Các màn hình chức năng)
+// =========================================================
+
+// --- A. Authentication ---
 import Login from '../components/auth/Login.vue'
 
-// Dashboard
+// --- B. Dashboard ---
 import Dashboard from '../components/dashboard/Dashboard.vue'
 
-// Danh mục
+// --- C. Danh mục (Master Data) ---
 import SanPham from '../components/danhmuc/SanPham.vue'
-import NhaCungCap from '../components/danhmuc/NhaCungCap.vue'
-import KhachHang from '../components/danhmuc/KhachHang.vue'
-import Kho from '../components/danhmuc/Kho.vue'
+import DonVi from '../components/danhmuc/DonVi.vue'    // Gộp Nhà cung cấp & Khách hàng
+import Kho from '../components/danhmuc/KhoChiNhanh.vue'        // Danh sách kho bãi
 
-// Nghiệp vụ
+import Hang from '../components/danhmuc/Hang.vue'        // Danh sách hãng sản xuất (Không dùng đến, giữ lại để mở rộng sau này)
+
+// --- D. Nghiệp vụ (Business Logic) ---
 import NhapKho from '../components/nghiepvu/NhapKho.vue'
-import NhapKhoChiTiet from '../components/nghiepvu/NhapKhoChiTiet.vue' // Form nhập
+import NhapKhoChiTiet from '../components/nghiepvu/NhapKhoChiTiet.vue' // Mở comment khi làm chức năng thêm mới
+
 import XuatKho from '../components/nghiepvu/XuatKho.vue'
-import XuatKhoChiTiet from '../components/nghiepvu/XuatKhoChiTiet.vue' // Form xuất
+import XuatKhoChiTiet from '../components/nghiepvu/XuatKhoChiTiet.vue' // Mở comment khi làm chức năng thêm mới
 
-// Báo cáo
-import BaoCaoTon from '../components/baocao/BaoCaoTon.vue'
+// --- E. Báo cáo (Report) ---
+import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
 
-// --- 3. ĐỊNH NGHĨA ROUTES ---
+// --- F. Hệ thống (Admin) ---
+import TaiKhoan from '../components/admin/TaiKhoan.vue' // Quản lý người dùng
+
+// =========================================================
+// 3. ĐỊNH NGHĨA ROUTES
+// =========================================================
 const routes = [
-  // A. TRANG LOGIN (Không dính dáng đến AdminLayout)
+  // ➤ Route Public (Không cần đăng nhập)
   {
     path: '/login',
     name: 'Login',
     component: Login
   },
 
-  // B. KHU VỰC ADMIN (Có Sidebar, Header)
+  // ➤ Route Private (Cần đăng nhập & có AdminLayout)
   {
     path: '/',
     component: AdminLayout,
-    meta: { requiresAuth: true }, // Đánh dấu cần đăng nhập
+    meta: { requiresAuth: true },
     children: [
-      // 1. Dashboard (Mặc định vào đây)
+      // Mặc định vào Dashboard
       { path: '', redirect: '/dashboard' },
-      { 
-        path: 'dashboard', 
-        name: 'Dashboard', 
-        component: Dashboard 
-      },
+      
+      // 1. Dashboard
+      { path: 'dashboard', name: 'Dashboard', component: Dashboard },
 
       // 2. Danh mục
       { path: 'san-pham', name: 'SanPham', component: SanPham },
-      { path: 'nha-cung-cap', name: 'NhaCungCap', component: NhaCungCap },
-      { path: 'khach-hang', name: 'KhachHang', component: KhachHang },
-      { path: 'danh-sach-kho', name: 'Kho', component: Kho },
+      { path: 'don-vi', name: 'DonVi', component: DonVi },
+      { path: 'kho', name: 'Kho', component: Kho },
 
-      // 3. Nghiệp vụ Nhập Kho
+      // 3. Nghiệp vụ
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },
       { path: 'nhap-kho/tao-moi', name: 'TaoPhieuNhap', component: NhapKhoChiTiet },
-      // Route chỉnh sửa phiếu nhập (nếu cần sau này)
-      { path: 'nhap-kho/sua/:soPhieu', name: 'SuaPhieuNhap', component: NhapKhoChiTiet },
 
-      // 4. Nghiệp vụ Xuất Kho
       { path: 'xuat-kho', name: 'XuatKho', component: XuatKho },
       { path: 'xuat-kho/tao-moi', name: 'TaoPhieuXuat', component: XuatKhoChiTiet },
 
-      // 5. Báo cáo
-      { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon }
+      // 4. Báo cáo
+      { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },
+
+      // 5. Hệ thống
+      { path: 'tai-khoan', name: 'TaiKhoan', component: TaiKhoan }
     ]
-  },
-  
-  // Route bắt lỗi (404) - Tùy chọn
-  // { path: '/:pathMatch(.*)*', redirect: '/login' }
+  }
 ]
 
-// --- 4. KHỞI TẠO ROUTER ---
+// =========================================================
+// 4. KHỞI TẠO ROUTER
+// =========================================================
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// --- 5. KIỂM TRA ĐĂNG NHẬP (Navigation Guard) ---
+// Navigation Guard: Kiểm tra Token trước khi vào trang
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token'); // Lấy token từ bộ nhớ
-  
-  // Nếu trang yêu cầu login mà chưa có token -> Đá về trang Login
+  const token = localStorage.getItem('token');
   if (to.meta.requiresAuth && !token) {
     next('/login');
   } else {
