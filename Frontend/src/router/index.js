@@ -31,6 +31,7 @@ import XuatKhoChiTiet from '../components/nghiepvu/XuatKhoChiTiet.vue' // Mở c
 
 // --- E. Báo cáo (Report) ---
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
+import BaoCaoTonDauNam from '../components/baocao/ChotThongKeDauNam.vue'
 
 // --- F. Hệ thống (Admin) ---
 import TaiKhoan from '../components/admin/TaiKhoan.vue' // Quản lý người dùng
@@ -72,6 +73,7 @@ const routes = [
 
       // 4. Báo cáo
       { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },
+      { path: 'bao-cao-ton-dau-nam', name: 'BaoCaoTonDauNam', component: BaoCaoTonDauNam },
 
       // 5. Hệ thống
       { path: 'tai-khoan', name: 'TaiKhoan', component: TaiKhoan }
