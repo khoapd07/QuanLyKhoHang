@@ -54,9 +54,9 @@
             <button type="button" class="btn btn-primary" @click="fetchInventoryReport">
               <i class="fas fa-search"></i> Lọc báo cáo
             </button>
-            <button type="button" class="btn btn-success float-right" @click="exportReport">
-              <i class="fas fa-file-excel"></i> Xuất File
-            </button>
+            <button type="button" class="btn btn-info mr-2" @click="printToWord">
+        <i class="fas fa-file-word"></i> In Báo Cáo
+      </button>
           </div>
         </div>
         <!-- /.card -->
@@ -124,20 +124,32 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
-import axios from 'axios'; // 1. Import axios
+import axios from 'axios';
+import {
+  Document,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  WidthType,
+  AlignmentType,
+  HeadingLevel,
+  TextRun,
+  BorderStyle
+} from "docx";
+import { saveAs } from "file-saver";
 
 // --- CẤU HÌNH ---
-// Nếu bạn chưa cấu hình base URL toàn cục, hãy dùng link đầy đủ
 const API_URL = 'http://localhost:8080/api/thong-ke/xuat-nhap-ton';
 
 // --- STATE MANAGEMENT ---
 const filters = reactive({
-  startDate: new Date('2025-01-01').toISOString().substr(0, 10), // Mặc định lấy từ đầu năm để test
+  startDate: new Date('2024-01-01').toISOString().substr(0, 10),
   endDate: new Date().toISOString().substr(0, 10),
-  warehouseId: 0, // Mặc định chọn kho 1 (Hà Nội)
+  warehouseId: 0,
 });
 
-// Danh sách kho (LƯU Ý: ID phải là số INT để khớp với DB)
 const khoList = ref([
     { id: 1, name: 'Kho Tổng Hà Nội' },
     { id: 2, name: 'Kho Chi Nhánh HCM' }
@@ -145,66 +157,204 @@ const khoList = ref([
 
 const reportData = ref([]);
 const loading = ref(false);
-const currentTenKho = ref(''); // Biến lưu tên kho server trả về
+const currentTenKho = ref('');
 
-// Tiêu đề động
 const reportTitle = computed(() => {
   return currentTenKho.value 
     ? `Kết quả tồn kho: ${currentTenKho.value}` 
-    : 'Kết quả tồn kho';
+    : 'Kết quả tồn kho: Tất cả kho';
 });
 
-// --- METHODS ---
+// --- 3. CÁC HÀM XỬ LÝ ---
 
+// Hàm định dạng tiền tệ
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '0 ₫';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-// HÀM GỌI API QUAN TRỌNG NHẤT
+// Hàm gọi API lấy dữ liệu
 const fetchInventoryReport = async () => {
   loading.value = true;
-  reportData.value = []; // Reset bảng
+  reportData.value = [];
 
   try {
-    // Gọi Axios
     const response = await axios.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
         tuNgay: filters.startDate,
         denNgay: filters.endDate,
-        loaiLoc: 0 // Mặc định lấy tất cả (bạn có thể thêm dropdown lọc trạng thái sau)
+        loaiLoc: 0
       }
     });
-
-    // Xử lý dữ liệu trả về từ Spring Boot
-    // Cấu trúc: { tenKho: "...", danhSachChiTiet: [...] }
     const data = response.data;
-
-    currentTenKho.value = data.tenKho;         // Lấy tên kho hiển thị Header
-    reportData.value = data.danhSachChiTiet;   // Lấy danh sách đổ vào bảng
-
+    currentTenKho.value = data.tenKho;
+    reportData.value = data.danhSachChiTiet;
     console.log("Dữ liệu tải về:", data);
-
   } catch (error) {
     console.error("Lỗi gọi API:", error);
-    alert("Không thể tải báo cáo. Vui lòng kiểm tra Server!");
+    alert("Không thể tải báo cáo. Vui lòng kiểm tra Server.");
   } finally {
     loading.value = false;
   }
 };
 
-// Giả lập export Excel (Frontend only)
+// --- QUAN TRỌNG: Hàm tạo ô bảng (Helper) ---
+// (Bạn đang bị thiếu hàm này nên mới báo lỗi "createCell is not defined")
+const createCell = (text, isBold = false) => {
+  return new TableCell({
+    children: [new Paragraph({ 
+        children: [new TextRun({ text: text || "", bold: isBold, size: 20 })], // Size 20 = 10pt
+        alignment: AlignmentType.CENTER 
+    })],
+    verticalAlign: "center",
+    borders: {
+        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+    }
+  });
+};
+
+// Hàm xuất file Word
+const printToWord = () => {
+  // Kiểm tra dữ liệu
+  if (!reportData.value || reportData.value.length === 0) {
+    alert("Không có dữ liệu để in báo cáo.");
+    return;
+  }
+
+  try {
+    // 1. Chuẩn bị thông tin Header
+    const companyName = "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ NHẬT TIẾN THANH"; 
+    const address = "Địa chỉ: 53 Trần Bình Trọng, Phường 1, Quận 5, TP. Hồ Chí Minh";
+    const warehouseName = filters.warehouseId === 0 ? "Tất cả các kho" : (currentTenKho.value || "Kho chưa xác định");
+    const dateRange = `Từ ngày: ${filters.startDate} đến ngày: ${filters.endDate}`;
+
+    // 2. Tạo Header Section
+    const headerSection = [
+      new Paragraph({
+        children: [new TextRun({ text: "NTT", bold: true, size: 48, color: "000088" })], // Logo giả
+        alignment: AlignmentType.CENTER,
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: companyName, bold: true, size: 28 })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100 },
+      }),
+      new Paragraph({
+        text: address,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: "BÁO CÁO XUẤT NHẬP TỒN",
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100, before: 200 },
+      }),
+      new Paragraph({
+        text: dateRange,
+        alignment: AlignmentType.CENTER,
+        italics: true,
+        spacing: { after: 50 },
+      }),
+      new Paragraph({
+        text: `Kho: ${warehouseName}`,
+        alignment: AlignmentType.CENTER,
+        italics: true,
+        spacing: { after: 200 },
+      }),
+    ];
+
+    // 3. Tạo Hàng Tiêu Đề Bảng
+    const tableHeader = new TableRow({
+      tableHeader: true,
+      children: [
+        createCell("STT", true),
+        createCell("Mã SP", true),
+        createCell("Tên Sản Phẩm", true),
+        createCell("ĐVT", true),
+        createCell("Tồn Đầu", true),
+        createCell("Nhập", true),
+        createCell("Xuất", true),
+        createCell("Tồn Cuối", true),
+        createCell("Giá BQ", true),
+        createCell("Thành Tiền", true),
+      ],
+    });
+
+    // 4. Tạo Các Hàng Dữ Liệu
+    const dataRows = reportData.value.map((item, index) => {
+      return new TableRow({
+        children: [
+          createCell((index + 1).toString()),
+          createCell(item.maSP || ""),
+          createCell(item.tenSP || ""),
+          createCell(item.donvitinh || ""),
+          
+          createCell((item.tonDau || 0).toString()), 
+          createCell((item.nhapTrong || 0).toString()), 
+          createCell((item.xuatTrong || 0).toString()), 
+          
+          createCell((item.tonCuoi || 0).toString(), true),
+          
+          createCell(formatCurrency(item.giaBQ)), 
+          createCell(formatCurrency(item.thanhTien), true), 
+        ],
+      });
+    });
+
+    // 5. Tạo Bảng
+    const table = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [tableHeader, ...dataRows],
+    });
+
+    // 6. Tạo Document
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          ...headerSection,
+          table,
+          new Paragraph({ text: "", spacing: { before: 300 } }), 
+          new Paragraph({ 
+            children: [ new TextRun({ text: "Người lập biểu", size: 24, bold: true })],
+            alignment: AlignmentType.RIGHT, 
+            spacing: { right: 1000, before: 500 } 
+          }),
+          new Paragraph({ 
+            children: [ new TextRun({ text: "(Ký, ghi rõ họ tên)", italics: true, size: 20 })],
+            alignment: AlignmentType.RIGHT, 
+             spacing: { right: 1100 } 
+          }),
+        ],
+      }],
+    });
+
+    // 7. Xuất file
+    Packer.toBlob(doc).then((blob) => {
+      saveAs(blob, `BaoCao_XNT_${filters.endDate}.docx`);
+    });
+
+  } catch (error) {
+    console.error("Lỗi xuất file Word:", error);
+    alert("Có lỗi khi tạo file Word. F12 để xem chi tiết.");
+  }
+};
+
+// Giả lập export Excel
 const exportReport = () => {
-    // Bạn có thể cài thư viện 'xlsx' để xuất mảng reportData.value ra file
-    alert(`Đang xuất ${reportData.value.length} dòng ra Excel...`);
+    alert(`Đang xuất Excel...`);
 };
 
 // --- LIFECYCLE ---
 onMounted(() => {
-  // Tự động tải dữ liệu lần đầu
   fetchInventoryReport();
 });
+
 </script>
 
 <style scoped>
@@ -257,5 +407,7 @@ onMounted(() => {
   .table-responsive-stack td:last-child {
     border-bottom: 0;
   }
+  
 }
+
 </style>
