@@ -43,7 +43,7 @@
                 <div class="form-group">
                   <label for="warehouse">Kho/Chi nhánh</label>
                   <select class="form-control" id="warehouse" v-model="filters.warehouseId">
-                    <option value="">Tất cả kho</option>
+                    <option value="0">Tất cả kho</option>
                     <option v-for="kho in khoList" :key="kho.id" :value="kho.id">{{ kho.name }}</option>
                   </select>
                 </div>
@@ -96,17 +96,17 @@
                   <tr v-if="reportData.length === 0">
                     <td colspan="10" class="text-center">Không có dữ liệu.</td>
                   </tr>
-                  <tr v-for="(item, index) in reportData" :key="item.productId">
+                  <tr v-for="(item, index) in reportData" :key="item.maSP">
                     <td data-label="Stt">{{ index + 1 }}</td>
-                    <td data-label="Mã SP">{{ item.productCode }}</td>
-                    <td data-label="Tên SP">{{ item.productName }}</td>
+                    <td data-label="Mã SP">{{ item.maSP }}</td>
+                    <td data-label="Tên SP">{{ item.tenSP }}</td>
                     <td data-label="ĐVT">{{ item.dvt }}</td>
-                    <td data-label="TĐK">{{ item.openingStock }}</td>
-                    <td data-label="NTK">{{ item.importStock }}</td>
-                    <td data-label="XTK">{{ item.exportStock }}</td>
-                    <td data-label="TCK"><strong>{{ item.closingStock }}</strong></td>
-                    <td data-label="Giá/BQ">{{ formatCurrency(item.averagePrice) }}</td>
-                    <td data-label="Thành Tiền"><strong>{{ formatCurrency(item.totalValue) }}</strong></td>
+                    <td data-label="TĐK">{{ item.tonDauKySL }}</td>
+                    <td data-label="NTK">{{ item.nhapTrongKySL }}</td>
+                    <td data-label="XTK">{{ item.xuatTrongKySL }}</td>
+                    <td data-label="TCK"><strong>{{ item.tonCuoiKySL }}</strong></td>
+                    <td data-label="Giá/BQ">{{ formatCurrency(item.giaVon) }}</td>
+                    <td data-label="Thành Tiền"><strong>{{ formatCurrency(item.tonCuoiKyGT) }}</strong></td>
                   </tr>
                 </template>
               </tbody>
@@ -124,180 +124,87 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
-// Giả sử bạn có một service để gọi API
-// import apiService from '@/services/apiService'; 
+import axios from 'axios'; // 1. Import axios
+
+// --- CẤU HÌNH ---
+// Nếu bạn chưa cấu hình base URL toàn cục, hãy dùng link đầy đủ
+const API_URL = 'http://localhost:8080/api/thong-ke/xuat-nhap-ton';
 
 // --- STATE MANAGEMENT ---
-
-// Dữ liệu cho bộ lọc
 const filters = reactive({
-  startDate: new Date().toISOString().substr(0, 10),
+  startDate: new Date('2025-01-01').toISOString().substr(0, 10), // Mặc định lấy từ đầu năm để test
   endDate: new Date().toISOString().substr(0, 10),
-  warehouseId: '',
+  warehouseId: 0, // Mặc định chọn kho 1 (Hà Nội)
 });
 
-// Danh sách kho để hiển thị trong dropdown (sẽ được lấy từ API)
+// Danh sách kho (LƯU Ý: ID phải là số INT để khớp với DB)
 const khoList = ref([
-    { id: 'KHO-HN', name: 'Kho Hà Nội' },
-    { id: 'KHO-HCM', name: 'Kho TP.Hồ Chí Minh' }
+    { id: 1, name: 'Kho Tổng Hà Nội' },
+    { id: 2, name: 'Kho Chi Nhánh HCM' }
 ]);
 
-// Dữ liệu báo cáo
 const reportData = ref([]);
 const loading = ref(false);
+const currentTenKho = ref(''); // Biến lưu tên kho server trả về
 
-// Tiêu đề động cho bảng kết quả
+// Tiêu đề động
 const reportTitle = computed(() => {
-  if (filters.warehouseId) {
-    const selectedKho = khoList.value.find(kho => kho.id === filters.warehouseId);
-    return `Kết quả tồn kho: ${selectedKho?.name || 'Không rõ'}`;
-  }
-  return 'Kết quả tồn kho: Tất cả kho';
+  return currentTenKho.value 
+    ? `Kết quả tồn kho: ${currentTenKho.value}` 
+    : 'Kết quả tồn kho';
 });
-
-// --- Dữ liệu mẫu ---
-const sampleData = [
-  { 
-    productId: 'SP001', 
-    productCode: 'IP15PM',
-    productName: 'iPhone 15 Pro Max',
-    dvt: 'Cái',
-    warehouseId: 'KHO-HN',
-    warehouseName: 'Kho Hà Nội',
-    openingStock: 100,
-    importStock: 50,
-    exportStock: 30,
-    averagePrice: 25000000,
-    get closingStock() { return this.openingStock + this.importStock - this.exportStock },
-    get totalValue() { return this.closingStock * this.averagePrice }
-  },
-  { 
-    productId: 'SP002', 
-    productCode: 'SS24UL',
-    productName: 'Samsung Galaxy S24 Ultra',
-    dvt: 'Cái',
-    warehouseId: 'KHO-HCM',
-    warehouseName: 'Kho TP.Hồ Chí Minh',
-    openingStock: 80,
-    importStock: 20,
-    exportStock: 40,
-    averagePrice: 22500000,
-    get closingStock() { return this.openingStock + this.importStock - this.exportStock },
-    get totalValue() { return this.closingStock * this.averagePrice }
-  },
-  { 
-    productId: 'SP003', 
-    productCode: 'DELL-XPS',
-    productName: 'Dell XPS 15',
-    dvt: 'Bộ',
-    warehouseId: 'KHO-HN',
-    warehouseName: 'Kho Hà Nội',
-    openingStock: 50,
-    importStock: 10,
-    exportStock: 5,
-    averagePrice: 45000000,
-    get closingStock() { return this.openingStock + this.importStock - this.exportStock },
-    get totalValue() { return this.closingStock * this.averagePrice }
-  },
-  { 
-    productId: 'SP004', 
-    productCode: 'MBA-M3',
-    productName: 'Macbook Air M3',
-    dvt: 'Cái',
-    warehouseId: 'KHO-HCM',
-    warehouseName: 'Kho TP.Hồ Chí Minh',
-    openingStock: 30,
-    importStock: 15,
-    exportStock: 10,
-    averagePrice: 28000000,
-    get closingStock() { return this.openingStock + this.importStock - this.exportStock },
-    get totalValue() { return this.closingStock * this.averagePrice }
-  },
-  { 
-    productId: 'SP005', 
-    productCode: 'SONY-PS5',
-    productName: 'Sony Playstation 5',
-    dvt: 'Bộ',
-    warehouseId: 'KHO-HN',
-    warehouseName: 'Kho Hà Nội',
-    openingStock: 60,
-    importStock: 25,
-    exportStock: 15,
-    averagePrice: 12500000,
-    get closingStock() { return this.openingStock + this.importStock - this.exportStock },
-    get totalValue() { return this.closingStock * this.averagePrice }
-  },
-];
-
 
 // --- METHODS ---
 
-/**
- * Định dạng số thành tiền tệ VNĐ.
- */
 const formatCurrency = (value) => {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) return '0 ₫';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-/**
- * Giả lập việc gọi API để lấy dữ liệu báo cáo tồn kho.
- * Trong thực tế, bạn sẽ thay thế hàm này bằng lời gọi `axios` đến backend.
- */
+// HÀM GỌI API QUAN TRỌNG NHẤT
 const fetchInventoryReport = async () => {
-  console.log('Đang lọc báo cáo với các tiêu chí:', filters);
   loading.value = true;
-  
-  // Giả lập độ trễ mạng
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  reportData.value = []; // Reset bảng
 
-  // Lọc dữ liệu mẫu (đây chỉ là ví dụ, logic thực tế sẽ ở backend)
-  reportData.value = sampleData.filter(item => {
-    if (filters.warehouseId && item.warehouseName !== khoList.value.find(k => k.id === filters.warehouseId)?.name) {
-        return false;
-    }
-    return true;
-  });
+  try {
+    // Gọi Axios
+    const response = await axios.get(API_URL, {
+      params: {
+        maKho: filters.warehouseId,
+        tuNgay: filters.startDate,
+        denNgay: filters.endDate,
+        loaiLoc: 0 // Mặc định lấy tất cả (bạn có thể thêm dropdown lọc trạng thái sau)
+      }
+    });
 
-  console.log('Tải dữ liệu thành công:', reportData.value);
-  loading.value = false;
+    // Xử lý dữ liệu trả về từ Spring Boot
+    // Cấu trúc: { tenKho: "...", danhSachChiTiet: [...] }
+    const data = response.data;
+
+    currentTenKho.value = data.tenKho;         // Lấy tên kho hiển thị Header
+    reportData.value = data.danhSachChiTiet;   // Lấy danh sách đổ vào bảng
+
+    console.log("Dữ liệu tải về:", data);
+
+  } catch (error) {
+    console.error("Lỗi gọi API:", error);
+    alert("Không thể tải báo cáo. Vui lòng kiểm tra Server!");
+  } finally {
+    loading.value = false;
+  }
 };
 
-/**
- * Lấy danh sách kho từ API.
- */
-const fetchWarehouses = async () => {
-    // try {
-    //   const response = await apiService.get('/warehouses');
-    //   khoList.value = response.data;
-    // } catch (error) {
-    //   console.error("Không thể tải danh sách kho:", error);
-    // }
-    console.log("Đã tải danh sách kho (dữ liệu mẫu).");
-};
-
-/**
- * Xử lý việc xuất báo cáo ra file Excel.
- * Cần một thư viện như 'xlsx' hoặc gọi API backend để xử lý.
- */
+// Giả lập export Excel (Frontend only)
 const exportReport = () => {
-  alert('Chức năng xuất Excel đang được phát triển!');
-  // Ví dụ sử dụng một thư viện client-side:
-  // import * as XLSX from 'xlsx';
-  // const worksheet = XLSX.utils.json_to_sheet(reportData.value);
-  // const workbook = XLSX.utils.book_new();
-  // XLSX.utils.book_append_sheet(workbook, worksheet, "TonKho");
-  // XLSX.writeFile(workbook, "BaoCaoTonKho.xlsx");
+    // Bạn có thể cài thư viện 'xlsx' để xuất mảng reportData.value ra file
+    alert(`Đang xuất ${reportData.value.length} dòng ra Excel...`);
 };
 
-// --- LIFECYCLE HOOKS ---
-
-// Tải dữ liệu cần thiết khi component được tạo
+// --- LIFECYCLE ---
 onMounted(() => {
-  fetchWarehouses();
+  // Tự động tải dữ liệu lần đầu
   fetchInventoryReport();
 });
-
 </script>
 
 <style scoped>

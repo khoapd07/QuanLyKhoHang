@@ -32,7 +32,11 @@ public class ThongKeTonKhoController {
             @RequestParam(defaultValue = "0") Integer loaiLoc
     ) {
         // 1. Lấy tên kho riêng (để hiển thị tiêu đề dù không có số liệu)
-        String tenKho = thongKeDAO.getTenKhoById(maKho);
+        String tenKho = "Tất cả các kho"; // Mặc định
+        if (maKho != 0) {
+            // Nếu khác 0 mới gọi vào DB lấy tên
+            tenKho = thongKeDAO.getTenKhoById(maKho);
+        }
 
         // 2. Lấy danh sách chi tiết
         List<BaoCaoXuatNhapTonDTO> list = getBaoCaoList(maKho, tuNgay, denNgay, loaiLoc);
