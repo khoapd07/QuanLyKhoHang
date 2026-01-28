@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "CTPhieuNhap")
@@ -19,14 +20,15 @@ public class ChiTietPhieuNhap {
 
     @ManyToOne
     @JoinColumn(name = "SoPhieu")
-    @JsonIgnore // <--- THÊM CÁI NÀY
+    @JsonIgnore
     private PhieuNhap phieuNhap;
 
     @ManyToOne
     @JoinColumn(name = "MaSP")
     private SanPham sanPham;
 
-    @ManyToOne
+    // [QUAN TRỌNG] Link trực tiếp tới Máy (1-1 với dòng chi tiết)
+    @OneToOne
     @JoinColumn(name = "MaMay")
     private MayIn mayIn;
 
@@ -35,4 +37,7 @@ public class ChiTietPhieuNhap {
 
     @Column(name = "GhiChu")
     private String ghiChu;
+
+    @Column(name = "NgayTao", insertable = false, updatable = false)
+    private LocalDateTime ngayTao;
 }

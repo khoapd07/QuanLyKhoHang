@@ -18,8 +18,6 @@ public class MayInServiceImpl implements MayInService {
 
     private final MayInDAO mayInDAO;
     private final KhoDAO khoDAO;
-
-    // [THAY ĐỔI] Dùng DAO của bảng chi tiết mới thay cho bảng Serial cũ
     private final ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
     private final ChiTietPhieuXuatDAO chiTietPhieuXuatDAO;
 
@@ -31,8 +29,9 @@ public class MayInServiceImpl implements MayInService {
 
     @Override
     public List<MayIn> timMayTonKhoTheoSanPham(String maSP) {
-        // Lưu ý: Bạn cần chắc chắn MayInDAO đã có hàm này
-        // Nếu báo lỗi, hãy kiểm tra lại file MayInDAO
+        // Hàm này phải được khai báo trong MayInDAO:
+        // @Query("SELECT m FROM MayIn m WHERE m.sanPham.maSP = :maSP AND m.trangThai = 1")
+        // List<MayIn> findAvailableMachinesByProduct(@Param("maSP") String maSP);
         return mayInDAO.findAvailableMachinesByProduct(maSP);
     }
 
@@ -40,50 +39,41 @@ public class MayInServiceImpl implements MayInService {
     public Map<String, Object> traCuuLichSuMay(String soSeri) {
         Map<String, Object> history = new HashMap<>();
 
-        // 1. Lấy thông tin hiện tại
+        // 1. Lấy thông tin máy
         MayIn mayIn = timTheoSeri(soSeri);
         history.put("thongTinMay", mayIn);
 
-        // 2. Tìm nguồn gốc Nhập (Dựa vào bảng CTPhieuNhap mới)
+        // 2. Tìm thông tin NHẬP (Dùng DAO của bảng chi tiết mới)
+        // Lưu ý: DAO phải có @Query("SELECT c FROM ChiTietPhieuNhap c WHERE c.mayIn = :mayIn")
         Optional<ChiTietPhieuNhap> nhapEntry = chiTietPhieuNhapDAO.findByMayIn(mayIn);
 
         if (nhapEntry.isPresent()) {
             PhieuNhap pn = nhapEntry.get().getPhieuNhap();
             history.put("ngayNhap", pn.getNgayNhap());
-
+            history.put("phieuNhap", pn.getSoPhieu());
             if (pn.getNhaCungCap() != null) {
                 history.put("nhaCungCap", pn.getNhaCungCap().getTenDonVi());
             }
-            history.put("phieuNhap", pn.getSoPhieu());
         } else {
-            // Fallback: Nếu không tìm thấy trong chi tiết (do dữ liệu cũ), thử lấy từ trường SoPhieuNhap trong MayIn
-            if (mayIn.getSoPhieuNhap() != null) {
-                history.put("phieuNhap", mayIn.getSoPhieuNhap());
-                history.put("ghiChu", "Dữ liệu nhập từ hệ thống cũ");
-            }
+            // Fallback: Dùng cột SoPhieuNhap trong bảng DMMay nếu bảng chi tiết không tìm thấy
+            history.put("phieuNhap", mayIn.getSoPhieuNhap());
         }
 
-        // 3. Tìm lịch sử Xuất (Dựa vào bảng CTPhieuXuat mới)
+        // 3. Tìm thông tin XUẤT
         Optional<ChiTietPhieuXuat> xuatEntry = chiTietPhieuXuatDAO.findByMayIn(mayIn);
 
         if (xuatEntry.isPresent()) {
             PhieuXuat px = xuatEntry.get().getPhieuXuat();
             history.put("ngayXuat", px.getNgayXuat());
-
+            history.put("phieuXuat", px.getSoPhieu());
             if (px.getKhachHang() != null) {
                 history.put("khachHang", px.getKhachHang().getTenDonVi());
             }
-            history.put("phieuXuat", px.getSoPhieu());
 
-            // Logic tính bảo hành (Ví dụ 12 tháng)
+            // Bảo hành 12 tháng
             LocalDateTime hanBaoHanh = px.getNgayXuat().plusMonths(12);
             history.put("hanBaoHanh", hanBaoHanh);
-
-            if (LocalDateTime.now().isBefore(hanBaoHanh)) {
-                history.put("trangThaiBaoHanh", "CÒN BẢO HÀNH");
-            } else {
-                history.put("trangThaiBaoHanh", "HẾT BẢO HÀNH");
-            }
+            history.put("trangThaiBaoHanh", LocalDateTime.now().isBefore(hanBaoHanh) ? "CÒN BẢO HÀNH" : "HẾT BẢO HÀNH");
         } else {
             history.put("trangThaiBaoHanh", "CHƯA BÁN");
         }
@@ -103,7 +93,6 @@ public class MayInServiceImpl implements MayInService {
         MayIn mayIn = timTheoSeri(soSeri);
         Kho khoMoi = khoDAO.findById(maKhoMoi)
                 .orElseThrow(() -> new RuntimeException("Kho đích không tồn tại"));
-
         mayIn.setKho(khoMoi);
         mayInDAO.save(mayIn);
     }

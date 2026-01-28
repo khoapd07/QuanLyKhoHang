@@ -17,18 +17,17 @@ public class PhieuNhap {
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "MaDonVi")
     private DonVi nhaCungCap;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "MaKho")
     private Kho khoNhap;
 
     @Column(name = "NgayNhap")
     private LocalDateTime ngayNhap;
 
-    // [Cần verify] Trong DB bạn có cột SoLuong ở bảng PhieuNhap
     @Column(name = "SoLuong")
     private Integer tongSoLuong;
 

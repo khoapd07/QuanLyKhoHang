@@ -17,16 +17,19 @@ public class PhieuXuat {
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "MaDonVi")
     private DonVi khachHang;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "MaKho")
     private Kho khoXuat;
 
     @Column(name = "NgayXuat")
     private LocalDateTime ngayXuat;
+
+    @Column(name = "SoLuong") // Trong SQL bạn có thêm cột SoLuong cho PhieuXuat
+    private Integer tongSoLuong;
 
     @Column(name = "TongTien")
     private BigDecimal tongTien;
