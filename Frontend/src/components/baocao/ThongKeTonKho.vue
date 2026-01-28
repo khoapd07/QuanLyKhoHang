@@ -197,7 +197,7 @@ const createCell = (value, isBold = false) => {
 
   return new TableCell({
     children: [new Paragraph({ 
-        children: [new TextRun({ text: textToDisplay, bold: isBold, size: 20 })], 
+        children: [new TextRun({ text: textToDisplay, bold: isBold, size: 16 })], 
         alignment: AlignmentType.CENTER 
     })],
     verticalAlign: "center",
@@ -218,18 +218,113 @@ const printToWord = () => {
   }
 
   try {
-    const companyName = "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ NHẬT TIẾN THANH"; 
-    const address = "Đ/c: 53 Trần Bình Trọng, P.1, Q.5, TP.HCM";
-    const dateRange = `Từ ngày: ${filters.startDate} đến ngày: ${filters.endDate}`;
+    const companyName = "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ THIẾT BỊ Y TẾ VÀ MÁY VĂN PHÒNG NHẬT TIẾN THANH";
+    const address = "Đ/c: 53 Trần Bình Trọng, Phường 1, Quận 5, TP.HCM, Việt Nam";
+    const warehouseInfo = `Kho: ${currentTenKho.value || "Tất cả"}`; // Lấy tên kho
+    const SetDateVN = (dateString) => {
+    if (!dateString) return "...";
+    // Cắt chuỗi YYYY-MM-DD để tránh lỗi múi giờ
+    const [year, month, day] = dateString.split('-'); 
+    return ` ${day}/${month}/${year}`;
+  };
 
-    // 1. Header
+    // 2. Header (Đã sửa theo yêu cầu)
     const headerSection = [
-      new Paragraph({ children: [new TextRun({ text: "NTT", bold: true, size: 48, color: "000088" })], alignment: AlignmentType.CENTER }),
-      new Paragraph({ children: [new TextRun({ text: companyName, bold: true, size: 28 })], alignment: AlignmentType.CENTER }),
-      new Paragraph({ text: address, alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
-      new Paragraph({ text: "BÁO CÁO XUẤT NHẬP TỒN", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-      new Paragraph({ text: dateRange, alignment: AlignmentType.CENTER, italics: true }),
-      new Paragraph({ text: `Kho: ${currentTenKho.value}`, alignment: AlignmentType.CENTER, italics: true, spacing: { after: 200 } }),
+      // Logo NTT
+      new Paragraph({ 
+        children: [new TextRun({ text: "NULL", bold: true, size: 48, color: "000088", font: "Times New Roman" })], 
+        alignment: AlignmentType.CENTER 
+      }),
+
+      // Tên Công Ty (IN ĐẬM)
+      new Paragraph({ 
+        children: [new TextRun({ 
+            text: companyName, 
+            bold: true, // <--- In đậm
+            size: 18,   // Cỡ chữ to (13pt)
+            font: "Times New Roman",
+            allCaps: true // Viết hoa toàn bộ cho đẹp
+        })], 
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100 }
+      }),
+// địa chỉ
+      new Paragraph({ 
+        children: [new TextRun({ text: address, size: 18, font: "Times New Roman" })],
+        alignment: AlignmentType.CENTER, 
+        spacing: { after: 10 } 
+      }),
+
+      // dấu thanh ngang
+      new Paragraph({ 
+        children: [new TextRun({ text: "_________________________________________________________________________________", size: 20,bold: true, font: "Times New Roman" })],
+        alignment: AlignmentType.CENTER, 
+        spacing: { after: 200 } 
+      }),
+
+      // Tiêu đề Báo Cáo
+      new Paragraph({ 
+        children: [new TextRun({ text: "BÁO CÁO XUẤT NHẬP TỒN", bold: true, size: 32, font: "Times New Roman" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100, before: 200 },
+      }),
+
+      // 1. Ngày bắt đầu
+      new Paragraph({
+        children: [
+            // Phần tiêu đề: IN ĐẬM
+            new TextRun({
+                text: "Ngày bắt đầu: ",
+                bold: true,
+                font: "Times New Roman",
+                size: 18 // 11pt
+            }),
+            // Phần ngày tháng: IN THƯỜNG
+            new TextRun({
+                text: SetDateVN(filters.startDate),
+                bold: false, 
+                font: "Times New Roman",
+                size: 18
+            })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 50 }
+      }),
+
+      // 2. Ngày kết thúc
+      new Paragraph({
+        children: [
+            // Phần tiêu đề: IN ĐẬM
+            new TextRun({
+                text: "Ngày kết thúc: ",
+                bold: true,
+                font: "Times New Roman",
+                size: 18
+            }),
+            // Phần ngày tháng: IN THƯỜNG
+            new TextRun({
+                text: SetDateVN(filters.endDate),
+                bold: false,
+                font: "Times New Roman",
+                size: 18
+            })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 300 }
+      }),
+
+      // Dòng Kho: CANH TRÁI + IN ĐẬM + IN NGHIÊNG
+      new Paragraph({ 
+        children: [new TextRun({ 
+            text: warehouseInfo, 
+            bold: true,    // <--- In đậm
+            italics: true, // <--- In nghiêng
+            size: 14,
+            font: "Times New Roman"
+        })], 
+        alignment: AlignmentType.LEFT, // <--- Canh trái
+        spacing: { after: 100 } 
+      }),
     ];
 
     // 2. Table Header
