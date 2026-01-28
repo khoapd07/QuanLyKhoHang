@@ -93,20 +93,23 @@
 
                 <!-- Data Rows -->
                 <template v-else>
-                  <tr v-if="reportData.length === 0">
+                  <tr v-if="!reportData || reportData.length === 0">
                     <td colspan="10" class="text-center">Không có dữ liệu.</td>
                   </tr>
-                  <tr v-for="(item, index) in reportData" :key="item.maSP">
-                    <td data-label="Stt">{{ index + 1 }}</td>
-                    <td data-label="Mã SP">{{ item.maSP }}</td>
-                    <td data-label="Tên SP">{{ item.tenSP }}</td>
-                    <td data-label="ĐVT">{{ item.dvt }}</td>
-                    <td data-label="TĐK">{{ item.tonDauKySL }}</td>
-                    <td data-label="NTK">{{ item.nhapTrongKySL }}</td>
-                    <td data-label="XTK">{{ item.xuatTrongKySL }}</td>
-                    <td data-label="TCK"><strong>{{ item.tonCuoiKySL }}</strong></td>
-                    <td data-label="Giá/BQ">{{ formatCurrency(item.giaVon) }}</td>
-                    <td data-label="Thành Tiền"><strong>{{ formatCurrency(item.tonCuoiKyGT) }}</strong></td>
+                  <tr v-for="(item, index) in reportData" :key="index">
+                    <td>{{ index + 1 }}</td>
+                    <td>{{ item.maSP }}</td>
+                    <td>{{ item.tenSP }}</td>
+                    <td>{{ item.donvitinh }}</td>
+                    
+                    <td class="text-right">{{ item.tonDau }}</td>
+                    <td class="text-right">{{ item.nhapTrong }}</td>
+                    <td class="text-right">{{ item.xuatTrong }}</td>
+                    
+                    <td class="text-right"><strong>{{ item.tonCuoi }}</strong></td>
+                    
+                    <td class="text-right">{{ formatCurrency(item.giaBQ) }}</td>
+                    <td class="text-right"><strong>{{ formatCurrency(item.thanhTien) }}</strong></td>
                   </tr>
                 </template>
               </tbody>
@@ -125,25 +128,14 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
-import {
-  Document,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  WidthType,
-  AlignmentType,
-  HeadingLevel,
-  TextRun,
-  BorderStyle
-} from "docx";
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, TextRun, BorderStyle } from "docx";
 import { saveAs } from "file-saver";
 
 // --- CẤU HÌNH ---
 const API_URL = 'http://localhost:8080/api/thong-ke/xuat-nhap-ton';
 
 // --- STATE MANAGEMENT ---
+// --- STATE ---
 const filters = reactive({
   startDate: new Date('2024-01-01').toISOString().substr(0, 10),
   endDate: new Date().toISOString().substr(0, 10),
@@ -159,25 +151,18 @@ const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
 
-const reportTitle = computed(() => {
-  return currentTenKho.value 
-    ? `Kết quả tồn kho: ${currentTenKho.value}` 
-    : 'Kết quả tồn kho: Tất cả kho';
-});
+const reportTitle = computed(() => currentTenKho.value ? `Kết quả: ${currentTenKho.value}` : 'Kết quả tồn kho');
 
-// --- 3. CÁC HÀM XỬ LÝ ---
-
-// Hàm định dạng tiền tệ
+// --- HELPER ---
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '0 ₫';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-// Hàm gọi API lấy dữ liệu
+// --- FETCH API ---
 const fetchInventoryReport = async () => {
   loading.value = true;
   reportData.value = [];
-
   try {
     const response = await axios.get(API_URL, {
       params: {
@@ -190,171 +175,110 @@ const fetchInventoryReport = async () => {
     const data = response.data;
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet;
-    console.log("Dữ liệu tải về:", data);
   } catch (error) {
-    console.error("Lỗi gọi API:", error);
-    alert("Không thể tải báo cáo. Vui lòng kiểm tra Server.");
+    console.error("Lỗi:", error);
+    alert("Lỗi tải dữ liệu!");
   } finally {
     loading.value = false;
   }
 };
 
-// --- QUAN TRỌNG: Hàm tạo ô bảng (Helper) ---
-// (Bạn đang bị thiếu hàm này nên mới báo lỗi "createCell is not defined")
-const createCell = (text, isBold = false) => {
+// --- HÀM TẠO Ô WORD (Đã fix lỗi hiển thị số) ---
+const createCell = (value, isBold = false) => {
+  let textToDisplay = "0"; // Mặc định là 0
+  if (value !== null && value !== undefined) {
+      textToDisplay = value.toString(); // Ép kiểu chuỗi để tránh lỗi
+  } else if (typeof value === 'string') {
+      textToDisplay = value;
+  }
+  
+  // Nếu giá trị rỗng thì để trống
+  if(value === "") textToDisplay = "";
+
   return new TableCell({
     children: [new Paragraph({ 
-        children: [new TextRun({ text: text || "", bold: isBold, size: 20 })], // Size 20 = 10pt
+        children: [new TextRun({ text: textToDisplay, bold: isBold, size: 20 })], 
         alignment: AlignmentType.CENTER 
     })],
     verticalAlign: "center",
     borders: {
-        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      top: { style: BorderStyle.SINGLE, size: 1 },
+      bottom: { style: BorderStyle.SINGLE, size: 1 },
+      left: { style: BorderStyle.SINGLE, size: 1 },
+      right: { style: BorderStyle.SINGLE, size: 1 },
     }
   });
 };
 
-// Hàm xuất file Word
+// --- IN WORD (Đã sửa tên biến khớp API) ---
 const printToWord = () => {
-  // Kiểm tra dữ liệu
   if (!reportData.value || reportData.value.length === 0) {
-    alert("Không có dữ liệu để in báo cáo.");
+    alert("Không có dữ liệu.");
     return;
   }
 
   try {
-    // 1. Chuẩn bị thông tin Header
     const companyName = "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ NHẬT TIẾN THANH"; 
-    const address = "Địa chỉ: 53 Trần Bình Trọng, Phường 1, Quận 5, TP. Hồ Chí Minh";
-    const warehouseName = filters.warehouseId === 0 ? "Tất cả các kho" : (currentTenKho.value || "Kho chưa xác định");
+    const address = "Đ/c: 53 Trần Bình Trọng, P.1, Q.5, TP.HCM";
     const dateRange = `Từ ngày: ${filters.startDate} đến ngày: ${filters.endDate}`;
 
-    // 2. Tạo Header Section
+    // 1. Header
     const headerSection = [
-      new Paragraph({
-        children: [new TextRun({ text: "NTT", bold: true, size: 48, color: "000088" })], // Logo giả
-        alignment: AlignmentType.CENTER,
-      }),
-      new Paragraph({
-        children: [new TextRun({ text: companyName, bold: true, size: 28 })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 100 },
-      }),
-      new Paragraph({
-        text: address,
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: "BÁO CÁO XUẤT NHẬP TỒN",
-        heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 100, before: 200 },
-      }),
-      new Paragraph({
-        text: dateRange,
-        alignment: AlignmentType.CENTER,
-        italics: true,
-        spacing: { after: 50 },
-      }),
-      new Paragraph({
-        text: `Kho: ${warehouseName}`,
-        alignment: AlignmentType.CENTER,
-        italics: true,
-        spacing: { after: 200 },
-      }),
+      new Paragraph({ children: [new TextRun({ text: "NTT", bold: true, size: 48, color: "000088" })], alignment: AlignmentType.CENTER }),
+      new Paragraph({ children: [new TextRun({ text: companyName, bold: true, size: 28 })], alignment: AlignmentType.CENTER }),
+      new Paragraph({ text: address, alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+      new Paragraph({ text: "BÁO CÁO XUẤT NHẬP TỒN", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+      new Paragraph({ text: dateRange, alignment: AlignmentType.CENTER, italics: true }),
+      new Paragraph({ text: `Kho: ${currentTenKho.value}`, alignment: AlignmentType.CENTER, italics: true, spacing: { after: 200 } }),
     ];
 
-    // 3. Tạo Hàng Tiêu Đề Bảng
+    // 2. Table Header
     const tableHeader = new TableRow({
       tableHeader: true,
       children: [
-        createCell("STT", true),
-        createCell("Mã SP", true),
-        createCell("Tên Sản Phẩm", true),
-        createCell("ĐVT", true),
-        createCell("Tồn Đầu", true),
-        createCell("Nhập", true),
-        createCell("Xuất", true),
-        createCell("Tồn Cuối", true),
-        createCell("Giá BQ", true),
+        createCell("STT", true), createCell("Mã SP", true), createCell("Tên SP", true),
+        createCell("ĐVT", true), createCell("Tồn Đầu", true), createCell("Nhập", true),
+        createCell("Xuất", true), createCell("Tồn Cuối", true), createCell("Giá BQ", true),
         createCell("Thành Tiền", true),
       ],
     });
 
-    // 4. Tạo Các Hàng Dữ Liệu
+    // 3. Data Rows (QUAN TRỌNG: Đã sửa tên biến tại đây)
     const dataRows = reportData.value.map((item, index) => {
       return new TableRow({
         children: [
-          createCell((index + 1).toString()),
+          createCell(index + 1),
           createCell(item.maSP || ""),
           createCell(item.tenSP || ""),
-          createCell(item.donvitinh || ""),
-          
-          createCell((item.tonDau || 0).toString()), 
-          createCell((item.nhapTrong || 0).toString()), 
-          createCell((item.xuatTrong || 0).toString()), 
-          
-          createCell((item.tonCuoi || 0).toString(), true),
-          
-          createCell(formatCurrency(item.giaBQ)), 
-          createCell(formatCurrency(item.thanhTien), true), 
+          createCell(item.donvitinh || ""), // Sửa từ dvt -> donvitinh
+          createCell(item.tonDau),          // Sửa từ tonDauKySL -> tonDau
+          createCell(item.nhapTrong),       // Sửa từ nhapTrongKySL -> nhapTrong
+          createCell(item.xuatTrong),       // Sửa từ xuatTrongKySL -> xuatTrong
+          createCell(item.tonCuoi, true),   // Sửa từ tonCuoiKySL -> tonCuoi
+          createCell(formatCurrency(item.giaBQ)), // Sửa từ giaVon -> giaBQ
+          createCell(formatCurrency(item.thanhTien), true), // Sửa từ tonCuoiKyGT -> thanhTien
         ],
       });
     });
 
-    // 5. Tạo Bảng
-    const table = new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [tableHeader, ...dataRows],
-    });
-
-    // 6. Tạo Document
+    // 4. Build Doc
     const doc = new Document({
       sections: [{
-        properties: {},
-        children: [
-          ...headerSection,
-          table,
-          new Paragraph({ text: "", spacing: { before: 300 } }), 
-          new Paragraph({ 
-            children: [ new TextRun({ text: "Người lập biểu", size: 24, bold: true })],
-            alignment: AlignmentType.RIGHT, 
-            spacing: { right: 1000, before: 500 } 
-          }),
-          new Paragraph({ 
-            children: [ new TextRun({ text: "(Ký, ghi rõ họ tên)", italics: true, size: 20 })],
-            alignment: AlignmentType.RIGHT, 
-             spacing: { right: 1100 } 
-          }),
-        ],
+        children: [...headerSection, new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [tableHeader, ...dataRows] })],
       }],
     });
 
-    // 7. Xuất file
     Packer.toBlob(doc).then((blob) => {
-      saveAs(blob, `BaoCao_XNT_${filters.endDate}.docx`);
+      saveAs(blob, `BaoCao_${filters.endDate}.docx`);
     });
 
   } catch (error) {
-    console.error("Lỗi xuất file Word:", error);
-    alert("Có lỗi khi tạo file Word. F12 để xem chi tiết.");
+    console.error(error);
+    alert("Lỗi tạo file Word!");
   }
 };
 
-// Giả lập export Excel
-const exportReport = () => {
-    alert(`Đang xuất Excel...`);
-};
-
-// --- LIFECYCLE ---
-onMounted(() => {
-  fetchInventoryReport();
-});
-
+onMounted(() => fetchInventoryReport());
 </script>
 
 <style scoped>
