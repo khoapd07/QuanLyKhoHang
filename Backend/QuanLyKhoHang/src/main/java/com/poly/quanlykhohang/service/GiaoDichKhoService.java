@@ -111,7 +111,7 @@ public class GiaoDichKhoService {
                     mayMoi.setSoPhieuNhap(savedPhieu.getSoPhieu());
                     mayMoi.setTrangThai(1);
                     mayMoi.setNgayTao(LocalDateTime.now());
-                    if(sp.getHangSanXuat() != null) mayMoi.setMaHang(sp.getHangSanXuat().getMaHang());
+                    if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
                     mayInDAO.save(mayMoi);
 
                     ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
@@ -172,7 +172,7 @@ public class GiaoDichKhoService {
     @Transactional(rollbackFor = Exception.class)
     public PhieuXuat xuatKho(PhieuXuatDTO dto) {
         // Tạm dùng UUID cho xuất kho nếu chưa làm DAO findLastId cho PX
-        String soPhieuMoi = "PX-" + UUID.randomUUID().toString().substring(0, 😎.toUpperCase();
+        String soPhieuMoi = "PX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         PhieuXuat phieuXuat = new PhieuXuat();
         phieuXuat.setSoPhieu(soPhieuMoi);
