@@ -45,17 +45,12 @@ public class ThongKeTonKhoController {
      * API 2: CHỐT SỔ (POST)
      */
     @PostMapping("/chot-so")
-    @Transactional
     public ResponseEntity<?> chotSoDauNam(@RequestParam Integer nam, @RequestParam Integer maKho) {
         try {
             thongKeDAO.chotSoDauNam(nam, maKho);
-
-            // Lấy lại dữ liệu tháng 1 để hiển thị
             String tenKho = thongKeDAO.getTenKhoById(maKho);
             List<BaoCaoXuatNhapTonDTO> result = getBaoCaoList(maKho, nam + "-01-01", nam + "-01-31", 0);
-
             return ResponseEntity.ok(new BaoCaoResponseDTO(tenKho, result));
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
