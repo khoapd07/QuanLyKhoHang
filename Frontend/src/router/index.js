@@ -16,11 +16,11 @@ import Login from '../components/auth/Login.vue'
 import Dashboard from '../components/dashboard/Dashboard.vue'
 
 // --- C. Danh mục (Master Data) ---
-import SanPham from '../components/danhmuc/SanPham.vue'
+import SanPham from '../components/danhmuc/DanhMucMay.vue'
 import DonVi from '../components/danhmuc/DonVi.vue'    // Gộp Nhà cung cấp & Khách hàng
 import Kho from '../components/danhmuc/KhoChiNhanh.vue'        // Danh sách kho bãi
 
-import Hang from '../components/danhmuc/Hang.vue'        // Danh sách hãng sản xuất (Không dùng đến, giữ lại để mở rộng sau này)
+import Hang from '../components/danhmuc/HangSanXuat.vue'        // Danh sách hãng sản xuất (Không dùng đến, giữ lại để mở rộng sau này)
 
 // --- D. Nghiệp vụ (Business Logic) ---
 import NhapKho from '../components/nghiepvu/NhapKho.vue'

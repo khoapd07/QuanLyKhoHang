@@ -34,4 +34,20 @@ public class KhoServiceImpl implements KhoService {
         }
         khoDAO.deleteById(maKho);
     }
+
+    // Thêm các hàm implement:
+    @Override public Kho getKhoById(Integer id) { return khoDAO.findById(id).orElse(null); }
+    @Override public Kho createKho(Kho kho) { return khoDAO.save(kho); }
+    @Override public void deleteKho(Integer id) { khoDAO.deleteById(id); }
+
+    @Override
+    public Kho updateKho(Integer id, Kho khoDetails) {
+        Kho existing = khoDAO.findById(id).orElse(null);
+        if (existing != null) {
+            existing.setTenKho(khoDetails.getTenKho());
+            existing.setDiaChi(khoDetails.getDiaChi());
+            return khoDAO.save(existing);
+        }
+        return null;
+    }
 }
