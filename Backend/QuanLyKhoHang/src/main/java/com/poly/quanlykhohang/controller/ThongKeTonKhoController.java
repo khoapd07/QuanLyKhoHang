@@ -1,12 +1,14 @@
 package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.ThongKeDAO;
+import com.poly.quanlykhohang.dto.BaoCaoResponseDTO; // Import DTO Wrapper
 import com.poly.quanlykhohang.dto.BaoCaoXuatNhapTonDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,90 +22,89 @@ public class ThongKeTonKhoController {
 
     /**
      * API 1: XEM BÁO CÁO (GET)
+     * SỬA: Trả về BaoCaoResponseDTO thay vì List
      */
     @GetMapping("/xuat-nhap-ton")
-    public ResponseEntity<List<BaoCaoXuatNhapTonDTO>> getBaoCao(
+    public ResponseEntity<BaoCaoResponseDTO> getBaoCao(
             @RequestParam Integer maKho,
             @RequestParam String tuNgay,
             @RequestParam String denNgay,
             @RequestParam(defaultValue = "0") Integer loaiLoc
     ) {
-        // Gọi hàm xử lý chung bên dưới
+        // 1. Lấy tên kho riêng (để hiển thị tiêu đề dù không có số liệu)
+        String tenKho = thongKeDAO.getTenKhoById(maKho);
+
+        // 2. Lấy danh sách chi tiết
         List<BaoCaoXuatNhapTonDTO> list = getBaoCaoList(maKho, tuNgay, denNgay, loaiLoc);
-        return ResponseEntity.ok(list);
+
+        // 3. Đóng gói trả về
+        return ResponseEntity.ok(new BaoCaoResponseDTO(tenKho, list));
     }
 
     /**
-     * API 2: CHỐT SỔ & HIỆN KẾT QUẢ NGAY (POST)
-     * Trả về: List<DTO> (Giống hệt API 1) thay vì String thông báo
+     * API 2: CHỐT SỔ (POST)
      */
     @PostMapping("/chot-so")
-    @Transactional // Đảm bảo giao dịch an toàn
-    public ResponseEntity<?> chotSoDauNam(
-            @RequestParam Integer nam,
-            @RequestParam Integer maKho
-    ) {
+    @Transactional
+    public ResponseEntity<?> chotSoDauNam(@RequestParam Integer nam, @RequestParam Integer maKho) {
         try {
-            // Bước 1: Gọi DAO để tính toán và lưu vào DB
             thongKeDAO.chotSoDauNam(nam, maKho);
 
-            // Bước 2: Tự động lấy dữ liệu Tháng 1 của năm đó để trả về
-            // (Giúp người dùng thấy ngay kết quả vừa chốt)
-            String tuNgay = nam + "-01-01";
-            String denNgay = nam + "-01-31"; // Lấy hết tháng 1
+            // Lấy lại dữ liệu tháng 1 để hiển thị
+            String tenKho = thongKeDAO.getTenKhoById(maKho);
+            List<BaoCaoXuatNhapTonDTO> result = getBaoCaoList(maKho, nam + "-01-01", nam + "-01-31", 0);
 
-            // Gọi hàm xử lý chung (Tái sử dụng code)
-            List<BaoCaoXuatNhapTonDTO> result = getBaoCaoList(maKho, tuNgay, denNgay, 0);
-
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(new BaoCaoResponseDTO(tenKho, result));
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("Lỗi khi chốt sổ: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
         }
     }
 
     // =================================================================
-    // HÀM XỬ LÝ CHUNG (PRIVATE) - Để 2 API trên cùng gọi vào
+    // HÀM XỬ LÝ CHUNG (ĐÃ FIX INDEX VÀ TÊN SETTER)
     // =================================================================
     private List<BaoCaoXuatNhapTonDTO> getBaoCaoList(Integer maKho, String tuNgay, String denNgay, Integer loaiLoc) {
-        // 1. Gọi SQL
         List<Object[]> results = thongKeDAO.baoCaoTheoTrangThai(
-                maKho,
-                tuNgay,
-                denNgay + " 23:59:59",
-                loaiLoc
+                maKho, tuNgay, denNgay + " 23:59:59", loaiLoc
         );
 
-        // 2. Map dữ liệu sang DTO
         List<BaoCaoXuatNhapTonDTO> listBaoCao = new ArrayList<>();
         int stt = 1;
 
         for (Object[] row : results) {
             BaoCaoXuatNhapTonDTO dto = new BaoCaoXuatNhapTonDTO();
             dto.setStt(stt++);
-            dto.setMaSanPham((String) row[0]);
-            dto.setTenSanPham((String) row[1]);
-            dto.setDvt((String) row[2]);
-            dto.setTonDauKy(toNumber(row[3]));
-            dto.setNhapTrongKy(toNumber(row[4]));
-            dto.setXuatTrongKy(toNumber(row[5]));
-            dto.setTonCuoiKy(toNumber(row[6]));
-            dto.setGiaBinhQuan(toDouble(row[7]));
-            dto.setThanhTien(toDouble(row[8]));
+
+            // --- CẬP NHẬT INDEX MỚI (Lùi lại 1 số so với code cũ) ---
+
+            dto.setMaSP((String) row[0]);           // Index 0 (Trước là 1)
+            dto.setTenSP((String) row[1]);          // Index 1
+            dto.setDonvitinh((String) row[2]);      // Index 2
+
+            dto.setTonDau(toNumber(row[3]));        // Index 3
+            dto.setNhapTrong(toNumber(row[4]));     // Index 4
+            dto.setXuatTrong(toNumber(row[5]));     // Index 5
+            dto.setTonCuoi(toNumber(row[6]));       // Index 6
+
+            dto.setGiaBQ(toBigDecimal(row[7]));     // Index 7
+            dto.setThanhTien(toBigDecimal(row[8])); // Index 8
+
             listBaoCao.add(dto);
         }
         return listBaoCao;
     }
 
-    // --- HELPER CONVERT ---
+    // Helper Convert Long
     private Long toNumber(Object obj) {
         if (obj == null) return 0L;
-        try { return Long.parseLong(obj.toString()); } catch (Exception e) { return 0L; }
+        try { return Long.valueOf(obj.toString()); } catch (Exception e) { return 0L; }
     }
 
-    private Double toDouble(Object obj) {
-        if (obj == null) return 0.0;
-        try { return Double.parseDouble(obj.toString()); } catch (Exception e) { return 0.0; }
+    // Helper Convert BigDecimal (Thay cho Double cũ)
+    private BigDecimal toBigDecimal(Object obj) {
+        if (obj == null) return BigDecimal.ZERO;
+        try { return new BigDecimal(obj.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
     }
 }
