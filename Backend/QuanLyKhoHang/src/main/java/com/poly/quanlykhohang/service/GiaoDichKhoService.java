@@ -58,9 +58,9 @@ public class GiaoDichKhoService {
         phieuNhap.setNgayNhap(LocalDateTime.now());
         phieuNhap.setGhiChu(dto.getGhiChu());
 
-        DonVi ncc = donViDAO.findById(dto.getMaDonVi())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy NCC"));
-        phieuNhap.setNhaCungCap(ncc);
+//        DonVi ncc = donViDAO.findById(dto.getMaDonVi())
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy NCC"));
+//        phieuNhap.setNhaCungCap(ncc);
 
         Kho kho = khoDAO.findById(dto.getMaKho())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Kho"));
@@ -97,7 +97,7 @@ public class GiaoDichKhoService {
                         mayMoi.setTrangThai(1); // 1 = Tồn kho
                         mayMoi.setNgayTao(LocalDateTime.now());
                         // Copy MaHang từ sản phẩm sang máy (để khớp DB)
-                        if(sp.getMaHang() != null) mayMoi.setMaHang(sp.getMaHang());
+                        if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
 
                         MayIn maySaved = mayInDAO.save(mayMoi);
 
@@ -142,9 +142,9 @@ public class GiaoDichKhoService {
         phieuXuat.setNgayXuat(LocalDateTime.now());
         phieuXuat.setGhiChu(dto.getGhiChu());
 
-        DonVi khach = donViDAO.findById(dto.getMaDonVi())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Khách Hàng"));
-        phieuXuat.setKhachHang(khach);
+//        DonVi khach = donViDAO.findById(dto.getMaDonVi())
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy Khách Hàng"));
+//        phieuXuat.set(khach);
 
         Kho kho = khoDAO.findById(dto.getMaKho())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Kho Xuất"));

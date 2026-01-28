@@ -57,6 +57,20 @@
             </li>
 
             <li class="nav-header">DANH MỤC</li>
+
+            <li class="nav-item">
+              <router-link to="/hang-san-xuat" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-box-seam"></i>
+                <p>Hãng sản xuất</p>
+              </router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/loai-san-pham" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-box-seam"></i>
+                <p>Loại sản phẩm</p>
+              </router-link>
+            </li>
             
             <li class="nav-item">
               <router-link to="/san-pham" class="nav-link" active-class="active">

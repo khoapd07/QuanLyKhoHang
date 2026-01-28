@@ -10,6 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/don-vi")
+@CrossOrigin(origins = "http://localhost:5173")
 public class DonViController {
 
     @Autowired
