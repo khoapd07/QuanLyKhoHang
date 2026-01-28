@@ -16,4 +16,5 @@ public interface DonViDAO extends JpaRepository<DonVi, String> {
     Optional<DonVi> findBySoDienThoai(String soDienThoai);
 
 
+    DonVi findByMaDonVi(String maDonVi);
 }
