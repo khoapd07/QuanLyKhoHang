@@ -17,9 +17,7 @@ public class PhieuXuat {
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
-    @ManyToOne
-    @JoinColumn(name = "MaDonVi")
-    private DonVi khachHang;
+
 
     @ManyToOne
     @JoinColumn(name = "MaKho")

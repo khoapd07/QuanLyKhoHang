@@ -50,7 +50,7 @@ public class SanPhamController {
             spCu.setTenSP(spMoi.getTenSP());
             spCu.setDonViTinh(spMoi.getDonViTinh());
             spCu.setMoTa(spMoi.getMoTa());
-            spCu.setMaHang(spMoi.getMaHang()); // Cập nhật hãng
+            spCu.setHangSanXuat(spMoi.getHangSanXuat()); // Cập nhật hãng
             // Không cập nhật số lượng ở đây (Số lượng do nhập/xuất quyết định)
             return ResponseEntity.ok(sanPhamDAO.save(spCu));
         }).orElse(ResponseEntity.notFound().build());
