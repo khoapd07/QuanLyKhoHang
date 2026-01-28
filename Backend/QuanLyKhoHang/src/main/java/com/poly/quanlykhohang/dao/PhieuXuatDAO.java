@@ -12,6 +12,5 @@ public interface PhieuXuatDAO extends JpaRepository<PhieuXuat, String> {
     // Báo cáo doanh thu xuất kho theo khoảng thời gian
     List<PhieuXuat> findByNgayXuatBetween(LocalDateTime start, LocalDateTime end);
 
-    // Lịch sử mua hàng của khách
-    List<PhieuXuat> findByKhachHang_MaDonVi(String maKhachHang);
+
 }
