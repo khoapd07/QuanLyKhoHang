@@ -28,6 +28,9 @@ public class PhieuXuat {
     @Column(name = "NgayXuat")
     private LocalDateTime ngayXuat;
 
+    @Column(name = "SoLuong") // Trong SQL bạn có thêm cột SoLuong cho PhieuXuat
+    private Integer tongSoLuong;
+
     @Column(name = "TongTien")
     private BigDecimal tongTien;
 

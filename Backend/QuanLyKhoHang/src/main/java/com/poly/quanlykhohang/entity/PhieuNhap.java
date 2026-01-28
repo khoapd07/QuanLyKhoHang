@@ -28,7 +28,6 @@ public class PhieuNhap {
     @Column(name = "NgayNhap")
     private LocalDateTime ngayNhap;
 
-    // [Cần verify] Trong DB bạn có cột SoLuong ở bảng PhieuNhap
     @Column(name = "SoLuong")
     private Integer tongSoLuong;
 
