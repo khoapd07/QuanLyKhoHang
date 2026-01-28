@@ -19,7 +19,7 @@ import Dashboard from '../components/dashboard/Dashboard.vue'
 import SanPham from '../components/danhmuc/DanhMucMay.vue'
 import DonVi from '../components/danhmuc/DonVi.vue'    // Gộp Nhà cung cấp & Khách hàng
 import Kho from '../components/danhmuc/KhoChiNhanh.vue'        // Danh sách kho bãi
-
+import LoaiSP from '../components/danhmuc/LoaiSP.vue'        // Danh mục loại sản phẩm;
 import Hang from '../components/danhmuc/HangSanXuat.vue'        // Danh sách hãng sản xuất (Không dùng đến, giữ lại để mở rộng sau này)
 
 // --- D. Nghiệp vụ (Business Logic) ---
@@ -60,9 +60,11 @@ const routes = [
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
 
       // 2. Danh mục
+      { path: 'loai-san-pham', component: LoaiSP },
       { path: 'san-pham', name: 'SanPham', component: SanPham },
       { path: 'don-vi', name: 'DonVi', component: DonVi },
       { path: 'kho', name: 'Kho', component: Kho },
+      { path: 'hang-san-xuat', name: 'Hang', component: Hang },
 
       // 3. Nghiệp vụ
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },

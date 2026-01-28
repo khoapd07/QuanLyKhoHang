@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/loai-san-pham")
-//@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend gọi API
+@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend gọi API
 public class LoaiSanPhamController {
 
     @Autowired

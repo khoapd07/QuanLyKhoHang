@@ -23,11 +23,12 @@ public class SanPham {
     @Column(name = "Mota")
     private String moTa;
 
-    @Column(name = "MaHang")
-    private Integer maHang;
+    // [QUAN TRỌNG] Sửa chỗ này để lấy được Tên Hãng
+    @ManyToOne
+    @JoinColumn(name = "MaHang")
+    private HangSanXuat hangSanXuat;
 
     @Column(name = "SoLuong")
     private Integer soLuong;
 
-    // Đã xóa: giaNiemYet, thuongHieu, tonToiThieu... vì trong SQL không có
 }

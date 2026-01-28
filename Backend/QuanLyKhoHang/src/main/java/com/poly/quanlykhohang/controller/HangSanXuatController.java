@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/hang-san-xuat")
-//@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend truy cập
+@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend truy cập
 public class HangSanXuatController {
 
     @Autowired

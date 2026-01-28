@@ -38,6 +38,7 @@ public class MayIn {
     private Integer trangThai;
 
     // Bổ sung thêm MaHang nếu cần thiết theo DB
-    @Column(name = "MaHang")
-    private Integer maHang;
+    @ManyToOne
+    @JoinColumn(name = "MaHang")
+    private HangSanXuat hangSanXuat;
 }

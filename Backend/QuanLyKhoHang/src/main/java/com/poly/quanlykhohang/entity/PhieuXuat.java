@@ -12,11 +12,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PhieuXuat {
-
     @Id
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
+    // Sửa lỗi dòng 221 trong Service (Thiếu biến này)
     @ManyToOne
     @JoinColumn(name = "MaDonVi")
     private DonVi khachHang;
@@ -28,7 +28,7 @@ public class PhieuXuat {
     @Column(name = "NgayXuat")
     private LocalDateTime ngayXuat;
 
-    @Column(name = "SoLuong") // Trong SQL bạn có thêm cột SoLuong cho PhieuXuat
+    @Column(name = "SoLuong")
     private Integer tongSoLuong;
 
     @Column(name = "TongTien")
