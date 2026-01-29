@@ -51,10 +51,27 @@ public class ThongKeTonKhoController {
     @PostMapping("/chot-so")
     public ResponseEntity<?> chotSoDauNam(@RequestParam Integer nam, @RequestParam Integer maKho) {
         try {
+            // 1. Thực hiện chốt sổ (SQL sẽ lưu vào năm + 1)
+            // Ví dụ: nam = 2025 -> SQL lưu vào 2026
             thongKeDAO.chotSoDauNam(nam, maKho);
+
+            // 2. Lấy tên kho
             String tenKho = thongKeDAO.getTenKhoById(maKho);
-            List<BaoCaoXuatNhapTonDTO> result = getBaoCaoList(maKho, nam + "-01-01", nam + "-01-31", 0);
+
+            // [SỬA LẠI ĐOẠN NÀY]
+            // Phải query năm sau (nam + 1) mới thấy dữ liệu vừa chốt
+            int namSau = nam + 1;
+
+            // Lấy dữ liệu tháng 1 của NĂM SAU để hiển thị tồn đầu
+            List<BaoCaoXuatNhapTonDTO> result = getBaoCaoList(
+                    maKho,
+                    namSau + "-01-01",  // Ví dụ: 2026-01-01
+                    namSau + "-01-01",  // Ví dụ: 2026-01-31
+                    0
+            );
+
             return ResponseEntity.ok(new BaoCaoResponseDTO(tenKho, result));
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
