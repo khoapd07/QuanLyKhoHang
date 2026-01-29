@@ -11,8 +11,8 @@
                 <div class="modal-body" v-if="chiTiet">
                     <div class="row mb-3 p-3 bg-light border rounded mx-1 shadow-sm">
                         <div class="col-md-3"><strong>Ngày Nhập:</strong> {{ formatDate(chiTiet.ngayNhap) }}</div>
-                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.tenKho }}</div>
-                        <div class="col-md-3"><strong>Tổng SL:</strong> <span class="badge bg-primary">{{ chiTiet.tongSoLuongMay }}</span></div>
+                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap.tenKho}}</div>
+                        <div class="col-md-3"><strong>Tổng SL:</strong> <span class="badge bg-primary">{{ chiTiet.tongSoLuong }}</span></div>
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                     </div>
 
