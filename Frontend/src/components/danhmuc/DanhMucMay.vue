@@ -5,7 +5,7 @@ import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH ---
 const API_URL = 'http://localhost:8080/api/may-in';
-const API_KHO = 'http://localhost:8080/api/chi-nhanh';
+const API_KHO = 'http://localhost:8080/api/chi-nhanh'; // Hoặc /api/kho tùy route của bạn
 
 // --- STATE ---
 const danhSachMay = ref([]);
@@ -21,19 +21,20 @@ const form = reactive({
   
   // --- THÔNG TIN GỐC (READ ONLY) ---
   tenHang: '',     
-  tenLoai: '',     // <--- Bổ sung field Tên Loại
+  tenLoai: '',     // Field Tên Loại
   ngayTao: '',     
   soPhieuNhap: '', 
   // ----------------------------------
 
   soSeri: '',      
-  trangThai: 1,    
+  trangThai: 1,    // Trạng thái vật lý (New/LikeNew...)
+  tonKho: true,    // [MỚI] Trạng thái tồn kho (True/False)
   maKho: null      
 });
 
-// --- MAPPING TRẠNG THÁI ---
+// --- MAPPING TRẠNG THÁI VẬT LÝ ---
 const TRANG_THAI_LIST = [
-  { id: 1, text: 'Mới', class: 'bg-success' },
+  { id: 1, text: 'Mới (New)', class: 'bg-success' },
   { id: 2, text: 'Like New', class: 'bg-info text-dark' },
   { id: 3, text: 'Hỏng', class: 'bg-danger' },
   { id: 4, text: 'Xác', class: 'bg-dark' },
@@ -47,6 +48,10 @@ const getTrangThaiInfo = (id) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return '---';
+  // Xử lý cả dạng mảng [2024, 1, 1] và chuỗi ISO
+  if (Array.isArray(dateString)) {
+      return `${dateString[2]}/${dateString[1]}/${dateString[0]}`;
+  }
   const date = new Date(dateString);
   return date.toLocaleString('vi-VN', { hour12: false });
 };
@@ -55,6 +60,7 @@ const formatDate = (dateString) => {
 const loadData = async () => {
   isLoading.value = true;
   try {
+    // Gọi song song 2 API
     const [resMay, resKho] = await Promise.all([
       axios.get(API_URL),
       axios.get(API_KHO)
@@ -62,20 +68,20 @@ const loadData = async () => {
     danhSachMay.value = resMay.data;
     danhSachKho.value = resKho.data;
   } catch (error) {
-    showMessage('danger', 'Lỗi tải dữ liệu: ' + error.message);
+    showMessage('danger', 'Lỗi tải dữ liệu: ' + (error.response?.data || error.message));
   } finally {
     isLoading.value = false;
   }
 };
 
 const openEditModal = (may) => {
-  // 1. Thông tin gốc
+  // 1. Map dữ liệu vào Form
   form.maMay = may.maMay;
   form.tenSP = may.sanPham?.tenSP || '---';
   form.tenHang = may.hangSanXuat?.tenHang || '---';
   
   // Lấy tên loại từ object loaiSanPham
-  form.tenLoai = may.loaiSanPham?.tenLoai || '---'; // <--- Bổ sung
+  form.tenLoai = may.loaiSanPham?.tenLoai || '---'; 
 
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
@@ -83,6 +89,7 @@ const openEditModal = (may) => {
   // 2. Thông tin cập nhật
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
+  form.tonKho = may.tonKho; // [MỚI] Load True/False từ DB
   form.maKho = may.kho?.maKho || null;
 
   const modalEl = document.getElementById('modalChiTietMay');
@@ -96,6 +103,7 @@ const saveChanges = async () => {
       maMay: form.maMay,
       soSeri: form.soSeri,
       trangThai: form.trangThai,
+      tonKho: form.tonKho, // [MỚI] Gửi cả trạng thái tồn kho lên
       kho: { maKho: form.maKho }
     };
     await axios.put(`${API_URL}/${form.maMay}`, payload);
@@ -108,13 +116,13 @@ const saveChanges = async () => {
 };
 
 const deleteMay = async (id, seri) => {
-  if (!confirm(`Xóa máy ${seri || id}?`)) return;
+  if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn máy ${seri || id}?`)) return;
   try {
     await axios.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa máy thành công!');
     loadData();
   } catch (error) {
-    showMessage('danger', 'Không thể xóa (Máy đã có lịch sử giao dịch)!');
+    showMessage('danger', 'Không thể xóa: ' + (error.response?.data || error.message));
   }
 };
 
@@ -151,14 +159,15 @@ onMounted(() => {
                 <th width="50px">STT</th>
                 <th>Mã máy</th>
                 <th>Tên Sản Phẩm</th>
-                <th>Loại SP</th> <th>Kho</th>
-                <th width="120px">Trạng Thái</th>
-                <th width="120px">Thao tác</th>
+                <th>Loại SP</th> 
+                <th>Kho</th>
+                <th width="120px">Tình Trạng</th>
+                <th width="120px">Trạng Thái Kho</th> <th width="120px">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="isLoading">
-                <td colspan="7" class="text-center py-3">Đang tải dữ liệu...</td>
+                <td colspan="8" class="text-center py-3">Đang tải dữ liệu...</td>
               </tr>
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
                 <td class="text-center">{{ index + 1 }}</td>
@@ -175,11 +184,22 @@ onMounted(() => {
                 </td>
 
                 <td>{{ may.kho?.tenKho || '---' }}</td>
+                
                 <td class="text-center">
                   <span :class="['badge', getTrangThaiInfo(may.trangThai).class]">
                     {{ getTrangThaiInfo(may.trangThai).text }}
                   </span>
                 </td>
+
+                <td class="text-center">
+                    <span v-if="may.tonKho" class="badge bg-success">
+                        Còn Hàng
+                    </span>
+                    <span v-else class="badge bg-secondary">
+                        Đã Xuất
+                    </span>
+                </td>
+
                 <td class="text-center">
                   <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(may)">
                     <i class="bi bi-pencil-square"></i>
@@ -247,7 +267,7 @@ onMounted(() => {
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Trạng Thái</label>
+                  <label class="form-label">Tình Trạng (New/LikeNew...)</label>
                   <select v-model="form.trangThai" class="form-select">
                     <option v-for="tt in TRANG_THAI_LIST" :key="tt.id" :value="tt.id">
                       {{ tt.text }}
@@ -263,6 +283,19 @@ onMounted(() => {
                       {{ k.tenKho }}
                     </option>
                   </select>
+                </div>
+
+                <div class="col-12 mt-3">
+                    <div class="form-check form-switch p-3 border rounded bg-white">
+                        <input class="form-check-input" type="checkbox" id="switchTonKho" v-model="form.tonKho">
+                        <label class="form-check-label fw-bold ms-2" for="switchTonKho">
+                            <span v-if="form.tonKho" class="text-success">Trạng thái: ĐANG CÓ TRONG KHO</span>
+                            <span v-else class="text-secondary">Trạng thái: ĐÃ XUẤT / KHÔNG CÓ TRONG KHO</span>
+                        </label>
+                        <div class="form-text text-muted fst-italic ms-1">
+                            <i class="bi bi-info-circle"></i> Chỉ chỉnh sửa mục này khi cần điều chỉnh số liệu kho thủ công.
+                        </div>
+                    </div>
                 </div>
               </div>
 

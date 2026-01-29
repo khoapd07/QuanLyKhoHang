@@ -38,4 +38,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
 
     @Query(value = "SELECT TenKho FROM Kho WHERE MaKho = :maKho", nativeQuery = true)
     String getTenKhoById(@Param("maKho") Integer maKho);
+
+    @Query(value = "SELECT COUNT(*) FROM DMTonKho WHERE Nam = :namSau AND MaKho = :maKho", nativeQuery = true)
+    int demSoLuongBanGhiChotSo(@Param("namSau") int namSau, @Param("maKho") int maKho);
 }

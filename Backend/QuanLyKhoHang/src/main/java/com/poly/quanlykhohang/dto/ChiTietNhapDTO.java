@@ -11,4 +11,5 @@ public class ChiTietNhapDTO {
     private BigDecimal donGia;  // Giá nhập
     private String ghiChu;
     private List<String> danhSachSeri; // List seri (VD: ["SN001", "SN002"])
+    private Integer trangThai;
 }

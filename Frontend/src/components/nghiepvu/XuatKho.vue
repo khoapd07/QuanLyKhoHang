@@ -18,8 +18,7 @@
                         <th>Số Phiếu</th>
                         <th>Ngày Xuất</th>
                         <th>Kho Xuất</th>
-                        <th>Khách Hàng</th>
-                        <th width="30%">Chi tiết (Sản phẩm x SL)</th>
+                        <th>Khách Hàng</th> <th width="30%">Chi tiết (Sản phẩm x SL)</th>
                         <th>Tổng SL</th>
                         <th>Tổng Tiền</th>
                         <th width="120px">Thao tác</th>
@@ -30,7 +29,9 @@
                         <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                         <td>{{ formatDate(item.ngayXuat) }}</td>
                         <td>{{ item.tenKho }}</td>
-                        <td class="fw-bold">{{ item.tenKhachHang }}</td>
+                        
+                        <td class="fw-bold">{{ item.tenKhachHang || '---' }}</td>
+
                         <td>
                             <span v-for="(part, idx) in splitSummary(item.tomTatSanPham)" :key="idx" 
                                   class="badge bg-warning text-dark me-1 mb-1">
@@ -65,7 +66,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import XuatKhoChiTiet from './XuatKhoChiTiet.vue'; // File Modal sẽ tạo ở bước 4
+import XuatKhoChiTiet from './XuatKhoChiTiet.vue';
 
 const danhSachPhieu = ref([]);
 const loading = ref(false);
@@ -90,7 +91,7 @@ const moChiTiet = (soPhieu) => {
 };
 
 const huyPhieu = async (soPhieu) => {
-    if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Mới). Tiếp tục?`)) return;
+    if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Có thể bán lại). Tiếp tục?`)) return;
     try {
         await axios.delete(`/api/kho/xuat/${soPhieu}`);
         alert("Đã hủy phiếu và hoàn trả kho thành công!");
@@ -111,7 +112,10 @@ const formatDate = (dateArray) => {
     return new Date(dateArray).toLocaleString('vi-VN');
 };
 
-const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
+const formatCurrency = (v) => {
+    if(!v) return '0 đ';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+};
 
 onMounted(() => layDanhSach());
 </script>

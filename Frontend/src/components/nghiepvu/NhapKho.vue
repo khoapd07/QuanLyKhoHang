@@ -18,10 +18,9 @@
                         <th>Số Phiếu</th>
                         <th>Ngày Nhập</th>
                         <th>Kho</th>
-                        <th>Hãng SX</th>
-                        <th width="30%">Chi tiết</th>
-                        <th>Tổng SL</th>
-                        <th>Tổng Tiền</th>
+                        <th>Nhà Cung Cấp</th> <th width="25%">Chi tiết</th>
+                        <th>Hiện Trạng (Còn/Tổng)</th>
+                        <th>Giá Trị Tồn</th>
                         <th width="150px">Thao tác</th>
                     </tr>
                 </thead>
@@ -30,7 +29,9 @@
                         <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                         <td>{{ formatDate(item.ngayNhap) }}</td>
                         <td>{{ item.tenKho }}</td>
-                        <td class="fw-bold text-success">{{ item.danhSachHang }}</td>
+                        
+                        <td class="fw-bold">{{ item.tenKhachHang || '---' }}</td>
+
                         <td>
                             <span v-for="(part, idx) in splitSummary(item.tomTatSanPham)" :key="idx" 
                                   class="badge bg-info text-dark me-1 mb-1">
@@ -40,8 +41,22 @@
                                 <i class="fas fa-comment-alt me-1"></i>{{ item.ghiChu }}
                             </div>
                         </td>
-                        <td class="text-center fw-bold">{{ item.tongSoLuongMay }}</td>
-                        <td class="text-end text-danger fw-bold">{{ formatCurrency(item.tongTien) }}</td>
+                        
+                        <td class="text-center">
+                            <span class="fw-bold text-success fs-6">{{ item.soLuongConLai }}</span>
+                            <span class="text-muted small"> / {{ item.tongSoLuongMay }}</span>
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     :style="{width: (item.soLuongConLai / item.tongSoLuongMay * 100) + '%'}" 
+                                     aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </td>
+
+                        <td class="text-end">
+                            <div class="fw-bold text-danger">{{ formatCurrency(item.tienConLai) }}</div>
+                            <small class="text-muted text-decoration-line-through">{{ formatCurrency(item.tongTien) }}</small>
+                        </td>
+
                         <td class="text-center">
                             <button class="btn btn-sm btn-outline-info me-1" @click="moChiTiet(item.soPhieu)" title="Xem chi tiết">
                                 <i class="fas fa-eye"></i>
@@ -49,7 +64,12 @@
                             <button class="btn btn-sm btn-outline-warning me-1" @click="moModalSua(item)" title="Sửa ghi chú">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @click="xoaPhieu(item.soPhieu)" title="Xóa phiếu">
+                            <button v-if="item.soLuongConLai === item.tongSoLuongMay" 
+                                    class="btn btn-sm btn-outline-danger" 
+                                    @click="xoaPhieu(item.soPhieu)" title="Xóa phiếu">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                            <button v-else class="btn btn-sm btn-secondary" disabled title="Không thể xóa vì đã có hàng xuất bán">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
                         </td>
@@ -80,9 +100,6 @@
                             <label class="form-label">Ghi Chú</label>
                             <textarea class="form-control" rows="3" v-model="editItem.ghiChu"></textarea>
                         </div>
-                        <div class="alert alert-warning small">
-                            <i class="fas fa-exclamation-triangle"></i> Lưu ý: Để sửa sản phẩm hoặc số lượng, vui lòng bấm vào nút "Xem chi tiết" (icon con mắt).
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" @click="showEditModal = false">Hủy</button>
@@ -109,7 +126,6 @@ const editItem = ref({ soPhieu: '', ghiChu: '' });
 const layDanhSach = async () => {
     loading.value = true;
     try {
-        // Hàm này sẽ được gọi lại ngay khi Modal con báo 'update-success'
         const res = await axios.get('/api/kho/nhap');
         danhSachPhieu.value = res.data;
     } catch (e) { console.error("Lỗi data:", e); } 
@@ -121,7 +137,6 @@ const moChiTiet = (soPhieu) => {
     showModal.value = true;
 };
 
-// --- LOGIC SỬA GHI CHÚ ---
 const moModalSua = (item) => {
     editItem.value = { ...item };
     showEditModal.value = true;

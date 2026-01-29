@@ -16,7 +16,7 @@
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                     </div>
 
-                    <h6 class="text-primary px-1 mt-4">Danh sách máy (Trạng thái)</h6>
+                    <h6 class="text-primary px-1 mt-4">Danh sách máy (Trạng thái hiện tại)</h6>
                     <table class="table table-bordered text-center align-middle shadow-sm">
                         <thead class="table-secondary">
                             <tr>
@@ -24,7 +24,8 @@
                                 <th>Sản Phẩm</th>
                                 <th>Mã Máy</th>
                                 <th>Số Serial</th>
-                                <th>Trạng Thái</th> <th>Hành động</th>
+                                <th>Trạng Thái</th> 
+                                <th>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -35,19 +36,24 @@
                                 <td>{{ item.mayIn?.soSeri }}</td>
                                 
                                 <td>
-                                    <span v-if="item.mayIn?.trangThai === 1" class="badge bg-success">Tồn Kho</span>
-                                    <span v-else-if="item.mayIn?.trangThai === 2" class="badge bg-danger">Đã Xuất Bán</span>
-                                    <span v-else class="badge bg-secondary">Khác</span>
+                                    <span v-if="item.mayIn?.tonKho === true" class="badge bg-danger">
+                                        Tồn Kho
+                                    </span>
+                                    <span v-else class="badge bg-success">
+                                        Đã Xuất Bán
+                                    </span>
                                 </td>
                                 
                                 <td>
-                                    <button v-if="item.mayIn?.trangThai === 1" 
+                                    <button v-if="item.mayIn?.tonKho === true" 
                                             class="btn btn-sm btn-outline-danger" 
                                             @click="xoaDong(item.maCTPN)" 
                                             title="Xóa máy này">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
-                                    <span v-else class="text-muted small">🔒 Đã khóa</span>
+                                    <span v-else class="text-muted small">
+                                        <i class="fas fa-lock"></i> Đã khóa
+                                    </span>
                                 </td>
                             </tr>
                         </tbody>

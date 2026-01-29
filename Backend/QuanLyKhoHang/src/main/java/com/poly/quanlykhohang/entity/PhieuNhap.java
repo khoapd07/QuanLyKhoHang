@@ -26,6 +26,10 @@ public class PhieuNhap {
     @Column(name = "NgayNhap")
     private LocalDateTime ngayNhap;
 
+    @ManyToOne
+    @JoinColumn(name = "MaDonVi")
+    private DonVi nhaCungCap;
+
     @Column(name = "SoLuong")
     private Integer tongSoLuong;
 

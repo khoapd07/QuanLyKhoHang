@@ -10,11 +10,16 @@ public class PhieuNhapResponseDTO {
     private LocalDateTime ngayNhap;
     private String tenKho;
     private String ghiChu;
+    private String tenKhachHang; // Tên NCC
 
+    // Tổng ban đầu (Lịch sử)
     private Integer tongSoLuongMay;
     private BigDecimal tongTien;
 
-    // Hai trường quan trọng để hiển thị
-    private String tomTatSanPham; // VD: "Canon 2900 x3"
-    private String danhSachHang;  // VD: "Canon, HP" (Thay cho Nhà cung cấp)
+    // [MỚI] Hiện tại (Thực tế trong kho)
+    private Integer soLuongConLai;
+    private BigDecimal tienConLai;
+
+    private String tomTatSanPham;
+    private String danhSachHang;
 }

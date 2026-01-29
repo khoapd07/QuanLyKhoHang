@@ -11,7 +11,9 @@
                 <div class="modal-body" v-if="chiTiet">
                     <div class="row mb-3 p-3 bg-light border rounded mx-1">
                         <div class="col-md-3"><strong>Ngày Xuất:</strong> {{ formatDate(chiTiet.ngayXuat) }}</div>
-                        <div class="col-md-3"><strong>Khách Hàng:</strong> {{ chiTiet.khachHang?.tenDonVi }}</div>
+                        
+                        <div class="col-md-3"><strong>Khách Hàng:</strong> {{ chiTiet.khachHang?.tenDonVi || '---' }}</div>
+                        
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                         <div class="col-md-3"><strong>Ghi Chú:</strong> {{ chiTiet.ghiChu }}</div>
                     </div>
@@ -76,7 +78,10 @@ const formatDate = (dateArray) => {
     return new Date(dateArray).toLocaleString('vi-VN');
 };
 
-const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
+const formatCurrency = (v) => {
+    if(!v) return '0 đ';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+};
 </script>
 
 <style scoped>

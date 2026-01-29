@@ -29,12 +29,10 @@ public class MayIn {
 
     @ManyToOne
     @JoinColumn(name = "MaHang")
-    private HangSanXuat hangSanXuat; // Đây là thằng "Chủ" của cột MaHang
+    private HangSanXuat hangSanXuat;
 
-    // SỬA DÒNG NÀY: Thêm insertable = false, updatable = false
     @Column(name = "MaHang", insertable = false, updatable = false)
     private Integer maHang;
-    // ---------------------------
 
     @Column(name = "SoPhieuNhap", length = 50)
     private String soPhieuNhap;
@@ -45,6 +43,11 @@ public class MayIn {
     @Column(name = "NgayTao")
     private LocalDateTime ngayTao;
 
+    // Trạng thái vật lý: 1=New, 2=LikeNew...
     @Column(name = "MaTrangThai")
     private Integer trangThai;
+
+    // [QUAN TRỌNG] true = Tồn kho, false = Đã xuất
+    @Column(name = "TonKho")
+    private Boolean tonKho;
 }

@@ -8,13 +8,24 @@
         </div>
         <div class="card-body">
             <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">Chọn Kho Nhập (*)</label>
                     <select class="form-select" v-model="phieuNhap.maKho">
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
-                <div class="col-md-6">
+                
+                <div class="col-md-4">
+                    <label class="form-label">Nhà Cung Cấp (*)</label>
+                    <select class="form-select" v-model="phieuNhap.maDonVi">
+                        <option value="" disabled>-- Chọn NCC --</option>
+                        <option v-for="ncc in listNhaCungCap" :key="ncc.maDonVi" :value="ncc.maDonVi">
+                            {{ ncc.tenDonVi }}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
                     <label class="form-label">Ghi Chú</label>
                     <input type="text" class="form-control" v-model="phieuNhap.ghiChu" placeholder="VD: Nhập hàng đợt 1...">
                 </div>
@@ -30,14 +41,24 @@
                         </option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Giá Nhập</label>
                     <input type="number" class="form-control" v-model="currentItem.donGia" min="0">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Số Lượng</label>
                     <input type="number" class="form-control" v-model="currentItem.soLuong" min="1">
                 </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">Trạng Thái</label>
+                    <select class="form-select" v-model="currentItem.trangThai">
+                        <option :value="1">Mới (New)</option>
+                        <option :value="2">Like New</option>
+                        <option :value="6">Nhập Khẩu</option>
+                    </select>
+                </div>
+
                 <div class="col-md-2 d-flex align-items-end">
                     <button class="btn btn-success w-100" @click="themDong">
                         <i class="fas fa-plus"></i> Thêm
@@ -49,6 +70,7 @@
                 <thead class="table-secondary">
                     <tr>
                         <th>Sản Phẩm</th>
+                        <th>Trạng Thái</th>
                         <th>Giá Nhập</th>
                         <th>Số Lượng</th>
                         <th>Thành Tiền</th>
@@ -58,6 +80,13 @@
                 <tbody>
                     <tr v-for="(item, index) in listHienThi" :key="index">
                         <td>{{ getTenSP(item.maSP) }}</td>
+                        
+                        <td>
+                            <span v-if="item.trangThai === 1" class="badge bg-success">Mới</span>
+                            <span v-else-if="item.trangThai === 2" class="badge bg-info text-dark">Like New</span>
+                            <span v-else class="badge bg-secondary">Khác</span>
+                        </td>
+
                         <td>{{ formatCurrency(item.donGia) }}</td>
                         <td class="text-center fw-bold">{{ item.soLuong }}</td>
                         <td>{{ formatCurrency(item.donGia * item.soLuong) }}</td>
@@ -78,30 +107,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const listKho = ref([]);
 const listSanPham = ref([]);
-const phieuNhap = ref({ maKho: null, ghiChu: '' });
-const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
+const listDonVi = ref([]); // Danh sách đơn vị (bao gồm cả NCC và Khách)
+
+// [MỚI] Thêm maDonVi vào object phieuNhap
+const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '' });
+const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 });
 const listHienThi = ref([]);
+
+// Lọc ra Nhà Cung Cấp (Loại = 1)
+const listNhaCungCap = computed(() => listDonVi.value.filter(dv => dv.loaiDonVi === 1));
 
 const loadData = async () => {
     try {
-        const [k, s] = await Promise.all([
-            axios.get('/api/kho'),      // Cần có API này (KhoService)
-            axios.get('/api/san-pham')  // Cần có API này (SanPhamService)
+        const [k, s, d] = await Promise.all([
+            axios.get('/api/kho'),
+            axios.get('/api/san-pham'),
+            axios.get('/api/don-vi') // Load danh sách đơn vị
         ]);
         listKho.value = k.data;
         listSanPham.value = s.data;
+        listDonVi.value = d.data;
     } catch (e) { 
         console.error("Lỗi load danh mục: ", e);
-        // Dữ liệu giả để bạn test giao diện nếu chưa có API danh mục
-        if(listKho.value.length === 0) listKho.value = [{maKho: 1, tenKho: 'Kho Tổng'}];
-        if(listSanPham.value.length === 0) listSanPham.value = [{maSP: 'SP-2900', tenSP: 'Canon 2900'}, {maSP: 'IP15', tenSP: 'iPhone 15'}];
     }
 };
 
@@ -109,21 +143,22 @@ const themDong = () => {
     if(!currentItem.value.maSP) return alert("Vui lòng chọn sản phẩm!");
     if(currentItem.value.soLuong <= 0) return alert("Số lượng phải lớn hơn 0");
     
-    // Thêm vào danh sách
     listHienThi.value.push({...currentItem.value});
     
     // Reset form
     currentItem.value.soLuong = 1;
+    // Giữ nguyên giá và trạng thái để nhập tiếp cho nhanh
 };
 
 const luuPhieu = async () => {
     if(!phieuNhap.value.maKho) return alert("Vui lòng chọn Kho!");
+    if(!phieuNhap.value.maDonVi) return alert("Vui lòng chọn Nhà Cung Cấp!"); // Validate NCC
     if(listHienThi.value.length === 0) return alert("Chưa có sản phẩm nào!");
     
     try {
-        // Payload gọn nhẹ, không có seri, không có NCC
         await axios.post('/api/kho/nhap', {
             maKho: phieuNhap.value.maKho,
+            maDonVi: phieuNhap.value.maDonVi, // Gửi mã NCC lên server
             ghiChu: phieuNhap.value.ghiChu,
             chiTietPhieuNhap: listHienThi.value
         });
