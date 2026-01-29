@@ -16,7 +16,7 @@ import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
 
 // Nghiệp vụ XUẤT
 import XuatKho from '../components/nghiepvu/XuatKho.vue'
-import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' // [MỚI] Trang tạo phiếu xuất
+import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' 
 
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
 
