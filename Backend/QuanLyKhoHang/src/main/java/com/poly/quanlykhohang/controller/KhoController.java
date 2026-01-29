@@ -16,7 +16,10 @@ public class KhoController {
     @Autowired private GiaoDichKhoService giaoDichService;
     @Autowired private KhoService khoService;
 
-    // --- NHẬP KHO ---
+    // ==================================================
+    // 1. NHẬP KHO
+    // ==================================================
+
     @GetMapping("/nhap")
     public ResponseEntity<?> layDanhSachPhieuNhap() {
         return ResponseEntity.ok(giaoDichService.layDanhSachPhieuNhapHienThi());
@@ -56,15 +59,43 @@ public class KhoController {
         }
     }
 
-    // --- XUẤT KHO ---
+    // --- Xử lý chi tiết nhập ---
+    @DeleteMapping("/nhap/chi-tiet/{maCTPN}")
+    public ResponseEntity<?> xoaChiTiet(@PathVariable Integer maCTPN) {
+        try {
+            giaoDichService.xoaDongChiTietNhap(maCTPN);
+            return ResponseEntity.ok("Đã xóa dòng chi tiết.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/nhap/{soPhieu}/bo-sung")
+    public ResponseEntity<?> boSungChiTiet(@PathVariable String soPhieu, @RequestBody com.poly.quanlykhohang.dto.ChiTietNhapDTO dto) {
+        try {
+            giaoDichService.themDongVaoPhieuCu(soPhieu, dto);
+            return ResponseEntity.ok("Đã bổ sung thành công!");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // ==================================================
+    // 2. XUẤT KHO
+    // ==================================================
+
     @GetMapping("/xuat")
     public ResponseEntity<?> layDanhSachPhieuXuat() {
-        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuXuatTomTat());
+        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuXuatHienThi());
     }
 
     @GetMapping("/xuat/{soPhieu}")
     public ResponseEntity<?> layChiTietPhieuXuat(@PathVariable String soPhieu) {
-        return ResponseEntity.ok(giaoDichService.layPhieuXuatChiTiet(soPhieu));
+        try {
+            return ResponseEntity.ok(giaoDichService.layPhieuXuatChiTiet(soPhieu));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PostMapping("/xuat")
@@ -77,22 +108,20 @@ public class KhoController {
         }
     }
 
-    @PutMapping("/xuat/{soPhieu}")
-    public ResponseEntity<?> capNhatPhieuXuat(@PathVariable String soPhieu, @RequestBody PhieuXuatDTO dto) {
-        return ResponseEntity.ok(giaoDichService.capNhatPhieuXuat(soPhieu, dto));
-    }
-
     @DeleteMapping("/xuat/{soPhieu}")
     public ResponseEntity<?> xoaPhieuXuat(@PathVariable String soPhieu) {
         try {
             giaoDichService.xoaPhieuXuat(soPhieu);
-            return ResponseEntity.ok("Đã hủy phiếu xuất thành công");
+            return ResponseEntity.ok("Đã hủy phiếu xuất thành công.");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- QUẢN LÝ KHO ---
+    // ==================================================
+    // 3. QUẢN LÝ KHO (CRUD)
+    // ==================================================
+
     @GetMapping
     public ResponseEntity<?> layDanhSachKho() {
         return ResponseEntity.ok(khoService.layDanhSachKho());

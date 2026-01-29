@@ -7,7 +7,8 @@ import java.util.List;
 @Data
 public class ChiTietXuatDTO {
     private String maSP;
-    private Integer soLuong;
-    private BigDecimal donGia;
-    private List<String> danhSachSeri; // Xuất những seri nào
+    private BigDecimal donGia; // Giá bán
+
+    // Danh sách mã máy cần xuất (người dùng chọn từ tồn kho)
+    private List<String> danhSachSeri;
 }

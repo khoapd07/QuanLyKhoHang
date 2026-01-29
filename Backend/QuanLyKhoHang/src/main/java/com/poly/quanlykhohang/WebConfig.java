@@ -8,13 +8,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Cho phép tất cả API
+        registry.addMapping("/**") // Áp dụng cho toàn bộ API
+                .allowedOrigins("http://localhost:5173") // Chỉ cho phép Frontend Vue gọi vào
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .allowCredentials(true);
-
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173") // Hoặc allowedOriginPatterns("*") như đã sửa
                 .allowCredentials(true);
     }
 }
