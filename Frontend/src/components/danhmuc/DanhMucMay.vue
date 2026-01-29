@@ -78,10 +78,10 @@ const openEditModal = (may) => {
   // 1. Map dữ liệu vào Form
   form.maMay = may.maMay;
   form.tenSP = may.sanPham?.tenSP || '---';
-  form.tenHang = may.hangSanXuat?.tenHang || '---';
+  form.tenHang = may.sanPham?.hangSanXuat?.tenHang || '---';
   
   // Lấy tên loại từ object loaiSanPham
-  form.tenLoai = may.loaiSanPham?.tenLoai || '---'; 
+  form.tenLoai = may.sanPham?.loaiSanPham?.tenLoai || '---'; 
 
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
