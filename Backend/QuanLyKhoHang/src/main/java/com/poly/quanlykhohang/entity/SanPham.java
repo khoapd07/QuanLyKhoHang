@@ -23,10 +23,14 @@ public class SanPham {
     @Column(name = "Mota")
     private String moTa;
 
-    // [QUAN TRỌNG] Sửa chỗ này để lấy được Tên Hãng
     @ManyToOne
     @JoinColumn(name = "MaHang")
     private HangSanXuat hangSanXuat;
+
+    // 2. Loại sản phẩm (Di chuyển từ DMMay sang đây)
+    @ManyToOne
+    @JoinColumn(name = "MaLoai")
+    private LoaiSanPham loaiSanPham;
 
     @Column(name = "SoLuong")
     private Integer soLuong;
