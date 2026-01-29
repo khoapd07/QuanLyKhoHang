@@ -149,7 +149,7 @@ onMounted(() => {
             <thead class="table-dark text-center">
               <tr>
                 <th width="50px">STT</th>
-                <th>Số Seri</th>
+                <th>Mã máy</th>
                 <th>Tên Sản Phẩm</th>
                 <th>Loại SP</th> <th>Kho</th>
                 <th width="120px">Trạng Thái</th>
@@ -162,7 +162,7 @@ onMounted(() => {
               </tr>
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
                 <td class="text-center">{{ index + 1 }}</td>
-                <td class="fw-bold text-primary">{{ may.soSeri || '(Trống)' }}</td>
+                <td class="fw-bold text-primary">{{ may.maMay || '(Trống)' }}</td>
                 <td>
                   <div>{{ may.sanPham?.tenSP }}</div>
                   <small class="text-muted" v-if="may.hangSanXuat">{{ may.hangSanXuat.tenHang }}</small>
