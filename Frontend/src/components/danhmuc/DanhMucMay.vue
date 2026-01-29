@@ -14,20 +14,21 @@ const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 let modalInstance = null;
 
-// Form Data (Dùng cho Modal)
+// Form Data
 const form = reactive({
   maMay: '',
   tenSP: '',
   
-  // --- CÁC TRƯỜNG MỚI (READ ONLY) ---
-  tenHang: '',     // Hãng sản xuất
-  ngayTao: '',     // Ngày nhập kho lần đầu
-  soPhieuNhap: '', // Phiếu nhập
+  // --- THÔNG TIN GỐC (READ ONLY) ---
+  tenHang: '',     
+  tenLoai: '',     // <--- Bổ sung field Tên Loại
+  ngayTao: '',     
+  soPhieuNhap: '', 
   // ----------------------------------
 
-  soSeri: '',      // Có thể sửa
-  trangThai: 1,    // Có thể sửa
-  maKho: null      // Có thể sửa
+  soSeri: '',      
+  trangThai: 1,    
+  maKho: null      
 });
 
 // --- MAPPING TRẠNG THÁI ---
@@ -44,7 +45,6 @@ const getTrangThaiInfo = (id) => {
   return TRANG_THAI_LIST.find(t => t.id === id) || { text: 'Khác', class: 'bg-secondary' };
 };
 
-// Hàm format ngày giờ
 const formatDate = (dateString) => {
   if (!dateString) return '---';
   const date = new Date(dateString);
@@ -68,25 +68,23 @@ const loadData = async () => {
   }
 };
 
-// Mở Modal Chi Tiết
 const openEditModal = (may) => {
-  // 1. Thông tin định danh (Read-only)
+  // 1. Thông tin gốc
   form.maMay = may.maMay;
   form.tenSP = may.sanPham?.tenSP || '---';
-  
-  // Lấy thông tin Hãng (nếu có quan hệ) hoặc lấy từ SP
-  // Backend trả về object hangSanXuat nhờ @ManyToOne
   form.tenHang = may.hangSanXuat?.tenHang || '---';
   
+  // Lấy tên loại từ object loaiSanPham
+  form.tenLoai = may.loaiSanPham?.tenLoai || '---'; // <--- Bổ sung
+
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
 
-  // 2. Thông tin cập nhật được
+  // 2. Thông tin cập nhật
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
   form.maKho = may.kho?.maKho || null;
 
-  // Show Modal
   const modalEl = document.getElementById('modalChiTietMay');
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
@@ -100,7 +98,6 @@ const saveChanges = async () => {
       trangThai: form.trangThai,
       kho: { maKho: form.maKho }
     };
-
     await axios.put(`${API_URL}/${form.maMay}`, payload);
     showMessage('success', 'Cập nhật thông tin thành công!');
     if (modalInstance) modalInstance.hide();
@@ -153,9 +150,8 @@ onMounted(() => {
               <tr>
                 <th width="50px">STT</th>
                 <th>Số Seri</th>
-                <th>Mã Máy</th>
                 <th>Tên Sản Phẩm</th>
-                <th>Kho</th>
+                <th>Loại SP</th> <th>Kho</th>
                 <th width="120px">Trạng Thái</th>
                 <th width="120px">Thao tác</th>
               </tr>
@@ -167,11 +163,17 @@ onMounted(() => {
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
                 <td class="text-center">{{ index + 1 }}</td>
                 <td class="fw-bold text-primary">{{ may.soSeri || '(Trống)' }}</td>
-                <td class="small text-muted">{{ may.maMay }}</td>
                 <td>
                   <div>{{ may.sanPham?.tenSP }}</div>
-                  <small class="text-muted" v-if="may.hangSanXuat">({{ may.hangSanXuat.tenHang }})</small>
+                  <small class="text-muted" v-if="may.hangSanXuat">{{ may.hangSanXuat.tenHang }}</small>
                 </td>
+                
+                <td class="text-center">
+                  <span class="badge bg-light text-dark border">
+                    {{ may.loaiSanPham?.tenLoai || '---' }}
+                  </span>
+                </td>
+
                 <td>{{ may.kho?.tenKho || '---' }}</td>
                 <td class="text-center">
                   <span :class="['badge', getTrangThaiInfo(may.trangThai).class]">
@@ -194,7 +196,8 @@ onMounted(() => {
     </div>
 
     <div class="modal fade" id="modalChiTietMay" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-      <div class="modal-dialog modal-lg"> <div class="modal-content">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
           <div class="modal-header bg-light">
             <h5 class="modal-title text-primary">
               <i class="bi bi-info-circle-fill"></i> Chi Tiết & Cập Nhật Máy
@@ -204,10 +207,10 @@ onMounted(() => {
           <div class="modal-body">
             <form @submit.prevent="saveChanges">
               
-              <h6 class="text-uppercase fw-bold text-secondary mb-3 small border-bottom pb-1">Thông tin gốc (Không thể sửa)</h6>
+              <h6 class="text-uppercase fw-bold text-secondary mb-3 small border-bottom pb-1">Thông tin gốc</h6>
               <div class="row g-3 mb-4">
                 <div class="col-md-4">
-                  <label class="form-label text-muted small">Mã Máy (System ID)</label>
+                  <label class="form-label text-muted small">Mã Máy</label>
                   <input type="text" class="form-control bg-light" :value="form.maMay" disabled readonly>
                 </div>
                 <div class="col-md-4">
@@ -218,35 +221,33 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label text-muted small">Ngày Tạo / Nhập Kho</label>
+                  <label class="form-label text-muted small">Ngày Tạo</label>
                   <input type="text" class="form-control bg-light" :value="form.ngayTao" disabled readonly>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <label class="form-label text-muted small">Sản Phẩm</label>
                   <input type="text" class="form-control bg-light fw-bold" :value="form.tenSP" disabled readonly>
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label text-muted small">Hãng Sản Xuất</label>
-                  <input type="text" class="form-control bg-light fw-bold text-primary" :value="form.tenHang" disabled readonly>
+                <div class="col-md-4">
+                  <label class="form-label text-muted small">Hãng SX</label>
+                  <input type="text" class="form-control bg-light fw-bold" :value="form.tenHang" disabled readonly>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label text-muted small">Loại Sản Phẩm</label>
+                  <input type="text" class="form-control bg-light fw-bold text-primary" :value="form.tenLoai" disabled readonly>
                 </div>
               </div>
 
               <h6 class="text-uppercase fw-bold text-secondary mb-3 small border-bottom pb-1">Cập nhật hiện trạng</h6>
               <div class="row g-3">
                 <div class="col-12">
-                  <label class="form-label fw-bold">Số Seri (Trên thân máy) <span class="text-danger">*</span></label>
-                  <input 
-                    v-model="form.soSeri" 
-                    type="text" 
-                    class="form-control border-primary" 
-                    placeholder="Nhập số seri thực tế của máy..."
-                  >
-                  <div class="form-text">Số Seri là định danh duy nhất của máy in/điện thoại.</div>
+                  <label class="form-label fw-bold">Số Seri <span class="text-danger">*</span></label>
+                  <input v-model="form.soSeri" type="text" class="form-control border-primary" placeholder="Nhập số seri thực tế...">
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Trạng Thái Hiện Tại</label>
+                  <label class="form-label">Trạng Thái</label>
                   <select v-model="form.trangThai" class="form-select">
                     <option v-for="tt in TRANG_THAI_LIST" :key="tt.id" :value="tt.id">
                       {{ tt.text }}
@@ -276,6 +277,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

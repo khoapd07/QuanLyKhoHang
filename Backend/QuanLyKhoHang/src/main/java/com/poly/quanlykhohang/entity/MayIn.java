@@ -23,6 +23,9 @@ public class MayIn {
     @JoinColumn(name = "MaKho")
     private Kho kho;
 
+    @ManyToOne
+    @JoinColumn(name = "MaLoai")
+    private LoaiSanPham loaiSanPham;
 
     @ManyToOne
     @JoinColumn(name = "MaHang")
