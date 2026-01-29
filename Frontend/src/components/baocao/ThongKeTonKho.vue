@@ -108,8 +108,8 @@
                     
                     <td class="text-right"><strong>{{ item.tonCuoi }}</strong></td>
                     
-                    <td class="text-right">{{ formatCurrency(item.giaBQ) }}</td>
-                    <td class="text-right"><strong>{{ formatCurrency(item.thanhTien) }}</strong></td>
+                    <td class="text-right">{{ item.giaBQ }}</td>
+                    <td class="text-right"><strong>{{ item.thanhTien }}</strong></td>
                   </tr>
                 </template>
               </tbody>
@@ -128,17 +128,17 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, TextRun, BorderStyle } from "docx";
 import { saveAs } from "file-saver";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 
 // --- CẤU HÌNH ---
 const API_URL = 'http://localhost:8080/api/thong-ke/xuat-nhap-ton';
 
 // --- STATE MANAGEMENT ---
-// --- STATE ---
 const filters = reactive({
-  startDate: new Date('2024-01-01').toISOString().substr(0, 10),
-  endDate: new Date().toISOString().substr(0, 10),
+  startDate: new Date('2024-01-01').toISOString().substring(0, 10),
+  endDate: new Date().toISOString().substring(0, 10),
   warehouseId: 0,
 });
 
@@ -150,14 +150,6 @@ const khoList = ref([
 const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
-
-const reportTitle = computed(() => currentTenKho.value ? `Kết quả: ${currentTenKho.value}` : 'Kết quả tồn kho');
-
-// --- HELPER ---
-const formatCurrency = (value) => {
-  if (value === null || value === undefined) return '0 ₫';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-};
 
 // --- FETCH API ---
 const fetchInventoryReport = async () => {
@@ -183,193 +175,127 @@ const fetchInventoryReport = async () => {
   }
 };
 
-// --- HÀM TẠO Ô WORD (Đã fix lỗi hiển thị số) ---
-const createCell = (value, isBold = false) => {
-  let textToDisplay = "0"; // Mặc định là 0
-  if (value !== null && value !== undefined) {
-      textToDisplay = value.toString(); // Ép kiểu chuỗi để tránh lỗi
-  } else if (typeof value === 'string') {
-      textToDisplay = value;
-  }
-  
-  // Nếu giá trị rỗng thì để trống
-  if(value === "") textToDisplay = "";
+// --- HELPER FUNCTIONS ---
 
-  return new TableCell({
-    children: [new Paragraph({ 
-        children: [new TextRun({ text: textToDisplay, bold: isBold, size: 16 })], 
-        alignment: AlignmentType.CENTER 
-    })],
-    verticalAlign: "center",
-    borders: {
-      top: { style: BorderStyle.SINGLE, size: 1 },
-      bottom: { style: BorderStyle.SINGLE, size: 1 },
-      left: { style: BorderStyle.SINGLE, size: 1 },
-      right: { style: BorderStyle.SINGLE, size: 1 },
+const loadFile = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Không thể tải file mẫu: ${url}`);
     }
-  });
+    return await response.arrayBuffer();
 };
 
-// --- IN WORD (Đã sửa tên biến khớp API) ---
-const printToWord = () => {
+const formatCurrency = (value) => {
+  if (!value || isNaN(value)) return '0';
+  return new Intl.NumberFormat('vi-VN').format(value);
+};
+
+const formatDateString = (dateStr) => {
+    if(!dateStr) return "...";
+    const parts = dateStr.split('-');
+    if(parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// --- CORE EXPORT FUNCTION ---
+const printToWord = async () => {
   if (!reportData.value || reportData.value.length === 0) {
-    alert("Không có dữ liệu.");
+    alert("Không có dữ liệu để in.");
     return;
   }
 
   try {
-    const companyName = "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ THIẾT BỊ Y TẾ VÀ MÁY VĂN PHÒNG NHẬT TIẾN THANH";
-    const address = "Đ/c: 53 Trần Bình Trọng, Phường 1, Quận 5, TP.HCM, Việt Nam";
-    const warehouseInfo = `Kho: ${currentTenKho.value || "Tất cả"}`; // Lấy tên kho
-    const SetDateVN = (dateString) => {
-    if (!dateString) return "...";
-    // Cắt chuỗi YYYY-MM-DD để tránh lỗi múi giờ
-    const [year, month, day] = dateString.split('-'); 
-    return ` ${day}/${month}/${year}`;
-  };
+      // 1. Tải file mẫu
+      const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
 
-    // 2. Header (Đã sửa theo yêu cầu)
-    const headerSection = [
-      // Logo NTT
-      new Paragraph({ 
-        children: [new TextRun({ text: "NULL", bold: true, size: 48, color: "000088", font: "Times New Roman" })], 
-        alignment: AlignmentType.CENTER 
-      }),
-
-      // Tên Công Ty (IN ĐẬM)
-      new Paragraph({ 
-        children: [new TextRun({ 
-            text: companyName, 
-            bold: true, // <--- In đậm
-            size: 18,   // Cỡ chữ to (13pt)
-            font: "Times New Roman",
-            allCaps: true // Viết hoa toàn bộ cho đẹp
-        })], 
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 100 }
-      }),
-// địa chỉ
-      new Paragraph({ 
-        children: [new TextRun({ text: address, size: 18, font: "Times New Roman" })],
-        alignment: AlignmentType.CENTER, 
-        spacing: { after: 10 } 
-      }),
-
-      // dấu thanh ngang
-      new Paragraph({ 
-        children: [new TextRun({ text: "_________________________________________________________________________________", size: 20,bold: true, font: "Times New Roman" })],
-        alignment: AlignmentType.CENTER, 
-        spacing: { after: 200 } 
-      }),
-
-      // Tiêu đề Báo Cáo
-      new Paragraph({ 
-        children: [new TextRun({ text: "BÁO CÁO XUẤT NHẬP TỒN", bold: true, size: 32, font: "Times New Roman" })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 100, before: 200 },
-      }),
-
-      // 1. Ngày bắt đầu
-      new Paragraph({
-        children: [
-            // Phần tiêu đề: IN ĐẬM
-            new TextRun({
-                text: "Ngày bắt đầu: ",
-                bold: true,
-                font: "Times New Roman",
-                size: 18 // 11pt
-            }),
-            // Phần ngày tháng: IN THƯỜNG
-            new TextRun({
-                text: SetDateVN(filters.startDate),
-                bold: false, 
-                font: "Times New Roman",
-                size: 18
-            })
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 50 }
-      }),
-
-      // 2. Ngày kết thúc
-      new Paragraph({
-        children: [
-            // Phần tiêu đề: IN ĐẬM
-            new TextRun({
-                text: "Ngày kết thúc: ",
-                bold: true,
-                font: "Times New Roman",
-                size: 18
-            }),
-            // Phần ngày tháng: IN THƯỜNG
-            new TextRun({
-                text: SetDateVN(filters.endDate),
-                bold: false,
-                font: "Times New Roman",
-                size: 18
-            })
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 300 }
-      }),
-
-      // Dòng Kho: CANH TRÁI + IN ĐẬM + IN NGHIÊNG
-      new Paragraph({ 
-        children: [new TextRun({ 
-            text: warehouseInfo, 
-            bold: true,    // <--- In đậm
-            italics: true, // <--- In nghiêng
-            size: 14,
-            font: "Times New Roman"
-        })], 
-        alignment: AlignmentType.LEFT, // <--- Canh trái
-        spacing: { after: 100 } 
-      }),
-    ];
-
-    // 2. Table Header
-    const tableHeader = new TableRow({
-      tableHeader: true,
-      children: [
-        createCell("STT", true), createCell("Mã SP", true), createCell("Tên SP", true),
-        createCell("ĐVT", true), createCell("Tồn Đầu", true), createCell("Nhập", true),
-        createCell("Xuất", true), createCell("Tồn Cuối", true), createCell("Giá BQ", true),
-        createCell("Thành Tiền", true),
-      ],
-    });
-
-    // 3. Data Rows (QUAN TRỌNG: Đã sửa tên biến tại đây)
-    const dataRows = reportData.value.map((item, index) => {
-      return new TableRow({
-        children: [
-          createCell(index + 1),
-          createCell(item.maSP || ""),
-          createCell(item.tenSP || ""),
-          createCell(item.donvitinh || ""), // Sửa từ dvt -> donvitinh
-          createCell(item.tonDau),          // Sửa từ tonDauKySL -> tonDau
-          createCell(item.nhapTrong),       // Sửa từ nhapTrongKySL -> nhapTrong
-          createCell(item.xuatTrong),       // Sửa từ xuatTrongKySL -> xuatTrong
-          createCell(item.tonCuoi, true),   // Sửa từ tonCuoiKySL -> tonCuoi
-          createCell(formatCurrency(item.giaBQ)), // Sửa từ giaVon -> giaBQ
-          createCell(formatCurrency(item.thanhTien), true), // Sửa từ tonCuoiKyGT -> thanhTien
-        ],
+      // 2. Khởi tạo Docxtemplater
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
       });
-    });
 
-    // 4. Build Doc
-    const doc = new Document({
-      sections: [{
-        children: [...headerSection, new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [tableHeader, ...dataRows] })],
-      }],
-    });
+      // --- TÍNH TỔNG CỘNG (Thêm đoạn này để khớp với {sum...} trong ảnh) ---
+      const totals = reportData.value.reduce((acc, item) => {
+          acc.tdk += item.tonDau || 0;
+          acc.ntk += item.nhapTrong || 0;
+          acc.xtk += item.xuatTrong || 0;
+          acc.tck += item.tonCuoi || 0;
+          acc.tien += item.thanhTien || 0;
+          return acc;
+      }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-    Packer.toBlob(doc).then((blob) => {
-      saveAs(blob, `BaoCao_${filters.endDate}.docx`);
-    });
+      // --- XỬ LÝ NGÀY GIỜ AM/PM (Thêm đoạn này để khớp với {h}:{ph} {ampm}) ---
+      const now = new Date();
+      // Ngày tháng
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      
+      // Giờ phút AM/PM
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // Giờ 0 đổi thành 12
+      const strHours = String(hours).padStart(2, '0');
+
+      // 3. Map dữ liệu
+      const dataToRender = {
+          // Thông tin chung
+          ngayBatDau: formatDateString(filters.startDate),
+          ngayKetThuc: formatDateString(filters.endDate),
+          tenKho: currentTenKho.value || "Tất cả các kho",
+          
+          // Dữ liệu bảng
+          p: reportData.value.map((item, index) => ({
+              stt: index + 1,
+              ma: item.maSP || "",
+              ten: item.tenSP || "",
+              dvt: item.donvitinh || "",
+              tdk: item.tonDau || 0,
+              ntk: item.nhapTrong || 0,
+              xtk: item.xuatTrong || 0,
+              tck: item.tonCuoi || 0,
+              gia: formatCurrency(item.giaBQ),
+              tien: formatCurrency(item.thanhTien)
+          })),
+
+          // Các biến Tổng Cộng (Khớp với hình ảnh image_376df5.png)
+          sumTDK: new Intl.NumberFormat('vi-VN').format(totals.tdk),
+          sumNTK: new Intl.NumberFormat('vi-VN').format(totals.ntk),
+          sumXTK: new Intl.NumberFormat('vi-VN').format(totals.xtk),
+          sumTCK: new Intl.NumberFormat('vi-VN').format(totals.tck),
+          sumTien: formatCurrency(totals.tien),
+
+          // Các biến Thời Gian in (Khớp với hình ảnh image_376df5.png)
+          d: dd,
+          m: mm,
+          y: yyyy,
+          h: strHours,
+          ph: minutes,
+          ampm: ampm
+      };
+
+      // 4. Render
+      doc.render(dataToRender);
+
+      // 5. Xuất file
+      const out = doc.getZip().generate({
+          type: "blob",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      
+      saveAs(out, `BaoCao_XNT_${filters.endDate}.docx`);
 
   } catch (error) {
-    console.error(error);
-    alert("Lỗi tạo file Word!");
+      console.error("Lỗi in Word:", error);
+      if (error.properties && error.properties.errors) {
+          const errs = error.properties.errors.map(e => e.properties.explanation).join("\n");
+          alert("Lỗi Template Word: \n" + errs);
+      } else {
+          alert("Lỗi: " + error.message);
+      }
   }
 };
 
