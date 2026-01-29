@@ -16,7 +16,7 @@ public class PhieuXuat {
     @Column(name = "SoPhieu", length = 50)
     private String soPhieu;
 
-    // Sửa lỗi dòng 221 trong Service (Thiếu biến này)
+
     @ManyToOne
     @JoinColumn(name = "MaDonVi")
     private DonVi khachHang;

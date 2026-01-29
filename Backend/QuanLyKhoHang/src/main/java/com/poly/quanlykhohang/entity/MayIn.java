@@ -23,22 +23,25 @@ public class MayIn {
     @JoinColumn(name = "MaKho")
     private Kho kho;
 
-    // Trong DB là VARCHAR(50) lưu mã phiếu, không phải khóa ngoại cứng trong JPA
+
+    @ManyToOne
+    @JoinColumn(name = "MaHang")
+    private HangSanXuat hangSanXuat; // Đây là thằng "Chủ" của cột MaHang
+
+    // SỬA DÒNG NÀY: Thêm insertable = false, updatable = false
+    @Column(name = "MaHang", insertable = false, updatable = false)
+    private Integer maHang;
+    // ---------------------------
+
     @Column(name = "SoPhieuNhap", length = 50)
     private String soPhieuNhap;
 
-    @Column(name = "SoSeri", unique = true)
+    @Column(name = "SoSeri")
     private String soSeri;
 
     @Column(name = "NgayTao")
     private LocalDateTime ngayTao;
 
-    // Map với bảng TrangThai (1: Tồn, 2: Bán...)
     @Column(name = "MaTrangThai")
     private Integer trangThai;
-
-    // Bổ sung thêm MaHang nếu cần thiết theo DB
-    @ManyToOne
-    @JoinColumn(name = "MaHang")
-    private HangSanXuat hangSanXuat;
 }
