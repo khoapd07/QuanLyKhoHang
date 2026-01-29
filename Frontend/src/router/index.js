@@ -67,9 +67,28 @@ const router = createRouter({
   routes
 })
 
+// router.beforeEach((to, from, next) => {
+//   console.log("Dev Mode: Bypassing Auth check");
+//   next();
+// })
+
 router.beforeEach((to, from, next) => {
-  console.log("Dev Mode: Bypassing Auth check");
-  next();
+  // 1. Lấy token từ LocalStorage
+  const token = localStorage.getItem('token');
+  
+  // 2. Kiểm tra route cần bảo vệ (có meta: { requiresAuth: true })
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+
+  if (requiresAuth && !token) {
+    // Nếu cần login mà chưa có token -> Đá về trang Login
+    next('/login');
+  } else if (to.path === '/login' && token) {
+    // Nếu đã có token mà cố vào trang Login -> Đá về Dashboard
+    next('/dashboard');
+  } else {
+    // Cho phép đi tiếp
+    next();
+  }
 })
 
 export default router
