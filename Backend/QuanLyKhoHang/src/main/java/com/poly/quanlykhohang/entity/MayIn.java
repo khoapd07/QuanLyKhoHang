@@ -22,17 +22,7 @@ public class MayIn {
     @ManyToOne
     @JoinColumn(name = "MaKho")
     private Kho kho;
-
-    @ManyToOne
-    @JoinColumn(name = "MaLoai")
-    private LoaiSanPham loaiSanPham;
-
-    @ManyToOne
-    @JoinColumn(name = "MaHang")
-    private HangSanXuat hangSanXuat;
-
-    @Column(name = "MaHang", insertable = false, updatable = false)
-    private Integer maHang;
+    
 
     @Column(name = "SoPhieuNhap", length = 50)
     private String soPhieuNhap;

@@ -146,7 +146,7 @@ public class GiaoDichKhoService {
                     mayMoi.setTonKho(true);             // [QUAN TRỌNG] Nhập thì TonKho = true
 
                     mayMoi.setNgayTao(LocalDateTime.now());
-                    if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
+//                    if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
                     mayInDAO.save(mayMoi);
 
                     ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
@@ -394,7 +394,7 @@ public class GiaoDichKhoService {
             mayMoi.setTrangThai(trangThaiNhap);
             mayMoi.setTonKho(true); // Default ton kho
             mayMoi.setNgayTao(LocalDateTime.now());
-            if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
+//            if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
             mayInDAO.save(mayMoi);
 
             ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
