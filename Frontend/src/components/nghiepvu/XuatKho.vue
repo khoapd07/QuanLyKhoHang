@@ -18,7 +18,8 @@
                         <th>Số Phiếu</th>
                         <th>Ngày Xuất</th>
                         <th>Kho Xuất</th>
-                        <th>Khách Hàng</th> <th width="30%">Chi tiết (Sản phẩm x SL)</th>
+                        <th>Khách Hàng</th>
+                        <th width="30%">Chi tiết (Sản phẩm x SL)</th>
                         <th>Tổng SL</th>
                         <th>Tổng Tiền</th>
                         <th width="120px">Thao tác</th>
@@ -29,7 +30,6 @@
                         <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                         <td>{{ formatDate(item.ngayXuat) }}</td>
                         <td>{{ item.tenKho }}</td>
-                        
                         <td class="fw-bold">{{ item.tenKhachHang || '---' }}</td>
 
                         <td>
@@ -43,11 +43,17 @@
                         </td>
                         <td class="text-center fw-bold">{{ item.tongSoLuong }}</td>
                         <td class="text-end text-danger fw-bold">{{ formatCurrency(item.tongTien) }}</td>
+                        
                         <td class="text-center">
-                            <button class="btn btn-sm btn-outline-info me-1" @click="moChiTiet(item.soPhieu)">
+                            <button class="btn btn-sm btn-outline-info me-1" @click="moChiTiet(item.soPhieu)" title="Xem chi tiết">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @click="huyPhieu(item.soPhieu)">
+
+                            <span v-if="isYearLocked(item.ngayXuat)" class="text-muted ms-1" title="Đã chốt sổ năm này">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            
+                            <button v-else class="btn btn-sm btn-outline-danger" @click="huyPhieu(item.soPhieu)">
                                 <i class="fas fa-undo"></i>
                             </button>
                         </td>
@@ -97,8 +103,27 @@ const huyPhieu = async (soPhieu) => {
         alert("Đã hủy phiếu và hoàn trả kho thành công!");
         layDanhSach();
     } catch (error) {
-        alert("Lỗi: " + (error.response?.data || error.message));
+        // Hiển thị lỗi từ backend (VD: Năm đã chốt sổ...)
+        alert("Lỗi: " + (error.response?.data?.message || error.response?.data || error.message));
     }
+};
+
+// [LOGIC MỚI] Kiểm tra xem năm của phiếu có bị khóa không
+// Giả định: Các năm trước năm hiện tại đều đã được chốt sổ.
+const isYearLocked = (dateInput) => {
+    if (!dateInput) return false;
+    
+    let year = 0;
+    // Xử lý cả dạng mảng [yyyy, mm, dd...] và chuỗi ISO
+    if (Array.isArray(dateInput)) {
+        year = dateInput[0];
+    } else {
+        year = new Date(dateInput).getFullYear();
+    }
+
+    const currentYear = new Date().getFullYear();
+    // Nếu năm phiếu < năm hiện tại => Coi như đã chốt sổ => Khóa
+    return year < currentYear;
 };
 
 const splitSummary = (str) => str ? str.split(', ') : [];

@@ -298,46 +298,47 @@ public class GiaoDichKhoService {
         return phieuXuatDAO.save(savedPhieu);
     }
 
+    // ... code cũ ...
+
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuXuat(String soPhieu) {
         // 1. Tìm phiếu xuất
         PhieuXuat phieuXuat = phieuXuatDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
 
-        // 2. [QUAN TRỌNG] Kiểm tra xem năm của phiếu này đã bị chốt sổ chưa?
-        // Logic: Nếu đã tồn tại dữ liệu tồn kho của (Năm phiếu + 1) tại kho đó -> Đã chốt.
+        // 2. [SỬA LẠI LOGIC CHỐT SỔ]
+        // Lấy năm của phiếu xuất (Ví dụ: 2026)
         int namPhieu = phieuXuat.getNgayXuat().getYear();
         int khoId = phieuXuat.getKhoXuat().getMaKho();
 
-        // Hàm này trả về số lượng bản ghi tìm thấy trong DMTonKho của năm sau
-        int soLuongBanGhiChot = thongKeDAO.demSoLuongBanGhiChotSo(namPhieu + 1, khoId);
+        // Kiểm tra xem TRONG BẢNG DMTonKho ĐÃ CÓ DỮ LIỆU CỦA NĂM NÀY CHƯA?
+        // Nếu có (count > 0) => Năm nay đã chốt sổ => CẤM XÓA
+        // [SỬA]: Bỏ đoạn "+ 1" đi
+        int soLuongBanGhiChot = thongKeDAO.demSoLuongBanGhiChotSo(namPhieu, khoId);
 
         if (soLuongBanGhiChot > 0) {
-            throw new RuntimeException("KHÔNG THỂ XÓA! Năm " + namPhieu + " đã được chốt sổ. Dữ liệu lịch sử không được thay đổi.");
+            throw new RuntimeException("KHÔNG THỂ XÓA! Năm " + namPhieu + " đã được chốt sổ. Dữ liệu đã bị khóa.");
         }
 
-        // 3. Logic hoàn trả kho (nếu chưa chốt sổ)
+        // 3. Logic hoàn trả kho (Giữ nguyên không đổi)
         if (phieuXuat.getDanhSachChiTiet() != null) {
             for (ChiTietPhieuXuat ct : phieuXuat.getDanhSachChiTiet()) {
                 MayIn mayIn = ct.getMayIn();
                 if (mayIn != null) {
-                    // Trả lại kho -> Set TonKho = true
                     mayIn.setTonKho(true);
                     mayInDAO.save(mayIn);
 
-                    // Cộng lại số lượng sản phẩm tổng
                     SanPham sp = ct.getSanPham();
                     sp.setSoLuong(sp.getSoLuong() + 1);
                     sanPhamDAO.save(sp);
                 }
-                // Xóa dòng chi tiết
                 chiTietPhieuXuatDAO.delete(ct);
             }
         }
 
-        // 4. Xóa phiếu header
         phieuXuatDAO.delete(phieuXuat);
     }
+
 
     // Các hàm phụ (xoaDongChiTietNhap, themDongVaoPhieuCu, capNhatPhieuNhap)
     // giữ nguyên code cũ nhưng nhớ áp dụng logic TonKho tương tự hàm xoaPhieuNhap/nhapKho.
