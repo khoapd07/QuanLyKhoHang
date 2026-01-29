@@ -19,7 +19,11 @@ import XuatKho from '../components/nghiepvu/XuatKho.vue'
 import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' // [MỚI] Trang tạo phiếu xuất
 
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
+
 import TaiKhoan from '../components/admin/TaiKhoan.vue'
+
+import BaoCaoTonDauNam from '../components/baocao/ChotThongKeDauNam.vue'
+
 
 const routes = [
   { path: '/login', name: 'Login', component: Login },
@@ -48,6 +52,11 @@ const routes = [
 
       // Báo cáo & Hệ thống
       { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },
+
+
+      { path: 'bao-cao-ton-dau-nam', name: 'BaoCaoTonDauNam', component: BaoCaoTonDauNam },
+
+      // 5. Hệ thống
       { path: 'tai-khoan', name: 'TaiKhoan', component: TaiKhoan }
     ]
   }

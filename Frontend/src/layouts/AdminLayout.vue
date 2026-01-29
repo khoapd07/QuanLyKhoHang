@@ -119,12 +119,19 @@
             </li>
 
             <li class="nav-header">BÁO CÁO</li>
-            <li class="nav-item">
-              <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-pie-chart"></i>
-                <p>Tồn kho</p>
-              </router-link>
-            </li>
+
+              <li class="nav-item">
+                <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
+                  <i class="nav-icon bi bi-pie-chart"></i>
+                  <p>Tồn kho</p>
+                </router-link>
+              </li>
+
+              <li class="nav-item">
+                <router-link to="/bao-cao-ton-dau-nam" class="nav-link" active-class="active">
+                  <i class="nav-icon bi bi-calendar-check-fill"></i> <p>Chốt sổ đầu năm</p>
+                </router-link>
+              </li>
 
              <li class="nav-header">HỆ THỐNG</li>
             <li class="nav-item">
