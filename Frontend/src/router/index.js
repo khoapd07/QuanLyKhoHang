@@ -4,11 +4,12 @@ import Login from '../components/auth/Login.vue'
 import Dashboard from '../components/dashboard/Dashboard.vue'
 
 // Danh mục
-import SanPham from '../components/danhmuc/DanhMucMay.vue'
+import DMMay from '../components/danhmuc/DanhMucMay.vue'
 import DonVi from '../components/danhmuc/DonVi.vue'
 import Kho from '../components/danhmuc/KhoChiNhanh.vue'
 import LoaiSP from '../components/danhmuc/LoaiSP.vue'
 import Hang from '../components/danhmuc/HangSanXuat.vue'
+import DMSanPham from '../components/danhmuc/DMSanPham.vue'
 
 // Nghiệp vụ NHẬP
 import NhapKho from '../components/nghiepvu/NhapKho.vue'
@@ -37,10 +38,11 @@ const routes = [
       
       // Danh mục
       { path: 'loai-san-pham', component: LoaiSP },
-      { path: 'san-pham', name: 'SanPham', component: SanPham },
+      { path: 'danh-muc-may', name: 'DMMay', component: DMMay },
       { path: 'don-vi', name: 'DonVi', component: DonVi },
       { path: 'kho', name: 'Kho', component: Kho },
       { path: 'hang-san-xuat', name: 'Hang', component: Hang },
+      {path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
 
       // Nhập kho
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },

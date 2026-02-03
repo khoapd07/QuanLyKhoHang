@@ -73,11 +73,20 @@
             </li>
             
             <li class="nav-item">
-              <router-link to="/san-pham" class="nav-link" active-class="active">
+              <router-link to="/danh-muc-san-pham" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-box-seam"></i>
-                <p>Sản phẩm</p>
+                <p>Danh mục sản phẩm</p>
               </router-link>
             </li>
+
+            <li class="nav-item">
+              <router-link to="/danh-muc-may" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-box-seam"></i>
+                <p>Danh mục máy</p>
+              </router-link>
+            </li>
+
+
 
             <li class="nav-item">
               <router-link to="/don-vi" class="nav-link" active-class="active">
