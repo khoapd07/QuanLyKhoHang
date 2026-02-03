@@ -1,11 +1,13 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Sử dụng api từ utils thay vì axios thường
+import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
-// --- CẤU HÌNH ---
-const API_URL = 'http://localhost:8080/api/may-in';
-const API_KHO = 'http://localhost:8080/api/chi-nhanh'; // Hoặc /api/kho tùy route của bạn
+// --- CẤU HÌNH API ---
+// BaseURL đã là /api trong axios.js
+const API_URL = '/may-in'; 
+const API_KHO = '/kho'; 
 
 // --- STATE ---
 const danhSachMay = ref([]);
@@ -21,14 +23,14 @@ const form = reactive({
   
   // --- THÔNG TIN GỐC (READ ONLY) ---
   tenHang: '',     
-  tenLoai: '',     // Field Tên Loại
+  tenLoai: '',     
   ngayTao: '',     
   soPhieuNhap: '', 
   // ----------------------------------
 
   soSeri: '',      
-  trangThai: 1,    // Trạng thái vật lý (New/LikeNew...)
-  tonKho: true,    // [MỚI] Trạng thái tồn kho (True/False)
+  trangThai: 1,    
+  tonKho: true,    
   maKho: null      
 });
 
@@ -48,9 +50,11 @@ const getTrangThaiInfo = (id) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return '---';
-  // Xử lý cả dạng mảng [2024, 1, 1] và chuỗi ISO
+  // Xử lý dạng mảng [yyyy, MM, dd] từ Java LocalDate/LocalDateTime
   if (Array.isArray(dateString)) {
-      return `${dateString[2]}/${dateString[1]}/${dateString[0]}`;
+      // Giả sử mảng trả về [2024, 1, 1, 10, 30]
+      const [year, month, day, hour, minute] = dateString;
+      return `${day}/${month}/${year} ${hour ? hour : ''}:${minute ? minute : ''}`;
   }
   const date = new Date(dateString);
   return date.toLocaleString('vi-VN', { hour12: false });
@@ -60,15 +64,16 @@ const formatDate = (dateString) => {
 const loadData = async () => {
   isLoading.value = true;
   try {
-    // Gọi song song 2 API
+    // Sử dụng api.get để có Token
     const [resMay, resKho] = await Promise.all([
-      axios.get(API_URL),
-      axios.get(API_KHO)
+      api.get(API_URL),
+      api.get(API_KHO)
     ]);
     danhSachMay.value = resMay.data;
     danhSachKho.value = resKho.data;
   } catch (error) {
-    showMessage('danger', 'Lỗi tải dữ liệu: ' + (error.response?.data || error.message));
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
@@ -78,9 +83,9 @@ const openEditModal = (may) => {
   // 1. Map dữ liệu vào Form
   form.maMay = may.maMay;
   form.tenSP = may.sanPham?.tenSP || '---';
-  form.tenHang = may.sanPham?.hangSanXuat?.tenHang || '---';
   
-  // Lấy tên loại từ object loaiSanPham
+  // Logic truy cập lồng nhau chuẩn theo Entity mới
+  form.tenHang = may.sanPham?.hangSanXuat?.tenHang || '---';
   form.tenLoai = may.sanPham?.loaiSanPham?.tenLoai || '---'; 
 
   form.ngayTao = formatDate(may.ngayTao);
@@ -89,7 +94,7 @@ const openEditModal = (may) => {
   // 2. Thông tin cập nhật
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
-  form.tonKho = may.tonKho; // [MỚI] Load True/False từ DB
+  form.tonKho = may.tonKho; 
   form.maKho = may.kho?.maKho || null;
 
   const modalEl = document.getElementById('modalChiTietMay');
@@ -103,26 +108,32 @@ const saveChanges = async () => {
       maMay: form.maMay,
       soSeri: form.soSeri,
       trangThai: form.trangThai,
-      tonKho: form.tonKho, // [MỚI] Gửi cả trạng thái tồn kho lên
-      kho: { maKho: form.maKho }
+      tonKho: form.tonKho,
+      // Gửi object Kho để Backend map vào Entity MayIn
+      kho: form.maKho ? { maKho: form.maKho } : null
     };
-    await axios.put(`${API_URL}/${form.maMay}`, payload);
+    
+    // api.put
+    await api.put(`${API_URL}/${form.maMay}`, payload);
+    
     showMessage('success', 'Cập nhật thông tin thành công!');
     if (modalInstance) modalInstance.hide();
     loadData();
   } catch (error) {
-    showMessage('danger', 'Lỗi cập nhật: ' + (error.response?.data || error.message));
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Lỗi cập nhật: ' + msg);
   }
 };
 
 const deleteMay = async (id, seri) => {
   if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn máy ${seri || id}?`)) return;
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa máy thành công!');
     loadData();
   } catch (error) {
-    showMessage('danger', 'Không thể xóa: ' + (error.response?.data || error.message));
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Không thể xóa: ' + msg);
   }
 };
 
@@ -174,12 +185,14 @@ onMounted(() => {
                 <td class="fw-bold text-primary">{{ may.maMay || '(Trống)' }}</td>
                 <td>
                   <div>{{ may.sanPham?.tenSP }}</div>
-                  <small class="text-muted" v-if="may.hangSanXuat">{{ may.hangSanXuat.tenHang }}</small>
+                  <small class="text-muted" v-if="may.sanPham?.hangSanXuat">
+                    {{ may.sanPham.hangSanXuat.tenHang }}
+                  </small>
                 </td>
                 
                 <td class="text-center">
                   <span class="badge bg-light text-dark border">
-                    {{ may.loaiSanPham?.tenLoai || '---' }}
+                    {{ may.sanPham?.loaiSanPham?.tenLoai || '---' }}
                   </span>
                 </td>
 

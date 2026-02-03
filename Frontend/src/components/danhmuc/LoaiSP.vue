@@ -1,19 +1,23 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api từ utils để tự động gửi Token
+import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-const API_URL = 'http://localhost:8080/api/loai-san-pham';
+// Backend: @RequestMapping("/api/loai-san-pham")
+// Axios BaseURL: http://localhost:8080/api
+// => Chỉ cần khai báo:
+const API_URL = '/loai-san-pham';
 
 // --- STATE (Trạng thái) ---
 const danhSach = ref([]);
 const isLoading = ref(false);
-const message = ref({ type: '', text: '' }); // Thông báo
-const isEditMode = ref(false); // Cờ kiểm tra đang Thêm hay Sửa
-let modalInstance = null; // Biến giữ Modal Bootstrap
+const message = ref({ type: '', text: '' }); 
+const isEditMode = ref(false); 
+let modalInstance = null; 
 
-// Model Form (Dựa theo Entity LoaiSanPham trong Java)
+// Model Form
 const form = reactive({
   maLoai: '',
   tenLoai: ''
@@ -25,10 +29,11 @@ const form = reactive({
 const loadData = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get(API_URL);
+    const response = await api.get(API_URL);
     danhSach.value = response.data;
   } catch (error) {
-    showMessage('danger', 'Không thể tải dữ liệu: ' + error.message);
+    const msg = error.response?.data?.message || error.message;
+    showMessage('danger', 'Không thể tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
@@ -37,25 +42,26 @@ const loadData = async () => {
 // 2. Lưu dữ liệu (POST / PUT)
 const saveData = async () => {
   // Validate cơ bản
-  if (!form.tenLoai) {
-    showMessage('warning', 'Vui lòng nhập tên loại!');
+  if (!form.tenLoai.trim()) {
+    showMessage('warning', 'Vui lòng nhập tên loại sản phẩm!');
     return;
   }
 
   try {
     if (isEditMode.value) {
       // Cập nhật (PUT)
-      await axios.put(`${API_URL}/${form.maLoai}`, form);
+      // Đường dẫn: /api/loai-san-pham/{id}
+      await api.put(`${API_URL}/${form.maLoai}`, form);
       showMessage('success', 'Cập nhật loại sản phẩm thành công!');
     } else {
       // Thêm mới (POST)
-      await axios.post(API_URL, form);
+      await api.post(API_URL, form);
       showMessage('success', 'Thêm mới loại sản phẩm thành công!');
     }
     closeModal();
     loadData(); // Load lại bảng
   } catch (error) {
-    const errorMsg = error.response?.data?.message || error.message;
+    const errorMsg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + errorMsg);
   }
 };
@@ -65,17 +71,18 @@ const deleteData = async (id) => {
   if (!confirm(`Bạn có chắc chắn muốn xóa loại sản phẩm #${id} không?`)) return;
 
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
     loadData();
   } catch (error) {
-    showMessage('danger', 'Không thể xóa (có thể dữ liệu đang được sử dụng): ' + error.message);
+    // Thường lỗi do dính khóa ngoại (Đã có sản phẩm thuộc loại này)
+    const msg = error.response?.data?.message || 'Không thể xóa (có thể dữ liệu đang được sử dụng)';
+    showMessage('danger', msg);
   }
 };
 
 // --- HÀM HỖ TRỢ GIAO DIỆN ---
 
-// Hiển thị thông báo tạm thời
 const showMessage = (type, text) => {
   message.value = { type, text };
   setTimeout(() => message.value = { type: '', text: '' }, 3000);
@@ -95,7 +102,7 @@ const openAddModal = () => {
 // Mở Modal Sửa
 const openEditModal = (item) => {
   isEditMode.value = true;
-  form.maLoai = item.maLoai; // Copy dữ liệu vào form
+  form.maLoai = item.maLoai;
   form.tenLoai = item.tenLoai;
 
   const modalEl = document.getElementById('modalLoaiSP');
@@ -103,7 +110,6 @@ const openEditModal = (item) => {
   modalInstance.show();
 };
 
-// Đóng Modal
 const closeModal = () => {
   if (modalInstance) {
     modalInstance.hide();
@@ -151,10 +157,10 @@ onMounted(() => {
             
             <tr v-else v-for="item in danhSach" :key="item.maLoai">
               <td class="text-center fw-bold">{{ item.maLoai }}</td>
-              <td>{{ item.tenLoai }}</td>
+              <td class="fw-medium">{{ item.tenLoai }}</td>
               <td class="text-center">
-                <button class="btn btn-sm btn-outline-warning me-2" @click="openEditModal(item)">
-                  <i class="bi bi-pencil"></i> Sửa
+                <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
+                  <i class="bi bi-pencil-square"></i> Sửa
                 </button>
                 <button class="btn btn-sm btn-outline-danger" @click="deleteData(item.maLoai)">
                   <i class="bi bi-trash"></i> Xóa
@@ -182,7 +188,10 @@ onMounted(() => {
           <div class="modal-body">
             <form @submit.prevent="saveData">
               
-              
+              <div class="mb-3" v-if="isEditMode">
+                <label class="form-label text-muted">Mã Loại</label>
+                <input type="text" class="form-control" :value="form.maLoai" disabled readonly>
+              </div>
 
               <div class="mb-3">
                 <label class="form-label">Tên Loại <span class="text-danger">*</span></label>
@@ -192,6 +201,7 @@ onMounted(() => {
                   class="form-control" 
                   required 
                   placeholder="Ví dụ: Điện thoại, Laptop..."
+                  autofocus
                 >
               </div>
 
@@ -211,7 +221,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* CSS tùy chỉnh cho component này */
 .table th, .table td {
   vertical-align: middle;
 }

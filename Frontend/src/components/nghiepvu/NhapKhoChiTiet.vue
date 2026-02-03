@@ -11,7 +11,7 @@
                 <div class="modal-body" v-if="chiTiet">
                     <div class="row mb-3 p-3 bg-light border rounded mx-1 shadow-sm">
                         <div class="col-md-3"><strong>Ngày Nhập:</strong> {{ formatDate(chiTiet.ngayNhap) }}</div>
-                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap.tenKho}}</div>
+                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap?.tenKho || '---' }}</div>
                         <div class="col-md-3"><strong>Tổng SL:</strong> <span class="badge bg-primary">{{ chiTiet.tongSoLuong }}</span></div>
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                     </div>
@@ -108,7 +108,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api để có Token tránh lỗi 403
+import api from '@/utils/axios'; 
 
 const props = defineProps(['soPhieu']);
 const emit = defineEmits(['close', 'update-success']);
@@ -117,48 +118,80 @@ const chiTiet = ref(null);
 const listSanPham = ref([]);
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
+// 1. Load chi tiết phiếu
 const loadChiTiet = async () => {
     try {
-        const res = await axios.get(`/api/kho/nhap/${props.soPhieu}`);
+        // API: /api/kho/nhap/{soPhieu} -> (Sửa từ /phieu-nhap/...)
+        const res = await api.get(`/kho/nhap/${props.soPhieu}`);
         chiTiet.value = res.data;
+    } catch (e) { 
+        console.error(e); 
+        alert("Lỗi tải chi tiết: " + (e.response?.data?.message || e.message));
+    }
+};
+
+// 2. Load danh sách sản phẩm để chọn
+const loadSanPham = async () => {
+    try {
+        // API: /api/san-pham (Nếu SanPhamController map là /api/san-pham)
+        // Nếu SanPhamController map là /api/admin/san-pham hay gì khác thì sửa ở đây
+        const res = await api.get('/san-pham');
+        listSanPham.value = res.data;
     } catch (e) { console.error(e); }
 };
 
-const loadSanPham = async () => {
-    try {
-        const res = await axios.get('/api/san-pham');
-        listSanPham.value = res.data;
-    } catch (e) {}
-};
-
+// 3. Xóa dòng chi tiết
 const xoaDong = async (maCTPN) => {
     if(!confirm("Xóa vĩnh viễn máy này?")) return;
     try {
-        await axios.delete(`/api/kho/nhap/chi-tiet/${maCTPN}`);
-        alert("Đã xóa!");
+        // API: DELETE /api/kho/nhap/chi-tiet/{id}
+        await api.delete(`/kho/nhap/chi-tiet/${maCTPN}`);
+        alert("Đã xóa thành công!");
         loadChiTiet(); 
         emit('update-success');
-    } catch (e) { alert("Lỗi: " + (e.response?.data || e.message)); }
+    } catch (e) { 
+        const msg = e.response?.data?.message || e.response?.data || e.message;
+        alert("Lỗi xóa: " + msg); 
+    }
 };
 
+// 4. Bổ sung máy mới vào phiếu cũ
 const themMoiVaoPhieu = async () => {
+    if (!newItem.value.maSP) {
+        alert("Vui lòng chọn sản phẩm!");
+        return;
+    }
     try {
-        await axios.post(`/api/kho/nhap/${props.soPhieu}/bo-sung`, newItem.value);
-        alert("Thành công!");
+        // API: POST /api/kho/nhap/{soPhieu}/bo-sung
+        await api.post(`/kho/nhap/${props.soPhieu}/bo-sung`, newItem.value);
+        
+        alert("Thêm mới thành công!");
+        // Reset form
         newItem.value = { maSP: '', donGia: 0, soLuong: 1 };
         loadChiTiet();
         emit('update-success');
-    } catch (e) { alert("Lỗi: " + (e.response?.data || e.message)); }
+    } catch (e) { 
+        const msg = e.response?.data?.message || e.response?.data || e.message;
+        alert("Lỗi thêm mới: " + msg); 
+    }
 };
 
 const formatDate = (d) => {
     if(!d) return '';
-    if(Array.isArray(d)) return `${d[2]}/${d[1]}/${d[0]}`;
+    if(Array.isArray(d)) {
+        const [year, month, day, hour, minute] = d;
+        const f = (n) => n < 10 ? '0' + n : n;
+        return `${f(day)}/${f(month)}/${year} ${hour ? f(hour) + ':' + f(minute) : ''}`;
+    }
     return new Date(d).toLocaleString('vi-VN');
 };
+
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
 
-onMounted(() => { loadChiTiet(); loadSanPham(); });
+onMounted(() => { 
+    loadChiTiet(); 
+    loadSanPham(); 
+});
 </script>
 
 <style scoped>

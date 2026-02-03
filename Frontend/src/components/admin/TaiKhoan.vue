@@ -1,11 +1,13 @@
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue';
-import axios from 'axios';
+import { ref, onMounted, reactive } from 'vue';
+// [QUAN TRỌNG] Import instance 'api' đã cấu hình Interceptor thay vì 'axios' thường
+import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-const API_USER = 'http://localhost:8080/api/admin/tai-khoan';
-const API_KHO = 'http://localhost:8080/api/chi-nhanh'; // Dùng lại API Kho đã làm trước đó
+// Lưu ý: baseURL đã là 'http://localhost:8080/api' trong file axios.js
+const API_USER = '/admin/tai-khoan'; 
+const API_KHO = '/kho'; 
 
 // --- STATE ---
 const danhSachUser = ref([]);
@@ -15,7 +17,7 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
-// Danh sách Vai trò (Cứng vì ít thay đổi, hoặc có thể gọi API nếu có)
+// Danh sách Vai trò (Map theo Logic DB: 1=Admin, 2=Staff)
 const danhSachVaiTro = [
   { id: 1, ten: 'Admin (Quản trị viên)' },
   { id: 2, ten: 'Staff (Nhân viên kho)' }
@@ -36,16 +38,18 @@ const form = reactive({
 const loadData = async () => {
   isLoading.value = true;
   try {
-    // Gọi song song cả 2 API để tiết kiệm thời gian
+    // Gọi bằng 'api' để có Token
     const [resUsers, resKho] = await Promise.all([
-      axios.get(API_USER),
-      axios.get(API_KHO)
+      api.get(API_USER),
+      api.get(API_KHO)
     ]);
     
     danhSachUser.value = resUsers.data;
     danhSachKho.value = resKho.data;
   } catch (error) {
-    showMessage('danger', 'Lỗi tải dữ liệu: ' + (error.response?.data || error.message));
+    // Xử lý lỗi chuẩn (nếu hết hạn token axios.js đã lo, đây chỉ lo lỗi data)
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
@@ -60,10 +64,10 @@ const saveData = async () => {
   }
 
   // Chuẩn bị payload gửi đi
-  // Controller yêu cầu: maVaitro, maKho (dạng ID Integer)
   const payload = {
     maVaitro: form.maVaitro,
-    maKho: form.maKho
+    maKho: form.maKho ? { maKho: form.maKho } : null // Gửi dạng Object nếu Backend yêu cầu Entity
+    // Hoặc nếu Backend chỉ nhận ID: maKho: form.maKho
   };
 
   if (!isEditMode.value) {
@@ -74,18 +78,18 @@ const saveData = async () => {
 
   try {
     if (isEditMode.value) {
-      // API Update: PUT /api/admin/tai-khoan/{id}
-      await axios.put(`${API_USER}/${form.maTaiKhoan}`, payload);
+      // API Update: PUT /tai-khoan/{id}
+      await api.put(`${API_USER}/${form.maTaiKhoan}`, payload);
       showMessage('success', 'Cập nhật tài khoản thành công!');
     } else {
-      // API Create: POST /api/admin/tai-khoan
-      await axios.post(API_USER, payload);
+      // API Create: POST /tai-khoan
+      await api.post(API_USER, payload);
       showMessage('success', 'Tạo tài khoản mới thành công!');
     }
     closeModal();
     loadData(); // Tải lại bảng
   } catch (error) {
-    const msg = error.response?.data || error.message;
+    const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
   }
 };
@@ -95,11 +99,12 @@ const deleteData = async (id, name) => {
   if (!confirm(`Bạn có chắc muốn xóa tài khoản [${name}]? Hành động này không thể hoàn tác.`)) return;
 
   try {
-    await axios.delete(`${API_USER}/${id}`);
+    await api.delete(`${API_USER}/${id}`);
     showMessage('success', 'Đã xóa tài khoản thành công!');
     loadData();
   } catch (error) {
-    showMessage('danger', 'Không thể xóa: ' + (error.response?.data || error.message));
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Không thể xóa: ' + msg);
   }
 };
 
@@ -111,28 +116,29 @@ const showMessage = (type, text) => {
 };
 
 // Hàm lấy tên Kho từ ID (để hiển thị trên bảng)
-const getTenKho = (khoObjectOrId) => {
-  // Backend có thể trả về object {maKho: 1, tenKho: '...'} hoặc chỉ số ID
-  if (!khoObjectOrId) return '---';
-  
-  // Trường hợp trả về Object
-  if (typeof khoObjectOrId === 'object' && khoObjectOrId.tenKho) {
-    return khoObjectOrId.tenKho;
+const getTenKho = (khoInput) => {
+  // Trường hợp backend trả về null
+  if (!khoInput) return '---';
+
+  // Trường hợp backend trả về Object Kho {maKho: 1, tenKho: '...'}
+  if (typeof khoInput === 'object' && khoInput.tenKho) {
+    return khoInput.tenKho;
   }
   
-  // Trường hợp trả về ID, tìm trong danhSachKho
-  const found = danhSachKho.value.find(k => k.maKho === khoObjectOrId);
-  return found ? found.tenKho : `Kho #${khoObjectOrId}`;
+  // Trường hợp backend trả về ID (số), tìm trong danhSachKho đã tải
+  const found = danhSachKho.value.find(k => k.maKho === khoInput);
+  return found ? found.tenKho : `Kho #${khoInput}`;
 };
 
 // Hàm lấy tên Vai trò
-const getTenVaiTro = (roleObjOrId) => {
-  let id = roleObjOrId;
-  if (typeof roleObjOrId === 'object' && roleObjOrId?.maVaitro) {
-    id = roleObjOrId.maVaitro;
-  }
-  const found = danhSachVaiTro.find(r => r.id === id);
-  return found ? found.ten : 'Không xác định';
+const getTenVaiTro = (roleInput) => {
+    // Backend trả về số (1, 2) hoặc Object
+    let id = roleInput;
+    if (typeof roleInput === 'object' && roleInput?.maVaitro) {
+        id = roleInput.maVaitro;
+    }
+    const found = danhSachVaiTro.find(r => r.id === id);
+    return found ? found.ten : 'Không xác định';
 };
 
 // Mở Modal Thêm
@@ -142,6 +148,8 @@ const openAddModal = () => {
   form.tenTaiKhoan = '';
   form.password = '';
   form.maVaitro = 2; // Mặc định Staff
+  
+  // Tự chọn kho đầu tiên nếu có
   form.maKho = danhSachKho.value.length > 0 ? danhSachKho.value[0].maKho : null;
 
   const modalEl = document.getElementById('modalTaiKhoan');
@@ -153,13 +161,18 @@ const openAddModal = () => {
 const openEditModal = (item) => {
   isEditMode.value = true;
   form.maTaiKhoan = item.maTaiKhoan;
-  form.tenTaiKhoan = item.tenTaiKhoan; // Chỉ để hiển thị, không gửi đi update
-  form.password = ''; // Không cần fill pass cũ
+  form.tenTaiKhoan = item.tenTaiKhoan; 
+  form.password = ''; // Reset pass khi mở form sửa
   
-  // Xử lý map dữ liệu từ Item vào Form
-  // Nếu backend trả về object Kho/Vaitro thì lấy ID, nếu trả về ID thì lấy thẳng
-  form.maVaitro = (typeof item.vaiTro === 'object') ? item.vaiTro.maVaitro : item.maVaitro;
-  form.maKho = (typeof item.kho === 'object') ? item.kho.maKho : item.maKho;
+  // Map dữ liệu vào form (xử lý cả trường hợp trả về Object hoặc ID)
+  form.maVaitro = (typeof item.maVaitro === 'object') ? item.maVaitro.maVaitro : item.maVaitro;
+  
+  // Kiểm tra item.kho (hoặc item.maKho) tùy JSON backend trả về
+  if (item.kho && typeof item.kho === 'object') {
+     form.maKho = item.kho.maKho;
+  } else {
+     form.maKho = item.maKho;
+  }
 
   const modalEl = document.getElementById('modalTaiKhoan');
   modalInstance = new bootstrap.Modal(modalEl);

@@ -27,7 +27,8 @@
                 <div class="form-group">
                   <label>Kho/Chi nhánh áp dụng</label>
                   <select class="form-control" v-model="filters.warehouseId">
-                    <option v-for="kho in khoList" :key="kho.id" :value="kho.id">{{ kho.name }}</option>
+                    <option :value="0">Tất cả các kho (Tổng hợp)</option>
+                    <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                   </select>
                 </div>
               </div>
@@ -47,7 +48,7 @@
 
         <div class="card mt-4" v-if="reportData.length > 0">
           <div class="card-header">
-            <h3 class="card-title text-success"><i class="fas fa-check-circle"></i> {{ reportTitle }}</h3>
+            <h3 class="card-title text-success"><i class="fas fa-check-circle"></i> Kết quả chốt sổ: {{ currentTenKho }}</h3>
           </div>
           <div class="card-body table-responsive">
             <table class="table table-bordered table-striped">
@@ -91,33 +92,42 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
-import axios from 'axios';
+import { ref, reactive, onMounted } from 'vue';
+// [QUAN TRỌNG] Dùng api từ utils
+import api from '@/utils/axios';
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
 // --- CẤU HÌNH API ---
-const API_BASE = 'http://localhost:8080/api/thong-ke'; 
+const API_BASE = '/thong-ke'; 
 
 // --- STATE ---
 const filters = reactive({
-  nam: new Date().getFullYear() - 1, // Mặc định năm sau
-  warehouseId: 1, 
+  nam: new Date().getFullYear() - 1, // Mặc định năm trước để chốt sang năm nay
+  warehouseId: 0, 
 });
 
-const khoList = ref([
-    { id: 1, name: 'Kho Tổng Hà Nội' },
-    { id: 2, name: 'Kho Chi Nhánh HCM' }
-]);
-
+const khoList = ref([]);
 const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
 
+// --- LOAD DATA ---
+const loadKho = async () => {
+    try {
+        // API lấy danh sách kho: /api/kho
+        const res = await api.get('/kho');
+        khoList.value = res.data;
+        // Nếu có kho thì set mặc định cái đầu tiên (hoặc để 0 là tất cả)
+        if (res.data.length > 0) filters.warehouseId = res.data[0].maKho;
+    } catch (e) {
+        console.error("Lỗi tải kho:", e);
+    }
+};
+
 // --- HELPER FUNCTIONS ---
 
-// 1. Hàm tải file mẫu (Dùng fetch cho hiện đại, không lỗi)
 const loadFile = async (url) => {
     const response = await fetch(url);
     if (!response.ok) {
@@ -126,7 +136,6 @@ const loadFile = async (url) => {
     return await response.arrayBuffer();
 };
 
-// 2. Format tiền tệ
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '0';
   return new Intl.NumberFormat('vi-VN').format(value);
@@ -139,10 +148,12 @@ const thucHienChotSo = async () => {
   }
 
   loading.value = true;
-  reportData.value = []; // Reset bảng
+  reportData.value = []; 
 
   try {
-    const response = await axios.post(`${API_BASE}/chot-so`, null, {
+    // API: POST /api/thong-ke/chot-so
+    // Backend @RequestParam: nam, maKho
+    const response = await api.post(`${API_BASE}/chot-so`, null, {
       params: {
         nam: filters.nam,
         maKho: filters.warehouseId
@@ -150,6 +161,7 @@ const thucHienChotSo = async () => {
     });
 
     const data = response.data;
+    // Backend trả về: { tenKho: "...", danhSachChiTiet: [...] } (BaoCaoResponseDTO)
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet;
     
@@ -157,7 +169,8 @@ const thucHienChotSo = async () => {
 
   } catch (error) {
     console.error("Lỗi:", error);
-    alert("Lỗi khi chốt sổ: " + (error.response?.data || error.message));
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    alert("Lỗi khi chốt sổ: " + msg);
   } finally {
     loading.value = false;
   }
@@ -171,18 +184,14 @@ const printToWord = async () => {
   }
 
   try {
-      // 1. Tải file mẫu từ thư mục public
-      // Bạn cần tạo file này theo hướng dẫn bên dưới
       const content = await loadFile("/File_Mau_BaoCaoChotSoNam.docx");
-
-      // 2. Khởi tạo Docxtemplater
       const zip = new PizZip(content);
       const doc = new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
       });
 
-      // --- TÍNH TỔNG CỘNG ---
+      // Tính tổng
       const totals = reportData.value.reduce((acc, item) => {
           acc.tdk += item.tonDau || 0;
           acc.ntk += item.nhapTrong || 0;
@@ -192,36 +201,31 @@ const printToWord = async () => {
           return acc;
       }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-      // --- XỬ LÝ NGÀY GIỜ (AM/PM) ---
+      // Ngày giờ
       const today = new Date();
-      
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yyyy = today.getFullYear();
-
       let hours = today.getHours();
       const minutes = String(today.getMinutes()).padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12;
-      hours = hours ? hours : 12; // Giờ 0 đổi thành 12
+      hours = hours ? hours : 12; 
       const strHours = String(hours).padStart(2, '0');
 
-      // 3. Map dữ liệu vào Template
+      // Map dữ liệu
       const dataToRender = {
           nam: filters.nam,
           tenKho: currentTenKho.value || "Kho chưa xác định",
           
-          // Ngày giờ in
           d: dd, m: mm, y: yyyy, h: strHours, ph: minutes, ampm: ampm,
 
-          // Các biến tổng cộng
-          sumTDK: new Intl.NumberFormat('vi-VN').format(totals.tdk),
-          sumNTK: new Intl.NumberFormat('vi-VN').format(totals.ntk),
-          sumXTK: new Intl.NumberFormat('vi-VN').format(totals.xtk),
-          sumTCK: new Intl.NumberFormat('vi-VN').format(totals.tck),
+          sumTDK: formatCurrency(totals.tdk),
+          sumNTK: formatCurrency(totals.ntk),
+          sumXTK: formatCurrency(totals.xtk),
+          sumTCK: formatCurrency(totals.tck),
           sumTien: formatCurrency(totals.tien),
 
-          // Vòng lặp bảng: {#p} ... {/p}
           p: reportData.value.map((item, index) => ({
               stt: index + 1,
               ma: item.maSP || "",
@@ -236,10 +240,8 @@ const printToWord = async () => {
           }))
       };
 
-      // 4. Render dữ liệu
       doc.render(dataToRender);
 
-      // 5. Xuất file
       const out = doc.getZip().generate({
           type: "blob",
           mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -249,18 +251,14 @@ const printToWord = async () => {
 
   } catch (error) {
       console.error("Lỗi in Word:", error);
-      if (error.properties && error.properties.errors) {
-          const errs = error.properties.errors.map(e => e.properties.explanation).join("\n");
-          alert("Lỗi Template Word: \n" + errs);
-      } else {
-          alert("Lỗi: " + error.message);
-      }
+      alert("Lỗi xuất file: " + error.message);
   }
 };
+
+onMounted(() => loadKho());
 </script>
 
 <style scoped>
-/* CSS cho đẹp form */
 .card-warning.card-outline {
   border-top: 3px solid #ffc107;
 }

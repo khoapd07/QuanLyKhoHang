@@ -71,8 +71,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api thay axios thường
+import api from '@/utils/axios'; 
 import XuatKhoChiTiet from './XuatKhoChiTiet.vue';
+
+// CẤU HÌNH API: Khớp với KhoController -> /api/kho/xuat
+const API_URL = '/kho/xuat'; 
 
 const danhSachPhieu = ref([]);
 const loading = ref(false);
@@ -82,10 +86,11 @@ const selectedSoPhieu = ref(null);
 const layDanhSach = async () => {
     loading.value = true;
     try {
-        const res = await axios.get('/api/kho/xuat');
+        const res = await api.get(API_URL);
         danhSachPhieu.value = res.data;
     } catch (error) {
         console.error(error);
+        // Có thể alert lỗi nếu cần
     } finally {
         loading.value = false;
     }
@@ -99,12 +104,14 @@ const moChiTiet = (soPhieu) => {
 const huyPhieu = async (soPhieu) => {
     if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Có thể bán lại). Tiếp tục?`)) return;
     try {
-        await axios.delete(`/api/kho/xuat/${soPhieu}`);
+        // DELETE /api/kho/xuat/{soPhieu}
+        await api.delete(`${API_URL}/${soPhieu}`);
         alert("Đã hủy phiếu và hoàn trả kho thành công!");
         layDanhSach();
     } catch (error) {
         // Hiển thị lỗi từ backend (VD: Năm đã chốt sổ...)
-        alert("Lỗi: " + (error.response?.data?.message || error.response?.data || error.message));
+        const msg = error.response?.data?.message || error.response?.data || error.message;
+        alert("Lỗi: " + msg);
     }
 };
 
@@ -132,7 +139,9 @@ const formatDate = (dateArray) => {
     if (!dateArray) return '';
     if (Array.isArray(dateArray)) {
         const [year, month, day, hour, minute] = dateArray;
-        return `${day}/${month}/${year} ${hour}:${minute}`;
+        // Thêm số 0 nếu < 10
+        const f = (n) => n < 10 ? '0' + n : n;
+        return `${f(day)}/${f(month)}/${year} ${hour ? f(hour) + ':' + f(minute) : ''}`;
     }
     return new Date(dateArray).toLocaleString('vi-VN');
 };

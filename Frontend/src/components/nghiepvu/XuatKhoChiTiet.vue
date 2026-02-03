@@ -56,7 +56,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api instance thay vì axios thường
+import api from '@/utils/axios';
 
 const props = defineProps(['soPhieu']);
 const emit = defineEmits(['close']);
@@ -64,17 +65,26 @@ const chiTiet = ref(null);
 
 onMounted(async () => {
     try {
-        const res = await axios.get(`/api/kho/xuat/${props.soPhieu}`);
+        // API: /api/kho/xuat/{soPhieu}
+        // BaseURL axios là /api -> Gọi /kho/xuat/{soPhieu}
+        const res = await api.get(`/kho/xuat/${props.soPhieu}`);
         chiTiet.value = res.data;
     } catch (e) {
-        alert("Không tải được chi tiết");
+        console.error(e);
+        // Hiển thị lỗi rõ ràng hơn nếu cần
+        // alert("Không tải được chi tiết: " + (e.response?.data || e.message));
         emit('close');
     }
 });
 
 const formatDate = (dateArray) => {
     if (!dateArray) return '';
-    if (Array.isArray(dateArray)) return `${dateArray[2]}/${dateArray[1]}/${dateArray[0]} ${dateArray[3]}:${dateArray[4]}`;
+    if (Array.isArray(dateArray)) {
+        const [year, month, day, hour, minute] = dateArray;
+        // Thêm số 0 nếu < 10
+        const f = (n) => n < 10 ? '0' + n : n;
+        return `${f(day)}/${f(month)}/${year} ${hour ? f(hour) + ':' + f(minute) : ''}`;
+    }
     return new Date(dateArray).toLocaleString('vi-VN');
 };
 

@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api từ utils
+import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-const API_URL = 'http://localhost:8080/api/don-vi';
+// Kiểm tra DonViController: @RequestMapping("/api/don-vi")
+const API_URL = '/don-vi'; 
 
 // --- TRẠNG THÁI (STATE) ---
 const danhSach = ref([]);
@@ -20,10 +22,10 @@ const form = reactive({
   soDienThoai: '',
   email: '',
   diaChi: '',
-  loaiDonVi: 1 // Mặc định 1 (Ví dụ: 1 là NCC, 2 là Khách hàng - tuỳ dữ liệu mẫu của bạn)
+  loaiDonVi: 1 // Mặc định ID=1
 });
 
-// Danh sách loại đơn vị (Tạm thời hardcode, nếu có API LoaiDonVi thì gọi API đổ vào đây)
+// Danh sách loại đơn vị (Mapping cứng theo DB)
 const listLoaiDonVi = [
   { id: 1, ten: 'Nhà Cung Cấp' },
   { id: 2, ten: 'Khách Hàng' },
@@ -36,10 +38,11 @@ const listLoaiDonVi = [
 const loadData = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get(API_URL);
+    const response = await api.get(API_URL);
     danhSach.value = response.data;
   } catch (error) {
-    showMessage('danger', 'Lỗi tải dữ liệu: ' + error.message);
+    const msg = error.response?.data?.message || error.message;
+    showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
@@ -53,21 +56,37 @@ const saveData = async () => {
     return;
   }
 
+  // [SỬA LỖI] Vì Entity DonVi bên Backend khai báo là 'Integer loaiDonVi',
+  // nên ta gửi nguyên form (đang chứa số 1, 2...) là đúng.
+  // KHÔNG được bọc thành object { loaiDonVi: ... } nữa.
+  const payload = { ...form };
+
   try {
     if (isEditMode.value) {
-      // Cập nhật (PUT)
-      await axios.put(`${API_URL}/${form.maDonVi}`, form);
+      await api.put(`${API_URL}/${form.maDonVi}`, payload);
       showMessage('success', 'Cập nhật thông tin thành công!');
     } else {
-      // Thêm mới (POST)
-      await axios.post(API_URL, form);
+      await api.post(API_URL, payload);
       showMessage('success', 'Thêm mới đơn vị thành công!');
     }
     closeModal();
     loadData();
   } catch (error) {
-    // Lấy thông báo lỗi từ Backend (dòng return ResponseEntity.badRequest().body(...))
-    const msg = error.response?.data || error.message;
+    // In chi tiết lỗi ra console để kiểm tra (F12)
+    console.error("API Error:", error);
+
+    // Lấy thông báo lỗi
+    let msg = "Lỗi không xác định";
+    if (error.response) {
+        // Ưu tiên lấy message từ body response của Backend
+        msg = error.response.data?.message || error.response.data || error.message;
+        
+        // Nếu là lỗi 403 -> Do quyền
+        if (error.response.status === 403) msg = "Bạn không có quyền thực hiện (Cần Admin)";
+        // Nếu là lỗi 400 -> Do dữ liệu sai định dạng
+        if (error.response.status === 400) msg = "Dữ liệu gửi lên không hợp lệ (Kiểm tra mã trùng hoặc kiểu dữ liệu)";
+    }
+    
     showMessage('danger', 'Lỗi: ' + msg);
   }
 };
@@ -77,21 +96,26 @@ const deleteData = async (id) => {
   if (!confirm(`Bạn có chắc chắn muốn xóa đơn vị [${id}] không?`)) return;
 
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
     loadData();
   } catch (error) {
-    const msg = error.response?.data || error.message;
-    showMessage('danger', 'Không thể xóa: ' + msg);
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Không thể xóa (có thể đơn vị này đang có giao dịch): ' + msg);
   }
 };
 
 // --- HELPER FUNCTIONS ---
 
-// Helper hiển thị tên loại đơn vị từ ID
-const getTenLoai = (id) => {
+// Helper hiển thị tên loại đơn vị
+const getTenLoai = (loaiInput) => {
+  let id = loaiInput;
+  // Nếu Backend trả về object {loaiDonVi: 1, tenLoai: '...'}
+  if (typeof loaiInput === 'object' && loaiInput?.loaiDonVi) {
+      id = loaiInput.loaiDonVi;
+  }
   const loai = listLoaiDonVi.find(item => item.id === id);
-  return loai ? loai.ten : id;
+  return loai ? loai.ten : 'Khác';
 };
 
 const showMessage = (type, text) => {
@@ -122,7 +146,13 @@ const openEditModal = (item) => {
   form.soDienThoai = item.soDienThoai;
   form.email = item.email;
   form.diaChi = item.diaChi;
-  form.loaiDonVi = item.loaiDonVi;
+  
+  // Xử lý map LoaiDonVi từ item vào form (quan trọng)
+  if (item.loaiDonVi && typeof item.loaiDonVi === 'object') {
+      form.loaiDonVi = item.loaiDonVi.loaiDonVi;
+  } else {
+      form.loaiDonVi = item.loaiDonVi || 1;
+  }
 
   const modalEl = document.getElementById('modalDonVi');
   modalInstance = new bootstrap.Modal(modalEl);

@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api từ utils để có Token
+import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-const API_URL = 'http://localhost:8080/api/hang-san-xuat';
+// baseURL trong axios.js đã là /api -> Chỉ cần để phần đuôi
+const API_URL = '/hang-san-xuat'; 
 
 // --- TRẠNG THÁI (STATE) ---
 const danhSach = ref([]);
@@ -13,7 +15,7 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
-// Form Model (Khớp với Entity HangSanXuat)
+// Form Model
 const form = reactive({
   maHang: null,
   tenHang: ''
@@ -25,10 +27,12 @@ const form = reactive({
 const loadData = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get(API_URL);
+    // Dùng api.get thay vì axios.get
+    const response = await api.get(API_URL);
     danhSach.value = response.data;
   } catch (error) {
-    showMessage('danger', 'Lỗi tải dữ liệu: ' + error.message);
+    const msg = error.response?.data?.message || error.message;
+    showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
@@ -44,17 +48,19 @@ const saveData = async () => {
   try {
     if (isEditMode.value) {
       // Cập nhật (PUT)
-      await axios.put(`${API_URL}/${form.maHang}`, form);
+      await api.put(`${API_URL}/${form.maHang}`, form);
       showMessage('success', 'Cập nhật thành công!');
     } else {
-      // Thêm mới (POST) - ID tự tăng nên backend tự xử lý
-      await axios.post(API_URL, form);
+      // Thêm mới (POST)
+      await api.post(API_URL, form);
       showMessage('success', 'Thêm mới thành công!');
     }
     closeModal();
     loadData();
   } catch (error) {
-    showMessage('danger', 'Lỗi lưu dữ liệu: ' + (error.response?.data?.message || error.message));
+    // Xử lý lỗi từ Backend trả về
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
   }
 };
 
@@ -63,11 +69,13 @@ const deleteData = async (id) => {
   if (!confirm('Bạn có chắc chắn muốn xóa hãng này không?')) return;
 
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa hãng sản xuất!');
     loadData();
   } catch (error) {
-    showMessage('danger', 'Không thể xóa (có thể hãng này đang có sản phẩm): ' + error.message);
+     // Lỗi thường gặp: ConstraintViolationException (do hãng đã có SP)
+    const msg = error.response?.data?.message || 'Không thể xóa (có thể hãng đang có sản phẩm)';
+    showMessage('danger', msg);
   }
 };
 

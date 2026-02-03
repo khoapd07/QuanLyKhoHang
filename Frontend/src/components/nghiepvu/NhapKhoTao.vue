@@ -11,6 +11,7 @@
                 <div class="col-md-4">
                     <label class="form-label">Chọn Kho Nhập (*)</label>
                     <select class="form-select" v-model="phieuNhap.maKho">
+                        <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
@@ -108,34 +109,44 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api thay vì axios thường
+import api from '@/utils/axios';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const listKho = ref([]);
 const listSanPham = ref([]);
-const listDonVi = ref([]); // Danh sách đơn vị (bao gồm cả NCC và Khách)
+const listDonVi = ref([]); 
 
-// [MỚI] Thêm maDonVi vào object phieuNhap
 const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '' });
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 });
 const listHienThi = ref([]);
 
-// Lọc ra Nhà Cung Cấp (Loại = 1)
-const listNhaCungCap = computed(() => listDonVi.value.filter(dv => dv.loaiDonVi === 1));
+// Lọc Nhà Cung Cấp (Loại = 1)
+const listNhaCungCap = computed(() => {
+    return listDonVi.value.filter(dv => {
+        // Xử lý linh hoạt nếu backend trả về object hoặc số
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') 
+                     ? dv.loaiDonVi.loaiDonVi 
+                     : dv.loaiDonVi;
+        return loai === 1;
+    });
+});
 
 const loadData = async () => {
     try {
+        // Gọi song song các API Master Data
         const [k, s, d] = await Promise.all([
-            axios.get('/api/kho'),
-            axios.get('/api/san-pham'),
-            axios.get('/api/don-vi') // Load danh sách đơn vị
+            api.get('/kho'),      // Lấy danh sách kho
+            api.get('/san-pham'), // Lấy danh sách sản phẩm
+            api.get('/don-vi')    // Lấy danh sách đơn vị
         ]);
         listKho.value = k.data;
         listSanPham.value = s.data;
         listDonVi.value = d.data;
     } catch (e) { 
         console.error("Lỗi load danh mục: ", e);
+        // Có thể alert lỗi nếu cần thiết
     }
 };
 
@@ -143,29 +154,34 @@ const themDong = () => {
     if(!currentItem.value.maSP) return alert("Vui lòng chọn sản phẩm!");
     if(currentItem.value.soLuong <= 0) return alert("Số lượng phải lớn hơn 0");
     
+    // Thêm vào danh sách hiển thị tạm thời
     listHienThi.value.push({...currentItem.value});
     
-    // Reset form
+    // Reset số lượng về 1 để nhập tiếp
     currentItem.value.soLuong = 1;
-    // Giữ nguyên giá và trạng thái để nhập tiếp cho nhanh
 };
 
 const luuPhieu = async () => {
+    // Validate Header
     if(!phieuNhap.value.maKho) return alert("Vui lòng chọn Kho!");
-    if(!phieuNhap.value.maDonVi) return alert("Vui lòng chọn Nhà Cung Cấp!"); // Validate NCC
+    if(!phieuNhap.value.maDonVi) return alert("Vui lòng chọn Nhà Cung Cấp!");
     if(listHienThi.value.length === 0) return alert("Chưa có sản phẩm nào!");
     
     try {
-        await axios.post('/api/kho/nhap', {
+        // Gửi request tạo phiếu
+        // URL: /api/kho/nhap (Khớp KhoController)
+        await api.post('/kho/nhap', {
             maKho: phieuNhap.value.maKho,
-            maDonVi: phieuNhap.value.maDonVi, // Gửi mã NCC lên server
+            maDonVi: phieuNhap.value.maDonVi, 
             ghiChu: phieuNhap.value.ghiChu,
             chiTietPhieuNhap: listHienThi.value
         });
+        
         alert("Nhập kho thành công!");
         router.push('/nhap-kho');
     } catch (e) { 
-        alert("Lỗi: " + (e.response?.data || e.message)); 
+        const msg = e.response?.data?.message || e.response?.data || e.message;
+        alert("Lỗi: " + msg); 
     }
 };
 

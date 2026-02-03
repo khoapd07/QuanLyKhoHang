@@ -1,3 +1,103 @@
+<script setup>
+import { ref, onMounted } from 'vue';
+import api from '@/utils/axios'; // Dùng instance api đã cấu hình Token
+import NhapKhoChiTiet from './NhapKhoChiTiet.vue'; 
+
+// --- CẤU HÌNH API ---
+// Backend: @RequestMapping("/api/kho") + @GetMapping("/nhap")
+// Axios BaseURL: /api
+// => Kết quả: /kho/nhap
+const API_URL = '/kho/nhap'; 
+
+const danhSachPhieu = ref([]);
+const showModal = ref(false);
+const showEditModal = ref(false); 
+const selectedSoPhieu = ref(null);
+const loading = ref(false);
+const editItem = ref({ soPhieu: '', ghiChu: '' }); 
+
+// 1. Lấy danh sách phiếu nhập
+const layDanhSach = async () => {
+    loading.value = true;
+    try {
+        const res = await api.get(API_URL);
+        danhSachPhieu.value = res.data;
+    } catch (e) { 
+        console.error("Lỗi data:", e); 
+        const msg = e.response?.data?.message || e.message;
+        // Có thể hiện thông báo lỗi nếu cần
+    } finally { loading.value = false; }
+};
+
+// Mở modal xem chi tiết
+const moChiTiet = (soPhieu) => {
+    selectedSoPhieu.value = soPhieu;
+    showModal.value = true;
+};
+
+// Mở modal sửa ghi chú
+const moModalSua = (item) => {
+    editItem.value = { ...item };
+    showEditModal.value = true;
+};
+
+// 2. Cập nhật phiếu nhập (PUT)
+const luuCapNhat = async () => {
+    try {
+        // Backend nhận PhieuNhapDTO, gửi các trường cần thiết
+        const payload = {
+            soPhieu: editItem.value.soPhieu,
+            ghiChu: editItem.value.ghiChu
+        };
+
+        // URL: /api/kho/nhap/{soPhieu}
+        await api.put(`${API_URL}/${editItem.value.soPhieu}`, payload);
+        
+        alert("Cập nhật thành công!");
+        showEditModal.value = false;
+        layDanhSach(); 
+    } catch (e) {
+        alert("Lỗi cập nhật: " + (e.response?.data?.message || e.response?.data || e.message));
+    }
+};
+
+// 3. Xóa phiếu nhập (DELETE)
+const xoaPhieu = async (soPhieu) => {
+    if(!confirm('Cảnh báo: Xóa phiếu này sẽ xóa toàn bộ máy trong kho. Tiếp tục?')) return;
+    try {
+        // URL: /api/kho/nhap/{soPhieu}
+        await api.delete(`${API_URL}/${soPhieu}`);
+        
+        alert("Đã xóa thành công!");
+        layDanhSach();
+    } catch (e) { 
+        alert("Lỗi xóa: " + (e.response?.data?.message || e.response?.data || e.message)); 
+    }
+};
+
+// Helper: Tách chuỗi tóm tắt sản phẩm
+const splitSummary = (str) => str ? str.split(', ') : [];
+
+// Helper: Format ngày tháng
+const formatDate = (dateArray) => {
+    if (!dateArray) return '';
+    if (Array.isArray(dateArray)) {
+        const [year, month, day, hour, minute] = dateArray;
+        const f = (n) => n < 10 ? '0' + n : n;
+        return `${f(day)}/${f(month)}/${year} ${hour ? f(hour) + ':' + f(minute) : ''}`;
+    }
+    return new Date(dateArray).toLocaleString('vi-VN');
+};
+
+// Helper: Format tiền tệ
+const formatCurrency = (v) => {
+    if(!v) return '0 đ';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+};
+
+onMounted(() => layDanhSach());
+</script>
+
 <template>
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -18,7 +118,8 @@
                         <th>Số Phiếu</th>
                         <th>Ngày Nhập</th>
                         <th>Kho</th>
-                        <th>Nhà Cung Cấp</th> <th width="25%">Chi tiết</th>
+                        <th>Nhà Cung Cấp</th> 
+                        <th width="25%">Chi tiết</th>
                         <th>Hiện Trạng (Còn/Tổng)</th>
                         <th>Giá Trị Tồn</th>
                         <th width="150px">Thao tác</th>
@@ -110,77 +211,3 @@
         </div>
     </div>
 </template>
-
-<script setup>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
-import NhapKhoChiTiet from './NhapKhoChiTiet.vue'; 
-
-const danhSachPhieu = ref([]);
-const showModal = ref(false);
-const showEditModal = ref(false); 
-const selectedSoPhieu = ref(null);
-const loading = ref(false);
-const editItem = ref({ soPhieu: '', ghiChu: '' }); 
-
-const layDanhSach = async () => {
-    loading.value = true;
-    try {
-        const res = await axios.get('/api/kho/nhap');
-        danhSachPhieu.value = res.data;
-    } catch (e) { console.error("Lỗi data:", e); } 
-    finally { loading.value = false; }
-};
-
-const moChiTiet = (soPhieu) => {
-    selectedSoPhieu.value = soPhieu;
-    showModal.value = true;
-};
-
-const moModalSua = (item) => {
-    editItem.value = { ...item };
-    showEditModal.value = true;
-};
-
-const luuCapNhat = async () => {
-    try {
-        await axios.put(`/api/kho/nhap/${editItem.value.soPhieu}`, {
-            ghiChu: editItem.value.ghiChu
-        });
-        alert("Cập nhật thành công!");
-        showEditModal.value = false;
-        layDanhSach(); 
-    } catch (e) {
-        alert("Lỗi cập nhật: " + (e.response?.data || e.message));
-    }
-};
-
-const xoaPhieu = async (soPhieu) => {
-    if(!confirm('Cảnh báo: Xóa phiếu này sẽ xóa toàn bộ máy trong kho. Tiếp tục?')) return;
-    try {
-        await axios.delete(`/api/kho/nhap/${soPhieu}`);
-        alert("Đã xóa thành công!");
-        layDanhSach();
-    } catch (e) { 
-        alert("Lỗi xóa: " + (e.response?.data || e.message)); 
-    }
-};
-
-const splitSummary = (str) => str ? str.split(', ') : [];
-
-const formatDate = (dateArray) => {
-    if (!dateArray) return '';
-    if (Array.isArray(dateArray)) {
-        const [year, month, day, hour, minute] = dateArray;
-        return `${day}/${month}/${year} ${hour}:${minute}`;
-    }
-    return new Date(dateArray).toLocaleString('vi-VN');
-};
-
-const formatCurrency = (v) => {
-    if(!v) return '0 đ';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
-};
-
-onMounted(() => layDanhSach());
-</script>

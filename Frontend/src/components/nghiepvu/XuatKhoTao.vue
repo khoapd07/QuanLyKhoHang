@@ -11,12 +11,14 @@
                 <div class="col-md-4">
                     <label class="form-label">Kho Xuất (*)</label>
                     <select class="form-select" v-model="phieuXuat.maKho">
+                        <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Khách Hàng (*)</label>
                     <select class="form-select" v-model="phieuXuat.maDonVi">
+                         <option :value="null" disabled>-- Chọn Khách Hàng --</option>
                          <option v-for="kh in listKhachHang" :key="kh.maDonVi" :value="kh.maDonVi">{{ kh.tenDonVi }}</option>
                     </select>
                 </div>
@@ -102,7 +104,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+// [QUAN TRỌNG] Dùng api thay axios thường
+import api from '@/utils/axios';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -115,7 +118,15 @@ const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, rawSerials: '' });
 const listHienThi = ref([]);
 
 // Filter lấy khách hàng (LoaiDonVi = 2)
-const listKhachHang = computed(() => listDonVi.value.filter(dv => dv.loaiDonVi === 2));
+// Xử lý linh hoạt nếu backend trả về object hoặc id
+const listKhachHang = computed(() => {
+    return listDonVi.value.filter(dv => {
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') 
+                     ? dv.loaiDonVi.loaiDonVi 
+                     : dv.loaiDonVi;
+        return loai === 2;
+    });
+});
 
 // Tính toán số lượng serial đang nhập realtime
 const itemCount = computed(() => {
@@ -126,15 +137,24 @@ const isCountValid = computed(() => itemCount.value === parseInt(currentItem.val
 
 const loadMasterData = async () => {
     try {
+        // API lấy danh sách Kho, Đơn vị, Sản phẩm
+        // Lưu ý: Nếu Controller trả về 403, kiểm tra quyền User
         const [k, d, s] = await Promise.all([
-             axios.get('/api/kho'), axios.get('/api/don-vi'), axios.get('/api/san-pham')
+             api.get('/kho'),      // /api/kho
+             api.get('/don-vi'),   // /api/don-vi
+             api.get('/san-pham')  // /api/san-pham
         ]);
-        listKho.value = k.data; listDonVi.value = d.data; listSanPham.value = s.data;
+        listKho.value = k.data; 
+        listDonVi.value = d.data; 
+        listSanPham.value = s.data;
     } catch (e) {
-        // Fallback data nếu API chưa có
+        console.error("Lỗi load master data:", e);
+        // Fallback data demo nếu API lỗi (chỉ dùng khi test)
+        /*
         if(listKho.value.length === 0) listKho.value = [{maKho: 1, tenKho: 'Kho Tổng'}];
         if(listDonVi.value.length === 0) listDonVi.value = [{maDonVi: 'KH-LE', tenDonVi: 'Khách Lẻ', loaiDonVi: 2}];
         if(listSanPham.value.length === 0) listSanPham.value = [{maSP: 'SP-2900', tenSP: 'Canon 2900'}];
+        */
     }
 };
 
@@ -167,11 +187,13 @@ const luuPhieuXuat = async () => {
     };
 
     try {
-        await axios.post('/api/kho/xuat', payload);
+        // API: POST /api/kho/xuat (Khớp KhoController)
+        await api.post('/kho/xuat', payload);
         alert("Xuất kho thành công!");
         router.push('/xuat-kho');
     } catch (error) {
-        alert("Lỗi: " + (error.response?.data?.message || error.response?.data || error.message));
+        const msg = error.response?.data?.message || error.response?.data || error.message;
+        alert("Lỗi: " + msg);
     }
 };
 
