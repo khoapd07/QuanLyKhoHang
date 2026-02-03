@@ -39,7 +39,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/san-pham/**", "/api/don-vi/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/thong-ke/**").hasAnyRole("ADMIN")
-//                        .requestMatchers("/**").permitAll()
+                                .requestMatchers("/api/kho/**").hasRole("ADMIN")
+//                       .requestMatchers("/**").permitAll()
+                                .requestMatchers("/api/thong-ke/**").authenticated()
                         .anyRequest().authenticated() // Còn lại phải đăng nhập hết
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Không dùng Session

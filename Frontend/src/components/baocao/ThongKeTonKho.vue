@@ -54,9 +54,14 @@
               <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-search'"></i> 
               {{ loading ? 'Đang tải...' : 'Xem Báo Cáo' }}
             </button>
-            <button v-if="reportData.length > 0" type="button" class="btn btn-success ml-2" @click="printToWord">
-              <i class="fas fa-file-word"></i> Xuất Word
-            </button>
+            
+            <button v-if="reportData.length > 0" 
+        type="button" 
+        class="btn btn-success ml-2" 
+        @click="printToWord"
+        :disabled="isExporting"> <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> 
+    {{ isExporting ? 'Đang xuất...' : 'Xuất Word' }}
+</button>
           </div>
         </div>
 
@@ -102,7 +107,9 @@
                     </tr>
                     
                     <tr v-for="(item, index) in reportData" :key="index">
-                      <td class="text-center">{{ index + 1 }}</td>
+                      <td class="text-center">
+                          {{ (pagination.page * pagination.size) + index + 1 }}
+                      </td>
                       <td class="text-primary font-weight-bold font-monospace">{{ item.maSP }}</td>
                       <td>{{ item.tenSP }}</td>
                       <td class="text-center">{{ item.donvitinh }}</td>
@@ -118,18 +125,39 @@
                     </tr>
                     
                     <tr v-if="reportData.length > 0" class="bg-secondary font-weight-bold">
-                        <td colspan="4" class="text-center">TỔNG CỘNG</td>
-                        <td class="text-right">{{ sumTotals.tdk }}</td>
-                        <td class="text-right">{{ sumTotals.ntk }}</td>
-                        <td class="text-right">{{ sumTotals.xtk }}</td>
-                        <td class="text-right">{{ sumTotals.tck }}</td>
-                        <td class="text-right">---</td>
-                        <td class="text-right">{{ formatCurrency(sumTotals.tien) }}</td>
-                    </tr>
+                      <td colspan="4" class="text-center">TỔNG CỘNG</td>
+                      <td class="text-right">{{ grandTotal.tdk }}</td>
+                      <td class="text-right">{{ grandTotal.ntk }}</td>
+                      <td class="text-right">{{ grandTotal.xtk }}</td>
+                      <td class="text-right">{{ grandTotal.tck }}</td>
+                      <td class="text-right">---</td>
+                      <td class="text-right">{{ formatCurrency(grandTotal.tien) }}</td>
+                  </tr>
                 </template>
               </tbody>
             </table>
           </div>
+          <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="pagination.total > 0">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item" :class="{ disabled: pagination.page === 0 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(pagination.page - 1)">« Trước</a>
+                    </li>
+                    <li v-for="(page, index) in visiblePages" 
+                        :key="index" 
+                        class="page-item" 
+                        :class="{ active: page === pagination.page + 1, disabled: page === '...' }">
+                        
+                        <a class="page-link" href="#" 
+                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                            {{ page }}
+                        </a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: pagination.page >= pagination.totalPages - 1 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(pagination.page + 1)">Sau »</a>
+                    </li>
+                </ul>
+              </div>
         </div>
 
       </div>
@@ -139,8 +167,6 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
-// [QUAN TRỌNG] Thay đổi từ 'axios' sang '@/utils/axios'
-// Điều này giúp gửi kèm Token trong Header -> Không bị lỗi 401/403
 import api from '@/utils/axios'; 
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
@@ -153,6 +179,48 @@ const API_URL = '/thong-ke/xuat-nhap-ton';
 // --- STATE ---
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+const isExporting = ref(false);
+
+// ---PHÂN TRANG ---
+const pagination = reactive({
+    page: 0,
+    size: 20, // Mặc định 20 dòng/trang
+    total: 0,
+    totalPages: 0
+});
+
+// --- LOGIC TÍNH TOÁN HIỂN THỊ SỐ TRANG (1 ... 4 5 6 ... 10) ---
+const visiblePages = computed(() => {
+    const total = pagination.totalPages;
+    const current = pagination.page + 1;
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+
+    for (let i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
+});
+
+//  HÀM CHUYỂN TRANG 
+const changePage = (newPage) => {
+    if (newPage < 0 || newPage >= pagination.totalPages) return;
+    pagination.page = newPage;
+    fetchInventoryReport();
+};
 
 const filters = reactive({
   startDate: firstDay.toISOString().substring(0, 10),
@@ -179,16 +247,8 @@ const reportTitle = computed(() => {
     return `Báo cáo: ${currentTenKho.value} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
 });
 
-const sumTotals = computed(() => {
-    return reportData.value.reduce((acc, item) => {
-        acc.tdk += item.tonDau || 0;
-        acc.ntk += item.nhapTrong || 0;
-        acc.xtk += item.xuatTrong || 0;
-        acc.tck += item.tonCuoi || 0;
-        acc.tien += item.thanhTien || 0;
-        return acc;
-    }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-});
+
+const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
 // --- LOAD DATA ---
 const loadKho = async () => {
@@ -206,24 +266,29 @@ const fetchInventoryReport = async () => {
   reportData.value = [];
   
   try {
-    // Sử dụng api.get
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
         tuNgay: filters.startDate,
         denNgay: filters.endDate,
-        loaiLoc: filters.statusId 
+        loaiLoc: filters.statusId,
+        page: pagination.page,
+        size: pagination.size
       }
     });
     
     const data = response.data;
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet || []; 
+    if (data.grandTotal) {
+      grandTotal.value = data.grandTotal;
+    }
+    pagination.page = data.currentPage;
+    pagination.total = data.totalItems;
+    pagination.totalPages = data.totalPages;
     
   } catch (error) {
     console.error("Lỗi:", error);
-    const msg = error.response?.data?.message || error.message;
-    // alert("Lỗi tải báo cáo: " + msg);
   } finally {
     loading.value = false;
   }
@@ -237,7 +302,42 @@ const loadFile = async (url) => {
 };
 
 const printToWord = async () => {
+
+  if (isExporting.value) return;
+
+  isExporting.value = true;
+  
+
   try {
+
+      const response = await api.get(API_URL, {
+        params: {
+          maKho: filters.warehouseId,
+          tuNgay: filters.startDate,
+          denNgay: filters.endDate,
+          loaiLoc: filters.statusId,
+          page: 0,          // Luôn lấy từ trang đầu
+          size: 999999      // Lấy số lượng cực lớn để bao gồm tất cả
+        }
+      });
+
+      const dataToExport = response.data.danhSachChiTiet || [];
+      if (dataToExport.length === 0) {
+          alert("Không có dữ liệu để xuất file.");
+          return;
+      }
+
+      const exportTotals = dataToExport.reduce((acc, item) => {
+          acc.tdk += item.tonDau || 0;
+          acc.ntk += item.nhapTrong || 0;
+          acc.xtk += item.xuatTrong || 0;
+          acc.tck += item.tonCuoi || 0;
+          acc.tien += item.thanhTien || 0;
+          return acc;
+      }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+
+
+
       const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
       const zip = new PizZip(content);
       const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
@@ -256,8 +356,9 @@ const printToWord = async () => {
           ngayKetThuc: formatDateString(filters.endDate),
           tenKho: currentTenKho.value,
           
-          p: reportData.value.map((item, index) => ({
-              stt: index + 1,
+          // Dùng dataToExport (Tất cả) thay vì reportData (Trang hiện tại)
+          p: dataToExport.map((item, index) => ({
+              stt: index + 1, // Đánh lại số thứ tự từ 1 đến hết
               ma: item.maSP,
               ten: item.tenSP, 
               dvt: item.donvitinh,
@@ -269,28 +370,31 @@ const printToWord = async () => {
               tien: formatCurrency(item.thanhTien)
           })),
 
-          sumTDK: sumTotals.value.tdk,
-          sumNTK: sumTotals.value.ntk,
-          sumXTK: sumTotals.value.xtk,
-          sumTCK: sumTotals.value.tck,
-          sumTien: formatCurrency(sumTotals.value.tien),
+          sumTDK: exportTotals.tdk,
+          sumNTK: exportTotals.ntk,
+          sumXTK: exportTotals.xtk,
+          sumTCK: exportTotals.tck,
+          sumTien: formatCurrency(exportTotals.tien),
 
           d: dd, m: mm, y: yyyy, h: String(hours).padStart(2,'0'), ph: minutes, ampm: ampm
       };
 
       doc.render(dataToRender);
       const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      saveAs(out, `BaoCao_XNT_${filters.endDate}.docx`);
+      
+      saveAs(out, `BaoCao_XuatNhapTon_${currentTenKho.value}_${filters.endDate}.docx`);
 
   } catch (error) {
       console.error(error);
       alert("Lỗi xuất file Word: " + error.message);
+  } finally {
+      isExporting.value = false;
   }
 };
 
 const formatCurrency = (value) => {
-  if (!value || isNaN(value)) return '0 ₫';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+  if (!value || isNaN(value)) return '0';
+  return new Intl.NumberFormat('vi-VN', { style: 'decimal', decimal: 'VND' }).format(value);
 };
 
 const formatDateString = (dateStr) => {
