@@ -3,6 +3,8 @@ package com.poly.quanlykhohang.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "DMTonKho")
 @Data
@@ -36,5 +38,5 @@ public class DMTonKho {
     private Long soLuongDau; // Dùng Long cho an toàn, SQL Count trả về số lớn
 
     @Column(name = "GiaTriDau")
-    private Double giaTriDau;
+    private BigDecimal giaTriDau;
 }
