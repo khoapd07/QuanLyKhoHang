@@ -5,6 +5,10 @@ import com.poly.quanlykhohang.dao.KhoDAO; // Thêm import KhoDAO
 import com.poly.quanlykhohang.entity.MayIn;
 import com.poly.quanlykhohang.entity.Kho; // Thêm import Entity Kho
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +27,15 @@ public class MayInController {
 
     // 1. Lấy danh sách (Giữ nguyên)
     @GetMapping
-    public ResponseEntity<List<MayIn>> getAll() {
-        return ResponseEntity.ok(mayInDAO.findAll());
+    public ResponseEntity<Page<MayIn>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Tạo đối tượng Pageable (trang, kích thước, sắp xếp theo ngày tạo mới nhất)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("ngayTao").descending());
+
+        // Trả về Page<MayIn> thay vì List<MayIn>
+        return ResponseEntity.ok(mayInDAO.findAll(pageable));
     }
 
     // 2. Cập nhật thông tin máy (API MỚI)

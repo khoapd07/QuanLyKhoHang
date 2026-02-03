@@ -4,6 +4,10 @@ import com.poly.quanlykhohang.dao.SanPhamDAO;
 import com.poly.quanlykhohang.entity.SanPham;
 import com.poly.quanlykhohang.service.SanPhamService; // Nếu bạn đã có Service thì dùng, không thì dùng DAO tạm
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,8 +22,13 @@ public class SanPhamController {
 
     // 1. Lấy danh sách sản phẩm (Ai cũng dùng được: Để hiển thị lên combobox nhập/xuất)
     @GetMapping
-    public ResponseEntity<List<SanPham>> getAll() {
-        return ResponseEntity.ok(sanPhamDAO.findAll());
+    public ResponseEntity<Page<SanPham>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Sắp xếp theo MaSP (hoặc TenSP tùy bạn)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("maSP").ascending());
+        return ResponseEntity.ok(sanPhamDAO.findAll(pageable));
     }
 
     // 2. Lấy chi tiết 1 sản phẩm

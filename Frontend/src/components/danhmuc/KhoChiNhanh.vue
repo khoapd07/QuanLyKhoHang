@@ -1,11 +1,9 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
-// [QUAN TRỌNG] Dùng api thay vì axios thường
+import { ref, onMounted, reactive, computed } from 'vue';
 import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH ---
-// SỬA LẠI ĐÚNG ĐƯỜNG DẪN CỦA CONTROLLER
 const API_URL = '/chi-nhanh'; 
 
 // --- STATE ---
@@ -13,25 +11,66 @@ const danhSach = ref([]);
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' }); 
 const isEditMode = ref(false);
+let modalInstance = null;
+
+// --- STATE PHÂN TRANG (Server-side) ---
+const currentPage = ref(0);
+const itemsPerPage = ref(20); // 20 kho/trang
+const totalPages = ref(0);
+const totalElements = ref(0);
+
+// --- COMPUTED: TÍNH TOÁN THANH PHÂN TRANG ---
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value + 1;
+    const delta = 2; 
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+    for (let i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
+});
+
+const paginationInfo = computed(() => ({
+    total: totalElements.value,
+    page: currentPage.value,
+    totalPages: totalPages.value
+}));
 
 // Form data (Model)
 const form = reactive({
-  maKho: null,
-  tenKho: '',
-  diaChi: ''
+  maKho: null, tenKho: '', diaChi: ''
 });
-
-// Biến giữ instance Modal
-let modalInstance = null;
 
 // --- API METHODS ---
 
-// 1. Lấy danh sách (GET)
-const loadData = async () => {
+// 1. Lấy danh sách (GET) - Có phân trang
+const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    const response = await api.get(API_URL);
-    danhSach.value = response.data;
+    const response = await api.get(API_URL, {
+        params: { page: page, size: itemsPerPage.value }
+    });
+    
+    // Cập nhật State từ Page<Kho>
+    danhSach.value = response.data.content;
+    totalPages.value = response.data.totalPages;
+    totalElements.value = response.data.totalElements;
+    currentPage.value = response.data.number;
+
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
@@ -40,7 +79,14 @@ const loadData = async () => {
   }
 };
 
-// 2. Lưu dữ liệu (POST hoặc PUT)
+// Chuyển trang
+const changePage = (page) => {
+    if (page >= 0 && page < totalPages.value) {
+        loadData(page);
+    }
+};
+
+// 2. Lưu dữ liệu
 const saveData = async () => {
   if (!form.tenKho) {
     showMessage('warning', 'Vui lòng nhập tên chi nhánh!');
@@ -49,30 +95,28 @@ const saveData = async () => {
 
   try {
     if (isEditMode.value) {
-      // Sửa (PUT)
       await api.put(`${API_URL}/${form.maKho}`, form);
       showMessage('success', 'Cập nhật thành công!');
     } else {
-      // Thêm mới (POST)
       await api.post(API_URL, form);
       showMessage('success', 'Thêm mới thành công!');
     }
     closeModal();
-    loadData(); // Tải lại bảng
+    loadData(currentPage.value); // Load lại trang hiện tại
   } catch (error) {
     const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
   }
 };
 
-// 3. Xóa (DELETE)
+// 3. Xóa
 const deleteData = async (id) => {
   if (!confirm('Bạn có chắc muốn xóa chi nhánh này?')) return;
   
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData();
+    loadData(0); // Xóa xong về trang đầu
   } catch (error) {
     const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Không thể xóa (có thể kho đang chứa hàng hóa): ' + msg);
@@ -80,7 +124,6 @@ const deleteData = async (id) => {
 };
 
 // --- HELPER FUNCTIONS ---
-
 const showMessage = (type, text) => {
   message.value = { type, text };
   setTimeout(() => message.value = { type: '', text: '' }, 3000);
@@ -88,10 +131,7 @@ const showMessage = (type, text) => {
 
 const openAddModal = () => {
   isEditMode.value = false;
-  // Reset form
-  form.maKho = null;
-  form.tenKho = '';
-  form.diaChi = '';
+  form.maKho = null; form.tenKho = ''; form.diaChi = '';
   
   const modalEl = document.getElementById('modalChiNhanh');
   modalInstance = new bootstrap.Modal(modalEl);
@@ -100,7 +140,6 @@ const openAddModal = () => {
 
 const openEditModal = (item) => {
   isEditMode.value = true;
-  // Fill data
   form.maKho = item.maKho;
   form.tenKho = item.tenKho;
   form.diaChi = item.diaChi;
@@ -119,7 +158,7 @@ const closeModal = () => {
 
 // --- LIFECYCLE ---
 onMounted(() => {
-  loadData();
+  loadData(0);
 });
 </script>
 
@@ -127,9 +166,14 @@ onMounted(() => {
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
       <h3 class="text-primary"><i class="bi bi-shop"></i> Quản Lý Chi Nhánh Kho</h3>
-      <button class="btn btn-primary" @click="openAddModal">
-        <i class="bi bi-plus-lg"></i> Thêm Chi Nhánh
-      </button>
+      <div>
+           <button class="btn btn-outline-secondary me-2" @click="loadData(currentPage)">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          <button class="btn btn-primary" @click="openAddModal">
+            <i class="bi bi-plus-lg"></i> Thêm Chi Nhánh
+          </button>
+      </div>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`" role="alert">
@@ -139,9 +183,10 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <table class="table table-hover table-striped mb-0">
+        <table class="table table-hover table-striped mb-0 align-middle">
           <thead class="table-dark">
             <tr>
+              <th class="text-center" width="80px">STT</th>
               <th class="text-center" width="10%">Mã Kho</th>
               <th width="35%">Tên Chi Nhánh</th>
               <th>Địa Chỉ</th>
@@ -150,14 +195,15 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="4" class="text-center py-4">
-                 <div class="spinner-border text-primary" role="status"></div>
-                 <div class="mt-2">Đang tải dữ liệu...</div>
+              <td colspan="5" class="text-center py-4">
+                  <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                  <span class="ms-2">Đang tải dữ liệu...</span>
               </td>
             </tr>
-            <tr v-else v-for="kho in danhSach" :key="kho.maKho">
-              <td class="text-center fw-bold">#{{ kho.maKho }}</td>
-              <td class="fw-medium">{{ kho.tenKho }}</td>
+            <tr v-else v-for="(kho, index) in danhSach" :key="kho.maKho">
+              <td class="text-center">{{ (currentPage * itemsPerPage) + index + 1 }}</td>
+              <td class="text-center fw-bold text-muted">#{{ kho.maKho }}</td>
+              <td class="fw-medium text-primary">{{ kho.tenKho }}</td>
               <td>{{ kho.diaChi }}</td>
               <td class="text-center">
                 <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(kho)">
@@ -168,11 +214,38 @@ onMounted(() => {
                 </button>
               </td>
             </tr>
-            <tr v-if="!isLoading && danhSach.length === 0">
-              <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu.</td>
+            <tr v-if="!isLoading && danhSach && danhSach.length === 0">
+              <td colspan="5" class="text-center text-muted py-3">Chưa có dữ liệu.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="card-footer bg-white border-top-0">
+          <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="paginationInfo.total > 0">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item" :class="{ disabled: paginationInfo.page === 0 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page - 1)">« Trước</a>
+                    </li>
+
+                    <li v-for="(page, index) in visiblePages" :key="index" 
+                        class="page-item" 
+                        :class="{ active: page === paginationInfo.page + 1, disabled: page === '...' }">
+                        <a class="page-link" href="#" 
+                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                            {{ page }}
+                        </a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: paginationInfo.page >= paginationInfo.totalPages - 1 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page + 1)">Sau »</a>
+                    </li>
+                </ul>
+          </div>
+          <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
+              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              trong tổng {{ paginationInfo.total }} kho
+          </div>
       </div>
     </div>
 
@@ -224,9 +297,3 @@ onMounted(() => {
 
   </div>
 </template>
-
-<style scoped>
-.table th, .table td {
-    vertical-align: middle;
-}
-</style>

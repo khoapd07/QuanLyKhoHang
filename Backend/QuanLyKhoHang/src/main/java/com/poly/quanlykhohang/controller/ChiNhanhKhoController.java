@@ -1,8 +1,13 @@
 package com.poly.quanlykhohang.controller;
 
+import com.poly.quanlykhohang.dao.KhoDAO;
 import com.poly.quanlykhohang.entity.Kho;
 import com.poly.quanlykhohang.service.KhoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,10 +21,18 @@ public class ChiNhanhKhoController {
     @Autowired
     private KhoService khoService;
 
+    @Autowired
+    private KhoDAO khoDAO;
+
     // 1. Lấy danh sách tất cả chi nhánh
     @GetMapping
-    public List<Kho> getAllChiNhanh() {
-        return khoService.layDanhSachKho();
+    public ResponseEntity<Page<Kho>> getAllChiNhanh(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Sắp xếp theo mã kho tăng dần
+        Pageable pageable = PageRequest.of(page, size, Sort.by("maKho").ascending());
+        return ResponseEntity.ok(khoDAO.findAll(pageable));
     }
 
     // 2. Lấy chi tiết 1 chi nhánh theo ID

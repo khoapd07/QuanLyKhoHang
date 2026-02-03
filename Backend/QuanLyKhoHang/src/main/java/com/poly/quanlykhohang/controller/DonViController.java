@@ -1,8 +1,13 @@
 package com.poly.quanlykhohang.controller;
 
+import com.poly.quanlykhohang.dao.DonViDAO;
 import com.poly.quanlykhohang.entity.DonVi;
 import com.poly.quanlykhohang.service.DonViService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,10 +21,18 @@ public class DonViController {
     @Autowired
     private DonViService donViService;
 
+    @Autowired
+    private DonViDAO donViDAO;
+
     // 1. Lấy danh sách (Ai cũng xem được)
     @GetMapping
-    public ResponseEntity<List<DonVi>> getAll() {
-        return ResponseEntity.ok(donViService.getAllDonVi());
+    public ResponseEntity<Page<DonVi>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Sắp xếp theo MaDonVi
+        Pageable pageable = PageRequest.of(page, size, Sort.by("maDonVi").ascending());
+        return ResponseEntity.ok(donViDAO.findAll(pageable));
     }
 
     // API phụ: Lấy riêng NCC (để load vào combobox Nhập kho)

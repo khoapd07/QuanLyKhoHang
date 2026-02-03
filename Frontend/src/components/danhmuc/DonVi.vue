@@ -1,31 +1,61 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
-// [QUAN TRỌNG] Dùng api từ utils
+import { ref, onMounted, reactive, computed } from 'vue';
 import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-// Kiểm tra DonViController: @RequestMapping("/api/don-vi")
 const API_URL = '/don-vi'; 
 
-// --- TRẠNG THÁI (STATE) ---
+// --- STATE ---
 const danhSach = ref([]);
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
-// Form Data
-const form = reactive({
-  maDonVi: '',
-  tenDonVi: '',
-  soDienThoai: '',
-  email: '',
-  diaChi: '',
-  loaiDonVi: 1 // Mặc định ID=1
+// --- STATE PHÂN TRANG (Server-side) ---
+const currentPage = ref(0);
+const itemsPerPage = ref(20); // 20 đơn vị/trang
+const totalPages = ref(0);
+const totalElements = ref(0);
+
+// --- COMPUTED: TÍNH TOÁN THANH PHÂN TRANG ---
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value + 1;
+    const delta = 2; 
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+    for (let i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
 });
 
-// Danh sách loại đơn vị (Mapping cứng theo DB)
+const paginationInfo = computed(() => ({
+    total: totalElements.value,
+    page: currentPage.value,
+    totalPages: totalPages.value
+}));
+
+// Form Data
+const form = reactive({
+  maDonVi: '', tenDonVi: '', soDienThoai: '', email: '', diaChi: '', loaiDonVi: 1
+});
+
+// Danh sách loại đơn vị
 const listLoaiDonVi = [
   { id: 1, ten: 'Nhà Cung Cấp' },
   { id: 2, ten: 'Khách Hàng' },
@@ -34,12 +64,20 @@ const listLoaiDonVi = [
 
 // --- API METHODS ---
 
-// 1. Lấy danh sách
-const loadData = async () => {
+// 1. Lấy danh sách (Có phân trang)
+const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    const response = await api.get(API_URL);
-    danhSach.value = response.data;
+    const response = await api.get(API_URL, {
+        params: { page: page, size: itemsPerPage.value }
+    });
+    
+    // Cập nhật State từ Page<DonVi>
+    danhSach.value = response.data.content;
+    totalPages.value = response.data.totalPages;
+    totalElements.value = response.data.totalElements;
+    currentPage.value = response.data.number;
+    
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
@@ -48,17 +86,19 @@ const loadData = async () => {
   }
 };
 
-// 2. Lưu (Thêm / Sửa)
+// Chuyển trang
+const changePage = (page) => {
+    if (page >= 0 && page < totalPages.value) {
+        loadData(page);
+    }
+};
+
+// 2. Lưu
 const saveData = async () => {
-  // Validate cơ bản
   if (!form.maDonVi || !form.tenDonVi) {
     showMessage('warning', 'Vui lòng nhập Mã đơn vị và Tên đơn vị!');
     return;
   }
-
-  // [SỬA LỖI] Vì Entity DonVi bên Backend khai báo là 'Integer loaiDonVi',
-  // nên ta gửi nguyên form (đang chứa số 1, 2...) là đúng.
-  // KHÔNG được bọc thành object { loaiDonVi: ... } nữa.
   const payload = { ...form };
 
   try {
@@ -70,23 +110,13 @@ const saveData = async () => {
       showMessage('success', 'Thêm mới đơn vị thành công!');
     }
     closeModal();
-    loadData();
+    loadData(currentPage.value); // Load lại đúng trang hiện tại
   } catch (error) {
-    // In chi tiết lỗi ra console để kiểm tra (F12)
     console.error("API Error:", error);
-
-    // Lấy thông báo lỗi
     let msg = "Lỗi không xác định";
     if (error.response) {
-        // Ưu tiên lấy message từ body response của Backend
-        msg = error.response.data?.message || error.response.data || error.message;
-        
-        // Nếu là lỗi 403 -> Do quyền
-        if (error.response.status === 403) msg = "Bạn không có quyền thực hiện (Cần Admin)";
-        // Nếu là lỗi 400 -> Do dữ liệu sai định dạng
-        if (error.response.status === 400) msg = "Dữ liệu gửi lên không hợp lệ (Kiểm tra mã trùng hoặc kiểu dữ liệu)";
+       msg = error.response.data?.message || error.response.data || error.message;
     }
-    
     showMessage('danger', 'Lỗi: ' + msg);
   }
 };
@@ -98,19 +128,16 @@ const deleteData = async (id) => {
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData();
+    loadData(0); // Xóa xong về trang 0
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
-    showMessage('danger', 'Không thể xóa (có thể đơn vị này đang có giao dịch): ' + msg);
+    const msg = error.response?.data?.message || error.message;
+    showMessage('danger', 'Không thể xóa: ' + msg);
   }
 };
 
 // --- HELPER FUNCTIONS ---
-
-// Helper hiển thị tên loại đơn vị
 const getTenLoai = (loaiInput) => {
   let id = loaiInput;
-  // Nếu Backend trả về object {loaiDonVi: 1, tenLoai: '...'}
   if (typeof loaiInput === 'object' && loaiInput?.loaiDonVi) {
       id = loaiInput.loaiDonVi;
   }
@@ -125,13 +152,8 @@ const showMessage = (type, text) => {
 
 const openAddModal = () => {
   isEditMode.value = false;
-  // Reset form
-  form.maDonVi = '';
-  form.tenDonVi = '';
-  form.soDienThoai = '';
-  form.email = '';
-  form.diaChi = '';
-  form.loaiDonVi = 1;
+  form.maDonVi = ''; form.tenDonVi = ''; form.soDienThoai = '';
+  form.email = ''; form.diaChi = ''; form.loaiDonVi = 1;
 
   const modalEl = document.getElementById('modalDonVi');
   modalInstance = new bootstrap.Modal(modalEl);
@@ -140,14 +162,12 @@ const openAddModal = () => {
 
 const openEditModal = (item) => {
   isEditMode.value = true;
-  // Fill data
   form.maDonVi = item.maDonVi;
   form.tenDonVi = item.tenDonVi;
   form.soDienThoai = item.soDienThoai;
   form.email = item.email;
   form.diaChi = item.diaChi;
   
-  // Xử lý map LoaiDonVi từ item vào form (quan trọng)
   if (item.loaiDonVi && typeof item.loaiDonVi === 'object') {
       form.loaiDonVi = item.loaiDonVi.loaiDonVi;
   } else {
@@ -168,7 +188,7 @@ const closeModal = () => {
 
 // --- LIFECYCLE ---
 onMounted(() => {
-  loadData();
+  loadData(0);
 });
 </script>
 
@@ -176,9 +196,14 @@ onMounted(() => {
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
       <h3 class="text-primary"><i class="bi bi-people-fill"></i> Quản Lý Đối Tác (Đơn Vị)</h3>
-      <button class="btn btn-primary" @click="openAddModal">
-        <i class="bi bi-person-plus-fill"></i> Thêm Đơn Vị
-      </button>
+      <div>
+           <button class="btn btn-outline-secondary me-2" @click="loadData(currentPage)">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          <button class="btn btn-primary" @click="openAddModal">
+            <i class="bi bi-person-plus-fill"></i> Thêm Đơn Vị
+          </button>
+      </div>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">
@@ -202,7 +227,9 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-if="isLoading">
-                <td colspan="6" class="text-center py-4">Đang tải dữ liệu...</td>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
+                </td>
               </tr>
 
               <tr v-else v-for="item in danhSach" :key="item.maDonVi">
@@ -233,6 +260,33 @@ onMounted(() => {
           </table>
         </div>
       </div>
+
+      <div class="card-footer bg-white border-top-0">
+          <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="paginationInfo.total > 0">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item" :class="{ disabled: paginationInfo.page === 0 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page - 1)">« Trước</a>
+                    </li>
+
+                    <li v-for="(page, index) in visiblePages" :key="index" 
+                        class="page-item" 
+                        :class="{ active: page === paginationInfo.page + 1, disabled: page === '...' }">
+                        <a class="page-link" href="#" 
+                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                            {{ page }}
+                        </a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: paginationInfo.page >= paginationInfo.totalPages - 1 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page + 1)">Sau »</a>
+                    </li>
+                </ul>
+          </div>
+          <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
+              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              trong tổng {{ paginationInfo.total }} đơn vị
+          </div>
+      </div>
     </div>
 
     <div class="modal fade" id="modalDonVi" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -247,17 +301,9 @@ onMounted(() => {
           <div class="modal-body">
             <form @submit.prevent="saveData">
               <div class="row g-3">
-                
                 <div class="col-md-6">
                   <label class="form-label">Mã Đơn Vị <span class="text-danger">*</span></label>
-                  <input 
-                    v-model="form.maDonVi" 
-                    type="text" 
-                    class="form-control" 
-                    required 
-                    :disabled="isEditMode"
-                    placeholder="VD: NCC01, KH02..."
-                  >
+                  <input v-model="form.maDonVi" type="text" class="form-control" required :disabled="isEditMode" placeholder="VD: NCC01, KH02...">
                   <div class="form-text" v-if="!isEditMode">Mã không được trùng và không thể sửa sau khi tạo.</div>
                 </div>
 
@@ -289,7 +335,6 @@ onMounted(() => {
                   <label class="form-label">Địa Chỉ</label>
                   <textarea v-model="form.diaChi" class="form-control" rows="2" placeholder="Địa chỉ chi tiết..."></textarea>
                 </div>
-
               </div>
 
               <div class="text-end mt-4">
@@ -303,6 +348,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

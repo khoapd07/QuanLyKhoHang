@@ -1,8 +1,13 @@
 package com.poly.quanlykhohang.controller;
 
+import com.poly.quanlykhohang.dao.LoaiSanPhamDAO;
 import com.poly.quanlykhohang.entity.LoaiSanPham;
 import com.poly.quanlykhohang.service.LoaiSanPhamService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,10 +21,18 @@ public class LoaiSanPhamController {
     @Autowired
     private LoaiSanPhamService service;
 
+    @Autowired
+    private LoaiSanPhamDAO dao;
+
     // 1. Lấy danh sách
     @GetMapping
-    public List<LoaiSanPham> getAll() {
-        return service.getAll();
+    public ResponseEntity<Page<LoaiSanPham>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size // Mặc định 20
+    ) {
+        // Sắp xếp theo MaLoai mới nhất lên đầu
+        Pageable pageable = PageRequest.of(page, size, Sort.by("maLoai").descending());
+        return ResponseEntity.ok(dao.findAll(pageable));
     }
 
     // 2. Lấy chi tiết

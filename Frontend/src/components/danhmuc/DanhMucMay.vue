@@ -1,40 +1,63 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
-// [QUAN TRỌNG] Sử dụng api từ utils thay vì axios thường
+import { ref, onMounted, reactive, computed } from 'vue';
 import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
-// --- CẤU HÌNH API ---
-// BaseURL đã là /api trong axios.js
+// --- CẤU HÌNH ---
 const API_URL = '/may-in'; 
 const API_KHO = '/kho'; 
 
 // --- STATE ---
-const danhSachMay = ref([]);
+const danhSachMay = ref([]); // Chỉ chứa 20 máy của trang hiện tại
 const danhSachKho = ref([]);
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 let modalInstance = null;
 
-// Form Data
-const form = reactive({
-  maMay: '',
-  tenSP: '',
-  
-  // --- THÔNG TIN GỐC (READ ONLY) ---
-  tenHang: '',     
-  tenLoai: '',     
-  ngayTao: '',     
-  soPhieuNhap: '', 
-  // ----------------------------------
+// --- STATE PHÂN TRANG (Server-side) ---
+const currentPage = ref(0);
+const itemsPerPage = ref(20); // Cố định 20 theo yêu cầu
+const totalPages = ref(0);
+const totalElements = ref(0);
 
-  soSeri: '',      
-  trangThai: 1,    
-  tonKho: true,    
-  maKho: null      
+// --- COMPUTED: TÍNH TOÁN NÚT HIỂN THỊ ---
+// Logic này giữ nguyên để hiển thị số trang đẹp (1, 2 ... 5, 6)
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value + 1;
+    const delta = 2; // Hiển thị rộng hơn chút
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+    for (let i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
 });
 
-// --- MAPPING TRẠNG THÁI VẬT LÝ ---
+const paginationInfo = computed(() => ({
+    total: totalElements.value,
+    page: currentPage.value,
+    totalPages: totalPages.value
+}));
+
+// --- FORM DATA & HELPER (Giữ nguyên) ---
+const form = reactive({
+  maMay: '', tenSP: '', tenHang: '', tenLoai: '', ngayTao: '', soPhieuNhap: '', 
+  soSeri: '', trangThai: 1, tonKho: true, maKho: null      
+});
+
 const TRANG_THAI_LIST = [
   { id: 1, text: 'Mới (New)', class: 'bg-success' },
   { id: 2, text: 'Like New', class: 'bg-info text-dark' },
@@ -44,54 +67,62 @@ const TRANG_THAI_LIST = [
   { id: 6, text: 'Nhập Khẩu', class: 'bg-primary' }
 ];
 
-const getTrangThaiInfo = (id) => {
-  return TRANG_THAI_LIST.find(t => t.id === id) || { text: 'Khác', class: 'bg-secondary' };
-};
+const getTrangThaiInfo = (id) => TRANG_THAI_LIST.find(t => t.id === id) || { text: 'Khác', class: 'bg-secondary' };
 
 const formatDate = (dateString) => {
   if (!dateString) return '---';
-  // Xử lý dạng mảng [yyyy, MM, dd] từ Java LocalDate/LocalDateTime
   if (Array.isArray(dateString)) {
-      // Giả sử mảng trả về [2024, 1, 1, 10, 30]
       const [year, month, day, hour, minute] = dateString;
       return `${day}/${month}/${year} ${hour ? hour : ''}:${minute ? minute : ''}`;
   }
-  const date = new Date(dateString);
-  return date.toLocaleString('vi-VN', { hour12: false });
+  return new Date(dateString).toLocaleString('vi-VN', { hour12: false });
 };
 
-// --- API METHODS ---
-const loadData = async () => {
+// --- API METHODS (ĐÃ TỐI ƯU) ---
+
+// 1. Load Data: Nhận tham số page
+const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    // Sử dụng api.get để có Token
+    // Gọi API với tham số page và size
+    // Backend trả về Page<MayIn> chứa: content, totalPages, totalElements...
     const [resMay, resKho] = await Promise.all([
-      api.get(API_URL),
-      api.get(API_KHO)
+      api.get(API_URL, { 
+          params: { page: page, size: itemsPerPage.value } 
+      }),
+      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value } // Cache kho nếu đã tải
     ]);
-    danhSachMay.value = resMay.data;
-    danhSachKho.value = resKho.data;
+
+    // Cập nhật State từ dữ liệu Server trả về
+    danhSachMay.value = resMay.data.content; // Mảng dữ liệu (20 dòng)
+    totalPages.value = resMay.data.totalPages;
+    totalElements.value = resMay.data.totalElements;
+    currentPage.value = resMay.data.number; // Trang hiện tại server xác nhận
+    
+    if(resKho.data) danhSachKho.value = resKho.data;
+
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
+    const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
 };
 
+// 2. Chuyển trang: Gọi lại API loadData
+const changePage = (page) => {
+    if (page >= 0 && page < totalPages.value) {
+        loadData(page); // Gọi Server lấy dữ liệu trang mới
+    }
+};
+
 const openEditModal = (may) => {
-  // 1. Map dữ liệu vào Form
   form.maMay = may.maMay;
   form.tenSP = may.sanPham?.tenSP || '---';
-  
-  // Logic truy cập lồng nhau chuẩn theo Entity mới
   form.tenHang = may.sanPham?.hangSanXuat?.tenHang || '---';
   form.tenLoai = may.sanPham?.loaiSanPham?.tenLoai || '---'; 
-
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
-
-  // 2. Thông tin cập nhật
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
   form.tonKho = may.tonKho; 
@@ -109,31 +140,25 @@ const saveChanges = async () => {
       soSeri: form.soSeri,
       trangThai: form.trangThai,
       tonKho: form.tonKho,
-      // Gửi object Kho để Backend map vào Entity MayIn
       kho: form.maKho ? { maKho: form.maKho } : null
     };
-    
-    // api.put
     await api.put(`${API_URL}/${form.maMay}`, payload);
-    
-    showMessage('success', 'Cập nhật thông tin thành công!');
+    showMessage('success', 'Cập nhật thành công!');
     if (modalInstance) modalInstance.hide();
-    loadData();
+    loadData(currentPage.value); // Load lại đúng trang hiện tại
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
-    showMessage('danger', 'Lỗi cập nhật: ' + msg);
+    showMessage('danger', 'Lỗi cập nhật: ' + error.message);
   }
 };
 
 const deleteMay = async (id, seri) => {
-  if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn máy ${seri || id}?`)) return;
+  if (!confirm(`Xóa máy ${seri || id}?`)) return;
   try {
     await api.delete(`${API_URL}/${id}`);
-    showMessage('success', 'Đã xóa máy thành công!');
-    loadData();
+    showMessage('success', 'Đã xóa thành công!');
+    loadData(0); // Xóa xong về trang đầu
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
-    showMessage('danger', 'Không thể xóa: ' + msg);
+    showMessage('danger', 'Không thể xóa: ' + error.message);
   }
 };
 
@@ -143,7 +168,7 @@ const showMessage = (type, text) => {
 };
 
 onMounted(() => {
-  loadData();
+  loadData(0); // Mặc định load trang 0
 });
 </script>
 
@@ -151,14 +176,13 @@ onMounted(() => {
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h3 class="text-primary"><i class="bi bi-qr-code"></i> Quản Lý Danh Mục Máy</h3>
-      <button class="btn btn-sm btn-outline-secondary" @click="loadData">
+      <button class="btn btn-sm btn-outline-secondary" @click="loadData(currentPage)">
         <i class="bi bi-arrow-clockwise"></i> Tải lại
       </button>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">
-      {{ message.text }}
-      <button type="button" class="btn-close" @click="message.text = ''"></button>
+      {{ message.text }} <button type="button" class="btn-close" @click="message.text = ''"></button>
     </div>
 
     <div class="card shadow-sm">
@@ -173,27 +197,27 @@ onMounted(() => {
                 <th>Loại SP</th> 
                 <th>Kho</th>
                 <th width="120px">Tình Trạng</th>
-                <th width="120px">Trạng Thái Kho</th> <th width="120px">Thao tác</th>
+                <th width="120px">TT Kho</th> <th width="120px">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="isLoading">
-                <td colspan="8" class="text-center py-3">Đang tải dữ liệu...</td>
+                <td colspan="8" class="text-center py-3">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải...
+                </td>
               </tr>
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
-                <td class="text-center">{{ index + 1 }}</td>
-                <td class="fw-bold text-primary">{{ may.maMay || '(Trống)' }}</td>
+                
+                <td class="text-center">{{ (currentPage * itemsPerPage) + index + 1 }}</td>
+                
+                <td class="fw-bold text-primary">{{ may.maMay }}</td>
                 <td>
                   <div>{{ may.sanPham?.tenSP }}</div>
-                  <small class="text-muted" v-if="may.sanPham?.hangSanXuat">
-                    {{ may.sanPham.hangSanXuat.tenHang }}
-                  </small>
+                  <small class="text-muted">{{ may.sanPham?.hangSanXuat?.tenHang }}</small>
                 </td>
                 
                 <td class="text-center">
-                  <span class="badge bg-light text-dark border">
-                    {{ may.sanPham?.loaiSanPham?.tenLoai || '---' }}
-                  </span>
+                    <span class="badge bg-light text-dark border">{{ may.sanPham?.loaiSanPham?.tenLoai }}</span>
                 </td>
 
                 <td>{{ may.kho?.tenKho || '---' }}</td>
@@ -205,12 +229,8 @@ onMounted(() => {
                 </td>
 
                 <td class="text-center">
-                    <span v-if="may.tonKho" class="badge bg-success">
-                        Còn Hàng
-                    </span>
-                    <span v-else class="badge bg-secondary">
-                        Đã Xuất
-                    </span>
+                    <span v-if="may.tonKho" class="badge bg-success">Còn Hàng</span>
+                    <span v-else class="badge bg-secondary">Đã Xuất</span>
                 </td>
 
                 <td class="text-center">
@@ -222,14 +242,44 @@ onMounted(() => {
                   </button>
                 </td>
               </tr>
+              <tr v-if="!isLoading && danhSachMay.length === 0">
+                 <td colspan="8" class="text-center py-3">Chưa có dữ liệu.</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
-    </div>
+      
+      <div class="card-footer bg-white border-top-0">
+          <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="paginationInfo.total > 0">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item" :class="{ disabled: paginationInfo.page === 0 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page - 1)">« Trước</a>
+                    </li>
 
+                    <li v-for="(page, index) in visiblePages" :key="index" 
+                        class="page-item" 
+                        :class="{ active: page === paginationInfo.page + 1, disabled: page === '...' }">
+                        <a class="page-link" href="#" 
+                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                            {{ page }}
+                        </a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: paginationInfo.page >= paginationInfo.totalPages - 1 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page + 1)">Sau »</a>
+                    </li>
+                </ul>
+          </div>
+          <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
+              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              trong tổng {{ paginationInfo.total }} máy
+          </div>
+      </div>
+    </div>
+    
     <div class="modal fade" id="modalChiTietMay" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-      <div class="modal-dialog modal-lg">
+         <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header bg-light">
             <h5 class="modal-title text-primary">
