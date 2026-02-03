@@ -52,21 +52,21 @@ public class GiaoDichKhoService {
             BigDecimal tienCon = BigDecimal.ZERO;
 
             Set<String> hangSet = new HashSet<>();
-            Map<String, Integer> spCountMap = new HashMap<>();
+            Map<String, Integer> spCountMap = new LinkedHashMap<>(); // Dùng LinkedHashMap để giữ thứ tự
 
             if (pn.getDanhSachChiTiet() != null) {
                 for (ChiTietPhieuNhap ct : pn.getDanhSachChiTiet()) {
-                    // Logic đếm Hãng & Tên SP (Giữ nguyên)
                     if (ct.getSanPham() != null) {
-                        String tenSP = ct.getSanPham().getTenSP();
-                        spCountMap.put(tenSP, spCountMap.getOrDefault(tenSP, 0) + 1);
+                        // [SỬA] Hiển thị tóm tắt kèm Mã SP: "[IP15] iPhone 15 Pro Max"
+                        String keyDisplay = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
+                        spCountMap.put(keyDisplay, spCountMap.getOrDefault(keyDisplay, 0) + 1);
+
                         if (ct.getSanPham().getHangSanXuat() != null) {
                             hangSet.add(ct.getSanPham().getHangSanXuat().getTenHang());
                         }
                     }
 
-                    // [MỚI] Logic tính tồn kho thực tế của phiếu này
-                    // Kiểm tra máy In liên kết với chi tiết nhập này còn TonKho=true không
+                    // Logic tính tồn kho thực tế
                     if (ct.getMayIn() != null && Boolean.TRUE.equals(ct.getMayIn().getTonKho())) {
                         demConLai++;
                         if (ct.getDonGia() != null) {
@@ -76,14 +76,13 @@ public class GiaoDichKhoService {
                 }
             }
 
-            // Set vào DTO
             dto.setSoLuongConLai(demConLai);
             dto.setTienConLai(tienCon);
-
             dto.setDanhSachHang(String.join(", ", hangSet));
+
             List<String> summaryParts = new ArrayList<>();
-            for (String tenSP : spCountMap.keySet()) {
-                summaryParts.add(tenSP + " x" + spCountMap.get(tenSP));
+            for (String key : spCountMap.keySet()) {
+                summaryParts.add(key + " x" + spCountMap.get(key));
             }
             dto.setTomTatSanPham(String.join(", ", summaryParts));
             listDto.add(dto);
@@ -109,7 +108,6 @@ public class GiaoDichKhoService {
         Kho kho = khoDAO.findById(dto.getMaKho()).orElseThrow(() -> new RuntimeException("Thiếu Kho"));
         phieuNhap.setKhoNhap(kho);
 
-        // [SỬA LỖI]: Lấy MaDonVi từ DTO để lưu NCC
         if (dto.getMaDonVi() != null) {
             DonVi ncc = donViDAO.findById(dto.getMaDonVi()).orElseThrow(() -> new RuntimeException("Thiếu NCC"));
             phieuNhap.setNhaCungCap(ncc);
@@ -124,15 +122,14 @@ public class GiaoDichKhoService {
             for (ChiTietNhapDTO ctDto : dto.getChiTietPhieuNhap()) {
                 SanPham sp = sanPhamDAO.findById(ctDto.getMaSP()).orElseThrow();
                 int soLuongCanNhap = ctDto.getSoLuong();
-
-                // Lấy trạng thái từ DTO (1=New, 2=LikeNew...), mặc định là 1
                 Integer trangThaiNhap = (ctDto.getTrangThai() != null) ? ctDto.getTrangThai() : 1;
 
-                String charDau = sp.getMaSP().substring(0, 1).toUpperCase() + "-";
-                String lastMaMayInDB = mayInDAO.findLastId(charDau).orElse(null);
+                // [LOGIC SINH MÃ MÁY]
+                String prefixMaMay = sp.getMaSP();
+                String lastMaMayInDB = mayInDAO.findLastId(prefixMaMay).orElse(null);
 
                 for (int i = 0; i < soLuongCanNhap; i++) {
-                    String maMayMoi = idGenerator.generateNextId(charDau, lastMaMayInDB);
+                    String maMayMoi = idGenerator.generateNextId(prefixMaMay, lastMaMayInDB);
                     lastMaMayInDB = maMayMoi;
 
                     MayIn mayMoi = new MayIn();
@@ -141,12 +138,13 @@ public class GiaoDichKhoService {
                     mayMoi.setSanPham(sp);
                     mayMoi.setKho(kho);
                     mayMoi.setSoPhieuNhap(savedPhieu.getSoPhieu());
-
-                    mayMoi.setTrangThai(trangThaiNhap); // New/LikeNew
-                    mayMoi.setTonKho(true);             // [QUAN TRỌNG] Nhập thì TonKho = true
-
+                    mayMoi.setTrangThai(trangThaiNhap);
+                    mayMoi.setTonKho(true);
                     mayMoi.setNgayTao(LocalDateTime.now());
-//                    if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
+
+                    // [ĐÃ SỬA] Xóa dòng setHangSanXuat gây lỗi
+                    // Hãng SX sẽ được truy xuất thông qua quan hệ MayIn -> SanPham -> HangSX
+
                     mayInDAO.save(mayMoi);
 
                     ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
@@ -172,12 +170,12 @@ public class GiaoDichKhoService {
         return phieuNhapDAO.save(savedPhieu);
     }
 
-    // ... (Các hàm Xóa/Sửa giữ nguyên, chỉ cần đảm bảo logic check TonKho)
+    // [CÁC PHƯƠNG THỨC KHÁC GIỮ NGUYÊN]
+    // ... xoaPhieuNhap, xuatKho, xoaPhieuXuat ...
 
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuNhap(String soPhieu) {
         PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu).orElseThrow();
-        // Không xóa nếu máy đã bán (TonKho=false)
         for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
             if (ct.getMayIn() != null && Boolean.FALSE.equals(ct.getMayIn().getTonKho())) {
                 throw new RuntimeException("Không thể xóa phiếu nhập! Máy " + ct.getMayIn().getMaMay() + " đã được xuất bán.");
@@ -196,9 +194,6 @@ public class GiaoDichKhoService {
         phieuNhapDAO.delete(phieuNhap);
     }
 
-    // ... (Giữ nguyên phần Xuất kho ở bài trước, vì nó đã dùng TonKho chuẩn)
-    // Tôi copy lại đoạn Xuất Kho để bạn tiện paste 1 thể
-
     public List<PhieuXuatResponseDTO> layDanhSachPhieuXuatHienThi() {
         List<PhieuXuat> listEntity = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
         List<PhieuXuatResponseDTO> listDto = new ArrayList<>();
@@ -212,7 +207,6 @@ public class GiaoDichKhoService {
             if (px.getKhoXuat() != null) dto.setTenKho(px.getKhoXuat().getTenKho());
             if (px.getKhachHang() != null) dto.setTenKhachHang(px.getKhachHang().getTenDonVi());
 
-            // Logic tóm tắt
             Map<String, Integer> spCountMap = new HashMap<>();
             Set<String> hangSet = new HashSet<>();
             if (px.getDanhSachChiTiet() != null) {
@@ -266,13 +260,9 @@ public class GiaoDichKhoService {
                 if (ctDto.getDanhSachSeri() != null) {
                     for (String maMayXuat : ctDto.getDanhSachSeri()) {
                         MayIn mayInDb = mayInDAO.findById(maMayXuat).orElseThrow();
-
-                        // Check TonKho
                         if (Boolean.FALSE.equals(mayInDb.getTonKho())) {
                             throw new RuntimeException("Máy " + maMayXuat + " đã xuất kho rồi!");
                         }
-
-                        // Set TonKho = false
                         mayInDb.setTonKho(false);
                         mayInDAO.save(mayInDb);
 
@@ -298,36 +288,25 @@ public class GiaoDichKhoService {
         return phieuXuatDAO.save(savedPhieu);
     }
 
-    // ... code cũ ...
-
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuXuat(String soPhieu) {
-        // 1. Tìm phiếu xuất
         PhieuXuat phieuXuat = phieuXuatDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
 
-        // 2. [SỬA LẠI LOGIC CHỐT SỔ]
-        // Lấy năm của phiếu xuất (Ví dụ: 2026)
         int namPhieu = phieuXuat.getNgayXuat().getYear();
         int khoId = phieuXuat.getKhoXuat().getMaKho();
-
-        // Kiểm tra xem TRONG BẢNG DMTonKho ĐÃ CÓ DỮ LIỆU CỦA NĂM NÀY CHƯA?
-        // Nếu có (count > 0) => Năm nay đã chốt sổ => CẤM XÓA
-        // [SỬA]: Bỏ đoạn "+ 1" đi
         int soLuongBanGhiChot = thongKeDAO.demSoLuongBanGhiChotSo(namPhieu, khoId);
 
         if (soLuongBanGhiChot > 0) {
             throw new RuntimeException("KHÔNG THỂ XÓA! Năm " + namPhieu + " đã được chốt sổ. Dữ liệu đã bị khóa.");
         }
 
-        // 3. Logic hoàn trả kho (Giữ nguyên không đổi)
         if (phieuXuat.getDanhSachChiTiet() != null) {
             for (ChiTietPhieuXuat ct : phieuXuat.getDanhSachChiTiet()) {
                 MayIn mayIn = ct.getMayIn();
                 if (mayIn != null) {
                     mayIn.setTonKho(true);
                     mayInDAO.save(mayIn);
-
                     SanPham sp = ct.getSanPham();
                     sp.setSoLuong(sp.getSoLuong() + 1);
                     sanPhamDAO.save(sp);
@@ -335,13 +314,9 @@ public class GiaoDichKhoService {
                 chiTietPhieuXuatDAO.delete(ct);
             }
         }
-
         phieuXuatDAO.delete(phieuXuat);
     }
 
-
-    // Các hàm phụ (xoaDongChiTietNhap, themDongVaoPhieuCu, capNhatPhieuNhap)
-    // giữ nguyên code cũ nhưng nhớ áp dụng logic TonKho tương tự hàm xoaPhieuNhap/nhapKho.
     @Transactional
     public PhieuNhap capNhatPhieuNhap(String soPhieu, PhieuNhapDTO dto) {
         PhieuNhap phieuCu = phieuNhapDAO.findById(soPhieu).orElseThrow();
@@ -356,7 +331,6 @@ public class GiaoDichKhoService {
         if (mayIn != null && Boolean.FALSE.equals(mayIn.getTonKho())) {
             throw new RuntimeException("Máy đã bán, không thể xóa!");
         }
-        // ... (Code xóa giống cũ)
         PhieuNhap pn = ct.getPhieuNhap();
         pn.setTongSoLuong(Math.max(0, pn.getTongSoLuong() - 1));
         if(ct.getDonGia()!=null) pn.setTongTien(pn.getTongTien().subtract(ct.getDonGia()));
@@ -377,12 +351,12 @@ public class GiaoDichKhoService {
         int soLuongThem = dto.getSoLuong();
         Integer trangThaiNhap = (dto.getTrangThai() != null) ? dto.getTrangThai() : 1;
 
-        String charDau = sp.getMaSP().substring(0,1) + "-";
-        String lastId = mayInDAO.findLastId(charDau).orElse(null);
+        String prefixMaMay = sp.getMaSP();
+        String lastId = mayInDAO.findLastId(prefixMaMay).orElse(null);
         BigDecimal tongTienThem = BigDecimal.ZERO;
 
         for (int i = 0; i < soLuongThem; i++) {
-            String maMayMoi = idGenerator.generateNextId(charDau, lastId);
+            String maMayMoi = idGenerator.generateNextId(prefixMaMay, lastId);
             lastId = maMayMoi;
 
             MayIn mayMoi = new MayIn();
@@ -392,9 +366,9 @@ public class GiaoDichKhoService {
             mayMoi.setKho(phieuNhap.getKhoNhap());
             mayMoi.setSoPhieuNhap(soPhieu);
             mayMoi.setTrangThai(trangThaiNhap);
-            mayMoi.setTonKho(true); // Default ton kho
+            mayMoi.setTonKho(true);
             mayMoi.setNgayTao(LocalDateTime.now());
-//            if(sp.getHangSanXuat() != null) mayMoi.setHangSanXuat(sp.getHangSanXuat());
+            // [ĐÃ SỬA] Xóa dòng setHangSanXuat
             mayInDAO.save(mayMoi);
 
             ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();

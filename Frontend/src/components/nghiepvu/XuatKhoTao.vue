@@ -10,7 +10,7 @@
             <div class="row mb-4">
                 <div class="col-md-4">
                     <label class="form-label">Kho Xuất (*)</label>
-                    <select class="form-select" v-model="phieuXuat.maKho">
+                    <select class="form-select" v-model="phieuXuat.maKho" @change="resetSelection">
                         <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
@@ -31,34 +31,70 @@
             <div class="row g-3 bg-light p-3 rounded mb-3 border border-warning">
                 <div class="col-12">
                     <div class="alert alert-info py-2 small">
-                        <i class="fas fa-info-circle"></i> Nhập đúng số Serial của các máy đang có trạng thái <b>Mới</b> trong kho.
+                        <i class="fas fa-info-circle"></i> Chọn kho và sản phẩm để xem danh sách số Serial <b>đang tồn kho</b>.
                     </div>
                 </div>
-                <div class="col-md-3">
+
+                <div class="col-md-4">
                     <label class="form-label">Sản Phẩm</label>
-                    <select class="form-select" v-model="currentItem.maSP">
+                    <select class="form-select" v-model="currentItem.maSP" @change="onChonSanPham">
                         <option value="" disabled>-- Chọn SP --</option>
-                        <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">{{ sp.tenSP }}</option>
+                        <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">
+                            {{ sp.tenSP }} ({{ sp.maSP }})
+                        </option>
                     </select>
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label">Giá Bán</label>
                     <input type="number" class="form-control" v-model="currentItem.donGia">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Số Lượng</label>
-                    <input type="number" class="form-control" v-model="currentItem.soLuong">
+
+                <div class="col-md-1">
+                    <label class="form-label">SL</label>
+                    <input type="text" class="form-control fw-bold text-center bg-white" :value="selectedSerials.length" readonly disabled>
                 </div>
+
                 <div class="col-md-5">
-                    <label class="form-label">
-                        Nhập Serial Xuất 
-                        <span v-if="itemCount > 0" :class="{'text-success': isCountValid, 'text-danger': !isCountValid}">
-                            (Đã nhập: {{ itemCount }} / {{ currentItem.soLuong }})
-                        </span>
+                    <label class="form-label d-flex justify-content-between">
+                        <span>Danh Sách Mã Máy (Tồn: {{ availableSerials.length }})</span>
+                        <small class="text-primary" v-if="selectedSerials.length > 0">Đã chọn: {{ selectedSerials.length }}</small>
                     </label>
-                    <textarea class="form-control" rows="2" v-model="currentItem.rawSerials" 
-                              placeholder="Nhập serial, mỗi mã cách nhau bởi dấu phẩy hoặc xuống dòng"></textarea>
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center" 
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false" 
+                                :disabled="!currentItem.maSP || !phieuXuat.maKho">
+                            <span class="text-truncate">
+                                {{ selectedSerials.length > 0 ? `Đã chọn ${selectedSerials.length} máy...` : '-- Chọn các máy cần xuất --' }}
+                            </span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        
+                        <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                            <input type="text" class="form-control mb-2" v-model="searchText" placeholder="🔍 Tìm serial...">
+                            
+                            <div v-if="filteredSerials.length > 0">
+                                <div class="form-check" v-for="seri in filteredSerials" :key="seri">
+                                    <input class="form-check-input" type="checkbox" :value="seri" :id="seri" v-model="selectedSerials">
+                                    <label class="form-check-label w-100" :for="seri" style="cursor: pointer;">
+                                        {{ seri }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div v-else class="text-center text-muted py-2 small">
+                                Không tìm thấy máy phù hợp trong kho này.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-2 d-flex flex-wrap gap-1">
+                        <span v-for="s in selectedSerials" :key="s" class="badge bg-primary">
+                            {{ s }} <i class="fas fa-times ms-1" style="cursor: pointer;" @click="removeSerial(s)"></i>
+                        </span>
+                    </div>
                 </div>
+
                 <div class="col-md-12 text-end">
                     <button class="btn btn-warning" @click="themDongChiTiet">
                         <i class="fas fa-plus-circle"></i> Thêm vào phiếu
@@ -103,9 +139,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-// [QUAN TRỌNG] Dùng api thay axios thường
-import api from '@/utils/axios';
+import { ref, onMounted, computed, watch } from 'vue';
+import api from '@/utils/axios'; 
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -114,66 +149,99 @@ const listDonVi = ref([]);
 const listSanPham = ref([]);
 
 const phieuXuat = ref({ maKho: null, maDonVi: null, ghiChu: '', chiTietPhieuXuat: [] });
-const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, rawSerials: '' });
+const currentItem = ref({ maSP: '', donGia: 0 });
 const listHienThi = ref([]);
 
-// Filter lấy khách hàng (LoaiDonVi = 2)
-// Xử lý linh hoạt nếu backend trả về object hoặc id
+// --- LOGIC MỚI: MULTI-SELECT ---
+const availableSerials = ref([]); // Danh sách máy lấy từ API
+const selectedSerials = ref([]);  // Các máy user tích chọn
+const searchText = ref("");       // Text tìm kiếm
+
+// 1. Filter danh sách dựa trên ô tìm kiếm
+const filteredSerials = computed(() => {
+    if (!searchText.value) return availableSerials.value;
+    return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
+});
+
+// 2. Khi chọn SP, gọi API lấy danh sách máy tồn kho
+const onChonSanPham = async () => {
+    // Reset chọn cũ
+    selectedSerials.value = [];
+    availableSerials.value = [];
+    
+    if (!phieuXuat.value.maKho) {
+        alert("Vui lòng chọn Kho Xuất trước!");
+        currentItem.value.maSP = ""; // Reset SP nếu chưa chọn kho
+        return;
+    }
+
+    try {
+        // Gọi API: /api/kho/may-in/kha-dung?maSP=...&maKho=...
+        const res = await api.get('/kho/may-in/kha-dung', {
+            params: {
+                maSP: currentItem.value.maSP,
+                maKho: phieuXuat.value.maKho
+            }
+        });
+        availableSerials.value = res.data;
+    } catch (e) {
+        console.error(e);
+        alert("Không tải được danh sách máy tồn kho!");
+    }
+};
+
+// 3. Reset khi đổi Kho
+const resetSelection = () => {
+    currentItem.value.maSP = "";
+    availableSerials.value = [];
+    selectedSerials.value = [];
+    listHienThi.value = []; // Xóa luôn danh sách đã thêm vì khác kho
+};
+
+// 4. Xóa tag serial đã chọn
+const removeSerial = (s) => {
+    selectedSerials.value = selectedSerials.value.filter(item => item !== s);
+};
+
+// ------------------------------------------------
+
 const listKhachHang = computed(() => {
     return listDonVi.value.filter(dv => {
-        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') 
-                     ? dv.loaiDonVi.loaiDonVi 
-                     : dv.loaiDonVi;
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
         return loai === 2;
     });
 });
 
-// Tính toán số lượng serial đang nhập realtime
-const itemCount = computed(() => {
-    if(!currentItem.value.rawSerials) return 0;
-    return currentItem.value.rawSerials.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '').length;
-});
-const isCountValid = computed(() => itemCount.value === parseInt(currentItem.value.soLuong));
-
 const loadMasterData = async () => {
     try {
-        // API lấy danh sách Kho, Đơn vị, Sản phẩm
-        // Lưu ý: Nếu Controller trả về 403, kiểm tra quyền User
         const [k, d, s] = await Promise.all([
-             api.get('/kho'),      // /api/kho
-             api.get('/don-vi'),   // /api/don-vi
-             api.get('/san-pham')  // /api/san-pham
+             api.get('/kho'),      
+             api.get('/don-vi'),   
+             api.get('/san-pham')  
         ]);
         listKho.value = k.data; 
         listDonVi.value = d.data; 
         listSanPham.value = s.data;
-    } catch (e) {
-        console.error("Lỗi load master data:", e);
-        // Fallback data demo nếu API lỗi (chỉ dùng khi test)
-        /*
-        if(listKho.value.length === 0) listKho.value = [{maKho: 1, tenKho: 'Kho Tổng'}];
-        if(listDonVi.value.length === 0) listDonVi.value = [{maDonVi: 'KH-LE', tenDonVi: 'Khách Lẻ', loaiDonVi: 2}];
-        if(listSanPham.value.length === 0) listSanPham.value = [{maSP: 'SP-2900', tenSP: 'Canon 2900'}];
-        */
-    }
+    } catch (e) { console.error(e); }
 };
 
 const themDongChiTiet = () => {
     if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
-    if (!isCountValid.value) return alert(`Số lượng nhập (${currentItem.value.soLuong}) không khớp với số mã Serial cung cấp (${itemCount.value}).`);
+    if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
 
-    const serialArray = currentItem.value.rawSerials.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
-
+    // Thêm vào danh sách hiển thị
     listHienThi.value.push({
         maSP: currentItem.value.maSP,
         donGia: currentItem.value.donGia,
-        soLuong: parseInt(currentItem.value.soLuong),
-        danhSachSeri: serialArray
+        soLuong: selectedSerials.value.length, // SL tự động bằng số máy đã chọn
+        danhSachSeri: [...selectedSerials.value] // Copy mảng
     });
 
-    // Reset form item
-    currentItem.value.rawSerials = '';
-    currentItem.value.soLuong = 1;
+    // Reset form item để chọn tiếp SP khác
+    currentItem.value.maSP = "";
+    currentItem.value.donGia = 0;
+    selectedSerials.value = [];
+    availableSerials.value = [];
 };
 
 const luuPhieuXuat = async () => {
@@ -187,7 +255,6 @@ const luuPhieuXuat = async () => {
     };
 
     try {
-        // API: POST /api/kho/xuat (Khớp KhoController)
         await api.post('/kho/xuat', payload);
         alert("Xuất kho thành công!");
         router.push('/xuat-kho');
@@ -202,3 +269,14 @@ const formatCurrency = (val) => new Intl.NumberFormat('vi-VN', { style: 'currenc
 
 onMounted(() => loadMasterData());
 </script>
+
+<style scoped>
+/* Tùy chỉnh thanh cuộn cho dropdown */
+.dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+.dropdown-menu::-webkit-scrollbar-thumb {
+    background-color: #ccc; 
+    border-radius: 4px;
+}
+</style>

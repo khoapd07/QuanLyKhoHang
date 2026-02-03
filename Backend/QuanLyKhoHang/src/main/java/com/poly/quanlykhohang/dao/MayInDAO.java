@@ -37,4 +37,7 @@ public interface MayInDAO extends JpaRepository<MayIn, String> {
 
     // 7. Lọc máy theo trạng thái
     List<MayIn> findByTrangThai(Integer trangThai);
+
+    @Query("SELECT m.maMay FROM MayIn m WHERE m.sanPham.maSP = :maSP AND m.kho.maKho = :maKho AND m.tonKho = true")
+    List<String> findMaMayTonKho(@Param("maSP") String maSP, @Param("maKho") Integer maKho);
 }

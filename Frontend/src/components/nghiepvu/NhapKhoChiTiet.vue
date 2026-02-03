@@ -11,7 +11,7 @@
                 <div class="modal-body" v-if="chiTiet">
                     <div class="row mb-3 p-3 bg-light border rounded mx-1 shadow-sm">
                         <div class="col-md-3"><strong>Ngày Nhập:</strong> {{ formatDate(chiTiet.ngayNhap) }}</div>
-                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap?.tenKho || '---' }}</div>
+                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap.tenKho }}</div>
                         <div class="col-md-3"><strong>Tổng SL:</strong> <span class="badge bg-primary">{{ chiTiet.tongSoLuong }}</span></div>
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                     </div>
@@ -21,8 +21,8 @@
                         <thead class="table-secondary">
                             <tr>
                                 <th>#</th>
-                                <th>Sản Phẩm</th>
-                                <th>Mã Máy</th>
+                                <th>Mã SP</th> <th>Sản Phẩm</th>
+                                <th>Mã Máy (System ID)</th>
                                 <th>Số Serial</th>
                                 <th>Trạng Thái</th> 
                                 <th>Hành động</th>
@@ -31,6 +31,9 @@
                         <tbody>
                             <tr v-for="(item, index) in chiTiet.danhSachChiTiet" :key="item.maCTPN">
                                 <td>{{ index + 1 }}</td>
+                                
+                                <td class="fw-bold text-secondary">{{ item.sanPham?.maSP || '---' }}</td>
+                                
                                 <td class="text-start">{{ item.sanPham?.tenSP }}</td>
                                 <td class="text-primary font-monospace">{{ item.mayIn?.maMay }}</td>
                                 <td>{{ item.mayIn?.soSeri }}</td>
@@ -60,6 +63,7 @@
                     </table>
 
                     <hr class="my-4">
+                    
                     <div class="card border-success shadow-sm">
                         <div class="card-header bg-success text-white d-flex align-items-center py-2">
                             <i class="fas fa-plus-circle me-2"></i> 
@@ -108,7 +112,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-// [QUAN TRỌNG] Dùng api để có Token tránh lỗi 403
 import api from '@/utils/axios'; 
 
 const props = defineProps(['soPhieu']);
@@ -118,10 +121,8 @@ const chiTiet = ref(null);
 const listSanPham = ref([]);
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
-// 1. Load chi tiết phiếu
 const loadChiTiet = async () => {
     try {
-        // API: /api/kho/nhap/{soPhieu} -> (Sửa từ /phieu-nhap/...)
         const res = await api.get(`/kho/nhap/${props.soPhieu}`);
         chiTiet.value = res.data;
     } catch (e) { 
@@ -130,21 +131,16 @@ const loadChiTiet = async () => {
     }
 };
 
-// 2. Load danh sách sản phẩm để chọn
 const loadSanPham = async () => {
     try {
-        // API: /api/san-pham (Nếu SanPhamController map là /api/san-pham)
-        // Nếu SanPhamController map là /api/admin/san-pham hay gì khác thì sửa ở đây
         const res = await api.get('/san-pham');
         listSanPham.value = res.data;
     } catch (e) { console.error(e); }
 };
 
-// 3. Xóa dòng chi tiết
 const xoaDong = async (maCTPN) => {
     if(!confirm("Xóa vĩnh viễn máy này?")) return;
     try {
-        // API: DELETE /api/kho/nhap/chi-tiet/{id}
         await api.delete(`/kho/nhap/chi-tiet/${maCTPN}`);
         alert("Đã xóa thành công!");
         loadChiTiet(); 
@@ -155,18 +151,14 @@ const xoaDong = async (maCTPN) => {
     }
 };
 
-// 4. Bổ sung máy mới vào phiếu cũ
 const themMoiVaoPhieu = async () => {
     if (!newItem.value.maSP) {
         alert("Vui lòng chọn sản phẩm!");
         return;
     }
     try {
-        // API: POST /api/kho/nhap/{soPhieu}/bo-sung
         await api.post(`/kho/nhap/${props.soPhieu}/bo-sung`, newItem.value);
-        
         alert("Thêm mới thành công!");
-        // Reset form
         newItem.value = { maSP: '', donGia: 0, soLuong: 1 };
         loadChiTiet();
         emit('update-success');

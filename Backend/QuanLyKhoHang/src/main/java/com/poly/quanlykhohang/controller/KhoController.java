@@ -1,5 +1,6 @@
 package com.poly.quanlykhohang.controller;
 
+import com.poly.quanlykhohang.dao.MayInDAO;
 import com.poly.quanlykhohang.dto.PhieuNhapDTO;
 import com.poly.quanlykhohang.dto.PhieuXuatDTO;
 import com.poly.quanlykhohang.entity.Kho;
@@ -9,12 +10,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/kho")
 public class KhoController {
 
-    @Autowired private GiaoDichKhoService giaoDichService;
-    @Autowired private KhoService khoService;
+    @Autowired
+    private GiaoDichKhoService giaoDichService;
+    @Autowired
+    private MayInDAO mayInDAO;
+    @Autowired
+    private KhoService khoService;
 
     // ==================================================
     // 1. NHẬP KHO
@@ -130,5 +137,14 @@ public class KhoController {
     @PostMapping("/tao-moi")
     public ResponseEntity<?> taoMoiKho(@RequestBody Kho kho) {
         return ResponseEntity.ok(khoService.luuKho(kho));
+    }
+
+    @GetMapping("/may-in/kha-dung")
+    public ResponseEntity<List<String>> getMayInKhaDung(
+            @RequestParam("maSP") String maSP,
+            @RequestParam("maKho") Integer maKho) {
+
+        List<String> listSerials = mayInDAO.findMaMayTonKho(maSP, maKho);
+        return ResponseEntity.ok(listSerials);
     }
 }
