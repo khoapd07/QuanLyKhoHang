@@ -3,69 +3,80 @@
     <div class="content-header">
       <div class="container-fluid">
         <div class="row mb-2">
-          <div class="col-sm-6">
-            <h1 class="m-0">Báo Cáo Xuất Nhập Tồn</h1>
-          </div>
+          <div class="col-sm-6"><h1 class="m-0">Báo Cáo Xuất Nhập Tồn</h1></div>
         </div>
       </div>
     </div>
 
     <section class="content">
       <div class="container-fluid">
+        
         <div class="card card-primary card-outline">
           <div class="card-header">
-            <h3 class="card-title">
-              <i class="fas fa-filter"></i>
-              Bộ lọc báo cáo
-            </h3>
+            <h3 class="card-title"><i class="fas fa-filter"></i> Bộ lọc báo cáo</h3>
           </div>
           <div class="card-body">
             <div class="row">
-              <div class="col-lg-4 col-md-6 col-12">
+              <div class="col-lg-3 col-md-6 col-12">
                 <div class="form-group">
-                  <label for="startDate">Từ ngày</label>
-                  <input type="date" class="form-control" id="startDate" v-model="filters.startDate">
+                  <label>Từ ngày</label>
+                  <input type="date" class="form-control" v-model="filters.startDate">
                 </div>
               </div>
-              <div class="col-lg-4 col-md-6 col-12">
+              <div class="col-lg-3 col-md-6 col-12">
                 <div class="form-group">
-                  <label for="endDate">Đến ngày</label>
-                  <input type="date" class="form-control" id="endDate" v-model="filters.endDate">
+                  <label>Đến ngày</label>
+                  <input type="date" class="form-control" v-model="filters.endDate">
                 </div>
               </div>
-              <div class="col-lg-4 col-md-6 col-12">
+              <div class="col-lg-3 col-md-6 col-12">
                 <div class="form-group">
-                  <label for="warehouse">Kho/Chi nhánh</label>
-                  <select class="form-control" id="warehouse" v-model="filters.warehouseId">
+                  <label>Kho/Chi nhánh</label>
+                  <select class="form-control" v-model="filters.warehouseId">
                     <option :value="0">Tất cả kho</option>
-                    <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
+                    <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-lg-3 col-md-6 col-12">
+                <div class="form-group">
+                  <label>Trạng thái máy</label>
+                  <select class="form-control" v-model="filters.statusId">
+                    <option :value="0">Tất cả</option>
+                    <option v-for="st in statusList" :key="st.id" :value="st.id">{{ st.name }}</option>
                   </select>
                 </div>
               </div>
             </div>
           </div>
           <div class="card-footer">
-            <button type="button" class="btn btn-primary" @click="fetchInventoryReport">
-              <i class="fas fa-search"></i> Lọc báo cáo
+            <button type="button" class="btn btn-primary" @click="fetchInventoryReport" :disabled="loading">
+              <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-search'"></i> 
+              {{ loading ? 'Đang tải...' : 'Xem Báo Cáo' }}
             </button>
-            <button v-if="reportData.length > 0" type="button" class="btn btn-info mr-2 ml-2" @click="printToWord">
-              <i class="fas fa-file-word"></i> In Báo Cáo
+            <button v-if="reportData.length > 0" type="button" class="btn btn-success ml-2" @click="printToWord">
+              <i class="fas fa-file-word"></i> Xuất Word
             </button>
           </div>
         </div>
 
-        <div class="card mt-4">
-          <div class="card-header">
-            <h3 class="card-title text-success"><i class="fas fa-chart-line"></i> {{ reportTitle }}</h3>
+        <div class="card mt-3">
+          <div class="card-header border-0">
+            <h3 class="card-title text-success font-weight-bold">
+              <i class="fas fa-chart-bar"></i> {{ reportTitle }}
+            </h3>
+            <div class="card-tools">
+               <span class="badge badge-success" v-if="reportData.length > 0">{{ reportData.length }} dòng</span>
+            </div>
           </div>
           
           <div class="card-body table-responsive p-0">
-            <table class="table table-bordered table-striped table-hover">
+            <table class="table table-bordered table-striped table-hover text-nowrap">
               <thead class="bg-light">
                 <tr>
-                  <th style="width: 50px" class="text-center">STT</th>
+                  <th class="text-center" width="50">STT</th>
                   <th>Mã SP</th>
-                  <th>Tên Sản Phẩm</th>
+                  <th>Tên Sản Phẩm (Kèm Trạng Thái)</th>
                   <th class="text-center">ĐVT</th>
                   <th class="text-right">Tồn Đầu</th>
                   <th class="text-right">Nhập</th>
@@ -78,39 +89,49 @@
               <tbody>
                 <template v-if="loading">
                   <tr v-for="n in 5" :key="`skel-${n}`">
-                    <td v-for="m in 10" :key="m">
-                        <div class="skeleton-loader"></div>
-                    </td>
+                    <td v-for="m in 10" :key="m"><div class="skeleton-loader"></div></td>
                   </tr>
                 </template>
 
                 <template v-else>
-                  <tr v-if="!reportData || reportData.length === 0">
-                    <td colspan="10" class="text-center py-4 text-muted">
+                    <tr v-if="reportData.length === 0">
+                      <td colspan="10" class="text-center py-4 text-muted">
                         <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                        Không có dữ liệu trong khoảng thời gian này.
-                    </td>
-                  </tr>
-                  <tr v-for="(item, index) in reportData" :key="index">
-                    <td class="text-center">{{ index + 1 }}</td>
-                    <td class="font-monospace text-primary">{{ item.maSP }}</td>
-                    <td class="fw-bold">{{ item.tenSP }}</td>
-                    <td class="text-center">{{ item.donvitinh }}</td>
+                        Không có dữ liệu phát sinh trong khoảng thời gian này.
+                      </td>
+                    </tr>
                     
-                    <td class="text-right">{{ item.tonDau }}</td>
-                    <td class="text-right text-success">+{{ item.nhapTrong }}</td>
-                    <td class="text-right text-danger">-{{ item.xuatTrong }}</td>
+                    <tr v-for="(item, index) in reportData" :key="index">
+                      <td class="text-center">{{ index + 1 }}</td>
+                      <td class="text-primary font-weight-bold font-monospace">{{ item.maSP }}</td>
+                      <td>{{ item.tenSP }}</td>
+                      <td class="text-center">{{ item.donvitinh }}</td>
+                      
+                      <td class="text-right">{{ item.tonDau }}</td>
+                      <td class="text-right text-success">+{{ item.nhapTrong }}</td>
+                      <td class="text-right text-danger">-{{ item.xuatTrong }}</td>
+                      
+                      <td class="text-right font-weight-bold bg-warning bg-opacity-25">{{ item.tonCuoi }}</td>
+                      
+                      <td class="text-right">{{ formatCurrency(item.giaBQ) }}</td>
+                      <td class="text-right font-weight-bold text-primary">{{ formatCurrency(item.thanhTien) }}</td>
+                    </tr>
                     
-                    <td class="text-right bg-warning bg-opacity-10 fw-bold">{{ item.tonCuoi }}</td>
-                    
-                    <td class="text-right">{{ formatCurrency(item.giaBQ) }}</td>
-                    <td class="text-right fw-bold text-primary">{{ formatCurrency(item.thanhTien) }}</td>
-                  </tr>
+                    <tr v-if="reportData.length > 0" class="bg-secondary font-weight-bold">
+                        <td colspan="4" class="text-center">TỔNG CỘNG</td>
+                        <td class="text-right">{{ sumTotals.tdk }}</td>
+                        <td class="text-right">{{ sumTotals.ntk }}</td>
+                        <td class="text-right">{{ sumTotals.xtk }}</td>
+                        <td class="text-right">{{ sumTotals.tck }}</td>
+                        <td class="text-right">---</td>
+                        <td class="text-right">{{ formatCurrency(sumTotals.tien) }}</td>
+                    </tr>
                 </template>
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
     </section>
   </div>
@@ -118,21 +139,26 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
-// [QUAN TRỌNG] Dùng api từ utils
-import api from '@/utils/axios';
+// [QUAN TRỌNG] Thay đổi từ 'axios' sang '@/utils/axios'
+// Điều này giúp gửi kèm Token trong Header -> Không bị lỗi 401/403
+import api from '@/utils/axios'; 
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
 // --- CẤU HÌNH API ---
-// URL: /api/thong-ke/xuat-nhap-ton (Khớp Controller)
+// Sửa đường dẫn thành tương đối (vì base URL đã có /api)
 const API_URL = '/thong-ke/xuat-nhap-ton';
 
 // --- STATE ---
+const today = new Date();
+const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
 const filters = reactive({
-  startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().substring(0, 10), // Đầu tháng hiện tại
-  endDate: new Date().toISOString().substring(0, 10), // Hôm nay
+  startDate: firstDay.toISOString().substring(0, 10),
+  endDate: today.toISOString().substring(0, 10),
   warehouseId: 0,
+  statusId: 0 
 });
 
 const khoList = ref([]);
@@ -140,15 +166,34 @@ const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('Tất cả các kho');
 
-// Tiêu đề báo cáo động
+const statusList = ref([
+    { id: 1, name: 'Mới (New)' },
+    { id: 2, name: 'Like New' },
+    { id: 3, name: 'Hỏng' },
+    { id: 4, name: 'Xác' },
+    { id: 5, name: 'Thu hồi' },
+    { id: 6, name: 'Nhập Khẩu' }
+]);
+
 const reportTitle = computed(() => {
     return `Báo cáo: ${currentTenKho.value} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
+});
+
+const sumTotals = computed(() => {
+    return reportData.value.reduce((acc, item) => {
+        acc.tdk += item.tonDau || 0;
+        acc.ntk += item.nhapTrong || 0;
+        acc.xtk += item.xuatTrong || 0;
+        acc.tck += item.tonCuoi || 0;
+        acc.tien += item.thanhTien || 0;
+        return acc;
+    }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 });
 
 // --- LOAD DATA ---
 const loadKho = async () => {
     try {
-        // API: /api/kho (Lấy danh sách kho)
+        // Sử dụng api.get thay vì axios.get
         const res = await api.get('/kho');
         khoList.value = res.data;
     } catch (e) {
@@ -159,43 +204,93 @@ const loadKho = async () => {
 const fetchInventoryReport = async () => {
   loading.value = true;
   reportData.value = [];
+  
   try {
+    // Sử dụng api.get
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
         tuNgay: filters.startDate,
         denNgay: filters.endDate,
-        loaiLoc: 0 // 0: Tất cả, 1: Chỉ có phát sinh... (Tùy logic backend)
+        loaiLoc: filters.statusId 
       }
     });
     
     const data = response.data;
-    // Backend trả về DTO: { tenKho: "...", danhSachChiTiet: [...] }
     currentTenKho.value = data.tenKho;
-    reportData.value = data.danhSachChiTiet;
+    reportData.value = data.danhSachChiTiet || []; 
     
   } catch (error) {
     console.error("Lỗi:", error);
     const msg = error.response?.data?.message || error.message;
-    alert("Lỗi tải báo cáo: " + msg);
+    // alert("Lỗi tải báo cáo: " + msg);
   } finally {
     loading.value = false;
   }
 };
 
-// --- HELPER FUNCTIONS ---
-
+// --- EXPORT WORD ---
 const loadFile = async (url) => {
     const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Không thể tải file mẫu: ${url}`);
-    }
+    if (!response.ok) throw new Error(`Lỗi tải file mẫu: ${url}`);
     return await response.arrayBuffer();
 };
 
+const printToWord = async () => {
+  try {
+      const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12; hours = hours ? hours : 12;
+
+      const dataToRender = {
+          ngayBatDau: formatDateString(filters.startDate),
+          ngayKetThuc: formatDateString(filters.endDate),
+          tenKho: currentTenKho.value,
+          
+          p: reportData.value.map((item, index) => ({
+              stt: index + 1,
+              ma: item.maSP,
+              ten: item.tenSP, 
+              dvt: item.donvitinh,
+              tdk: item.tonDau,
+              ntk: item.nhapTrong,
+              xtk: item.xuatTrong,
+              tck: item.tonCuoi,
+              gia: formatCurrency(item.giaBQ),
+              tien: formatCurrency(item.thanhTien)
+          })),
+
+          sumTDK: sumTotals.value.tdk,
+          sumNTK: sumTotals.value.ntk,
+          sumXTK: sumTotals.value.xtk,
+          sumTCK: sumTotals.value.tck,
+          sumTien: formatCurrency(sumTotals.value.tien),
+
+          d: dd, m: mm, y: yyyy, h: String(hours).padStart(2,'0'), ph: minutes, ampm: ampm
+      };
+
+      doc.render(dataToRender);
+      const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      saveAs(out, `BaoCao_XNT_${filters.endDate}.docx`);
+
+  } catch (error) {
+      console.error(error);
+      alert("Lỗi xuất file Word: " + error.message);
+  }
+};
+
 const formatCurrency = (value) => {
-  if (!value || isNaN(value)) return '0';
-  return new Intl.NumberFormat('vi-VN').format(value);
+  if (!value || isNaN(value)) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
 const formatDateString = (dateStr) => {
@@ -205,103 +300,20 @@ const formatDateString = (dateStr) => {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-// --- EXPORT WORD ---
-const printToWord = async () => {
-  if (!reportData.value || reportData.value.length === 0) {
-    alert("Không có dữ liệu để in.");
-    return;
-  }
-
-  try {
-      // 1. Tải file mẫu
-      const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
-
-      // 2. Khởi tạo Docxtemplater
-      const zip = new PizZip(content);
-      const doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-      });
-
-      // --- TÍNH TỔNG ---
-      const totals = reportData.value.reduce((acc, item) => {
-          acc.tdk += item.tonDau || 0;
-          acc.ntk += item.nhapTrong || 0;
-          acc.xtk += item.xuatTrong || 0;
-          acc.tck += item.tonCuoi || 0;
-          acc.tien += item.thanhTien || 0; // Backend trả về BigDecimal -> JSON là number
-          return acc;
-      }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-
-      // --- NGÀY GIỜ ---
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
-      
-      let hours = now.getHours();
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12; 
-      const strHours = String(hours).padStart(2, '0');
-
-      // 3. Map dữ liệu
-      const dataToRender = {
-          // Header Info
-          ngayBatDau: formatDateString(filters.startDate),
-          ngayKetThuc: formatDateString(filters.endDate),
-          tenKho: currentTenKho.value,
-          
-          // Data Table Loop
-          p: reportData.value.map((item, index) => ({
-              stt: index + 1,
-              ma: item.maSP || "",
-              ten: item.tenSP || "",
-              dvt: item.donvitinh || "",
-              tdk: item.tonDau || 0,
-              ntk: item.nhapTrong || 0,
-              xtk: item.xuatTrong || 0,
-              tck: item.tonCuoi || 0,
-              gia: formatCurrency(item.giaBQ),
-              tien: formatCurrency(item.thanhTien)
-          })),
-
-          // Footer Sums
-          sumTDK: new Intl.NumberFormat('vi-VN').format(totals.tdk),
-          sumNTK: new Intl.NumberFormat('vi-VN').format(totals.ntk),
-          sumXTK: new Intl.NumberFormat('vi-VN').format(totals.xtk),
-          sumTCK: new Intl.NumberFormat('vi-VN').format(totals.tck),
-          sumTien: formatCurrency(totals.tien),
-
-          // Print Date
-          d: dd, m: mm, y: yyyy, h: strHours, ph: minutes, ampm: ampm
-      };
-
-      doc.render(dataToRender);
-
-      const out = doc.getZip().generate({
-          type: "blob",
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-      
-      saveAs(out, `BaoCao_XNT_${filters.endDate}.docx`);
-
-  } catch (error) {
-      console.error("Lỗi in Word:", error);
-      if (error.properties && error.properties.errors) {
-          const errs = error.properties.errors.map(e => e.properties.explanation).join("\n");
-          alert("Lỗi Template Word: \n" + errs);
-      } else {
-          alert("Lỗi xuất file: " + error.message);
-      }
-  }
-};
-
-// --- LIFECYCLE ---
 onMounted(async () => {
+    const token = localStorage.getItem('token'); // Hoặc tên key bạn dùng lưu token
+    
+    if (!token) {
+        console.warn("Chưa có token, chuyển hướng về login...");
+        // router.push('/login'); // Nếu dùng vue-router
+        return;
+    }
+
+
     await loadKho();
     fetchInventoryReport();
+
+
 });
 </script>
 
@@ -314,9 +326,8 @@ onMounted(async () => {
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
 }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes shimmer { 
+    0% { background-position: 200% 0; } 
+    100% { background-position: -200% 0; } 
 }
 </style>

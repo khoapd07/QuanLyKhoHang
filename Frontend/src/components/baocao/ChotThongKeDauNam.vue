@@ -93,7 +93,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-// [QUAN TRỌNG] Dùng api từ utils
+// [QUAN TRỌNG] Dùng api instance thay vì axios thường để có Token
 import api from '@/utils/axios';
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
@@ -104,7 +104,7 @@ const API_BASE = '/thong-ke';
 
 // --- STATE ---
 const filters = reactive({
-  nam: new Date().getFullYear() - 1, // Mặc định năm trước để chốt sang năm nay
+  nam: new Date().getFullYear(), // Năm hiện tại
   warehouseId: 0, 
 });
 
@@ -116,7 +116,7 @@ const currentTenKho = ref('');
 // --- LOAD DATA ---
 const loadKho = async () => {
     try {
-        // API lấy danh sách kho: /api/kho
+        // API: /api/kho (Lấy danh sách kho)
         const res = await api.get('/kho');
         khoList.value = res.data;
         // Nếu có kho thì set mặc định cái đầu tiên (hoặc để 0 là tất cả)
@@ -151,8 +151,8 @@ const thucHienChotSo = async () => {
   reportData.value = []; 
 
   try {
+    // [SỬA LẠI] Dùng api.post thay vì axios.post
     // API: POST /api/thong-ke/chot-so
-    // Backend @RequestParam: nam, maKho
     const response = await api.post(`${API_BASE}/chot-so`, null, {
       params: {
         nam: filters.nam,
@@ -161,7 +161,7 @@ const thucHienChotSo = async () => {
     });
 
     const data = response.data;
-    // Backend trả về: { tenKho: "...", danhSachChiTiet: [...] } (BaoCaoResponseDTO)
+    // Backend trả về: { tenKho: "...", danhSachChiTiet: [...] }
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet;
     

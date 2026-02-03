@@ -35,9 +35,9 @@ api.interceptors.response.use(
             localStorage.removeItem('user');
             
             // Chuyển hướng về Login (dùng window.location để refresh sạch sẽ)
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
-            }
+            // if (window.location.pathname !== '/login') {
+            //     window.location.href = '/login';
+            // }
         }
         return Promise.reject(error);
     }

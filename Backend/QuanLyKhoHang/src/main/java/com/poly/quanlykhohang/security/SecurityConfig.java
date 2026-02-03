@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/san-pham/**", "/api/don-vi/**").authenticated()
                         // - Các thao tác còn lại (Thêm/Sửa/Xóa) bắt buộc là ADMIN
                         .requestMatchers("/api/san-pham/**", "/api/don-vi/**").hasRole("ADMIN")
+
+                        .requestMatchers("/api/thong-ke/**").hasAnyRole("ADMIN")
 //                        .requestMatchers("/**").permitAll()
                         .anyRequest().authenticated() // Còn lại phải đăng nhập hết
                 )
