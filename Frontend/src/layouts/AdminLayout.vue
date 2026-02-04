@@ -18,19 +18,19 @@
           <li class="nav-item dropdown user-menu">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
               <img src="https://assets.minimals.cc/public/assets/images/mock/avatar/avatar-25.webp" class="user-image rounded-circle shadow" alt="User Image">
-              <span class="d-none d-md-inline">Admin User</span>
+              <span class="d-none d-md-inline">{{ currentUser.name }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
               <li class="user-header text-bg-primary">
                 <img src="https://assets.minimals.cc/public/assets/images/mock/avatar/avatar-25.webp" class="rounded-circle shadow" alt="User Image">
                 <p>
-                  Quản lý kho
-                  <small>Dự án 2026</small>
+                  {{ currentUser.name }}
+                  <small>{{ currentUser.role }} - Dự án 2026</small>
                 </p>
               </li>
               <li class="user-footer">
                 <a href="#" class="btn btn-default btn-flat">Hồ sơ</a>
-                <a href="#" class="btn btn-default btn-flat float-end" @click="logout">Đăng xuất</a>
+                <a href="#" class="btn btn-default btn-flat float-end" @click.prevent="logout">Đăng xuất</a>
               </li>
             </ul>
           </li>
@@ -57,44 +57,36 @@
             </li>
 
             <li class="nav-header">DANH MỤC</li>
-
             <li class="nav-item">
               <router-link to="/hang-san-xuat" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-box-seam"></i>
                 <p>Hãng sản xuất</p>
               </router-link>
             </li>
-
             <li class="nav-item">
               <router-link to="/loai-san-pham" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-box-seam"></i>
+                <i class="nav-icon bi bi-tags"></i>
                 <p>Loại sản phẩm</p>
               </router-link>
             </li>
-            
             <li class="nav-item">
               <router-link to="/danh-muc-san-pham" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-box-seam"></i>
+                <i class="nav-icon bi bi-qr-code"></i>
                 <p>Danh mục sản phẩm</p>
               </router-link>
             </li>
-
             <li class="nav-item">
               <router-link to="/danh-muc-may" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-box-seam"></i>
+                <i class="nav-icon bi bi-upc-scan"></i>
                 <p>Danh mục máy</p>
               </router-link>
             </li>
-
-
-
             <li class="nav-item">
               <router-link to="/don-vi" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-building"></i>
                 <p>Đơn vị (NCC/Khách)</p>
               </router-link>
             </li>
-
             <li class="nav-item">
               <router-link to="/kho" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-house-door"></i>
@@ -103,12 +95,12 @@
             </li>
 
             <li class="nav-header">NGHIỆP VỤ</li>
-            <li class="nav-item menu-open" :class="{ 'menu-open': isKhoMenuOpen }">
+            <li class="nav-item" :class="{ 'menu-open': isKhoMenuOpen }">
               <a href="#" class="nav-link" @click.prevent="toggleKhoMenu">
                 <i class="nav-icon bi bi-clipboard-data"></i>
                 <p>
                   Quản lý Kho
-                  <i class="nav-arrow bi bi-chevron-right"></i>
+                  <i class="nav-arrow bi bi-chevron-right float-end"></i>
                 </p>
               </a>
               <ul class="nav nav-treeview" :style="{ display: isKhoMenuOpen ? 'block' : 'none' }">
@@ -128,25 +120,24 @@
             </li>
 
             <li class="nav-header">BÁO CÁO</li>
-
-              <li class="nav-item">
-                <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
-                  <i class="nav-icon bi bi-pie-chart"></i>
-                  <p>Tồn kho</p>
-                </router-link>
-              </li>
-
-              <li class="nav-item">
-                <router-link to="/bao-cao-ton-dau-nam" class="nav-link" active-class="active">
-                  <i class="nav-icon bi bi-calendar-check-fill"></i> <p>Chốt sổ đầu năm</p>
-                </router-link>
-              </li>
-
-             <li class="nav-header">HỆ THỐNG</li>
             <li class="nav-item">
+              <router-link to="/bao-cao-ton" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-pie-chart"></i>
+                <p>Tồn kho</p>
+              </router-link>
+            </li>
+            <li class="nav-item">
+              <router-link to="/bao-cao-ton-dau-nam" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-calendar-check"></i> 
+                <p>Chốt sổ đầu năm</p>
+              </router-link>
+            </li>
+
+            <li class="nav-header" v-if="isAdmin">HỆ THỐNG</li>
+            <li class="nav-item" v-if="isAdmin">
               <router-link to="/tai-khoan" class="nav-link" active-class="active">
-                <i class="nav-icon bi bi-people"></i>
-                <p>Tài khoản</p>
+                <i class="nav-icon bi bi-people-fill"></i>
+                <p>Quản lý Tài khoản</p>
               </router-link>
             </li>
 
@@ -156,11 +147,11 @@
     </aside>
 
     <main class="app-main">
-      <div class="app-content-header">
+      <div class="app-content-header py-3 shadow-sm mb-3 bg-white">
         <div class="container-fluid">
           <div class="row">
             <div class="col-sm-6">
-              <h3 class="mb-0">Hệ thống quản lý</h3>
+              <h4 class="mb-0 text-primary">Hệ thống quản lý</h4>
             </div>
           </div>
         </div>
@@ -182,43 +173,79 @@
 </template>
 
 <script setup>
-// 1. THÊM 'ref' VÀO IMPORT
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
-// 2. KHAI BÁO BIẾN TRẠNG THÁI (Bạn đang thiếu dòng này)
-const isKhoMenuOpen = ref(false); // Mặc định là false (đóng)
+// --- STATE ---
+const isKhoMenuOpen = ref(false);
+const isAdmin = ref(false);
+const currentUser = reactive({
+  name: 'Người dùng',
+  role: 'STAFF'
+});
 
-// Hàm xử lý Đăng xuất
-function logout() {
-  localStorage.removeItem('token');
-  router.push('/login');
-}
+// --- LIFECYCLE ---
+onMounted(() => {
+  checkUserRole();
+});
 
-// Hàm này bây giờ sẽ hoạt động vì biến isKhoMenuOpen đã được khai báo
-function toggleKhoMenu() {
+// --- METHODS ---
+
+// 1. Kiểm tra Role và lấy thông tin user từ LocalStorage
+const checkUserRole = () => {
+  const role = localStorage.getItem('userRole');
+  const name = localStorage.getItem('hoTen');
+  
+  // Xác định quyền Admin
+  isAdmin.value = (role === 'ADMIN');
+  
+  // Cập nhật thông tin hiển thị
+  if (name) currentUser.name = name;
+  if (role) currentUser.role = role;
+};
+
+// 2. Xử lý Đăng xuất
+const logout = () => {
+  if (confirm('Bạn có chắc muốn đăng xuất?')) {
+      // Xóa hết các key liên quan đến phiên đăng nhập
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('hoTen');
+      localStorage.removeItem('userInfo');
+      
+      // Chuyển về trang Login
+      router.push('/login');
+  }
+};
+
+const toggleKhoMenu = () => {
   isKhoMenuOpen.value = !isKhoMenuOpen.value;
-}
+};
 
-// Hàm Toggle Sidebar thủ công
-function toggleSidebar() {
+const toggleSidebar = () => {
   const body = document.querySelector('body');
   if (window.innerWidth >= 992) {
     body.classList.toggle('sidebar-collapse');
   } else {
     body.classList.toggle('sidebar-open');
   }
-}
-
-onMounted(() => {
-  // Logic khởi tạo nếu cần
-});
+};
 </script>
 
 <style scoped>
 .app-wrapper {
   min-height: 100vh;
+}
+.sidebar-menu .nav-link.active {
+    background-color: #0d6efd; /* Bootstrap Primary */
+    color: white;
+}
+.nav-arrow {
+    transition: transform 0.3s ease;
+}
+.menu-open .nav-arrow {
+    transform: rotate(90deg);
 }
 </style>
