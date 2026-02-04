@@ -61,7 +61,8 @@ public class SecurityConfig {
                                 "/api/hang-san-xuat/**",
                                 "/api/loai-san-pham/**",
                                 "/api/danh-muc-may/**",
-                                "/api/may-in/**"
+                                "/api/may-in/**",
+                                "/api/dashboard"
                         ).authenticated()
 
                         .requestMatchers(
@@ -70,7 +71,8 @@ public class SecurityConfig {
                                 "/api/kho/**",
                                 "/api/hang-san-xuat/**",
                                 "/api/loai-san-pham/**",
-                                "/api/danh-muc-may/**"
+                                "/api/danh-muc-may/**",
+                                "/api/dashboard"
                         ).authenticated()
 
                         // ======================================================
