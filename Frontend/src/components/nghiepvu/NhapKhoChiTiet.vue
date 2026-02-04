@@ -11,7 +11,7 @@
                 <div class="modal-body" v-if="chiTiet">
                     <div class="row mb-3 p-3 bg-light border rounded mx-1 shadow-sm">
                         <div class="col-md-3"><strong>Ngày Nhập:</strong> {{ formatDate(chiTiet.ngayNhap) }}</div>
-                        <div class="col-md-3"><strong>Kho:</strong> {{ chiTiet.khoNhap.tenKho }}</div>
+                        <div class="col-md-3"><strong>Kho Nhập:</strong> <span class="fw-bold text-primary">{{ chiTiet.khoNhap?.tenKho }}</span></div>
                         <div class="col-md-3"><strong>Tổng SL:</strong> <span class="badge bg-primary">{{ chiTiet.tongSoLuong }}</span></div>
                         <div class="col-md-3"><strong>Tổng Tiền:</strong> <span class="text-danger fw-bold">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
                     </div>
@@ -21,7 +21,8 @@
                         <thead class="table-secondary">
                             <tr>
                                 <th>#</th>
-                                <th>Mã SP</th> <th>Sản Phẩm</th>
+                                <th>Mã SP</th> 
+                                <th>Sản Phẩm</th>
                                 <th>Mã Máy (System ID)</th>
                                 <th>Số Serial</th>
                                 <th>Trạng Thái</th> 
@@ -33,17 +34,21 @@
                                 <td>{{ index + 1 }}</td>
                                 
                                 <td class="fw-bold text-secondary">{{ item.sanPham?.maSP || '---' }}</td>
-                                
                                 <td class="text-start">{{ item.sanPham?.tenSP }}</td>
                                 <td class="text-primary font-monospace">{{ item.mayIn?.maMay }}</td>
                                 <td>{{ item.mayIn?.soSeri }}</td>
                                 
                                 <td>
-                                    <span v-if="item.mayIn?.tonKho === true" class="badge bg-danger">
-                                        Tồn Kho
-                                    </span>
-                                    <span v-else class="badge bg-success">
+                                    <span v-if="item.mayIn?.tonKho === false" class="badge bg-secondary">
                                         Đã Xuất Bán
+                                    </span>
+
+                                    <span v-else-if="item.mayIn?.kho?.maKho !== chiTiet.khoNhap?.maKho" class="badge bg-warning text-dark">
+                                        <i class="fas fa-shipping-fast"></i> Đã chuyển: {{ item.mayIn?.kho?.tenKho }}
+                                    </span>
+
+                                    <span v-else class="badge bg-success">
+                                        Tồn Tại Kho
                                     </span>
                                 </td>
                                 
@@ -121,6 +126,7 @@ const chiTiet = ref(null);
 const listSanPham = ref([]);
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
+// Hàm load chi tiết phiếu
 const loadChiTiet = async () => {
     try {
         const res = await api.get(`/kho/nhap/${props.soPhieu}`);
@@ -131,15 +137,20 @@ const loadChiTiet = async () => {
     }
 };
 
+// Hàm load sản phẩm (Có xử lý an toàn dữ liệu Page/List)
 const loadSanPham = async () => {
     try {
         const res = await api.get('/san-pham');
-        listSanPham.value = res.data;
+        if (res.data && res.data.content && Array.isArray(res.data.content)) {
+            listSanPham.value = res.data.content;
+        } else {
+            listSanPham.value = res.data;
+        }
     } catch (e) { console.error(e); }
 };
 
 const xoaDong = async (maCTPN) => {
-    if(!confirm("Xóa vĩnh viễn máy này?")) return;
+    if(!confirm("CẢNH BÁO: Xóa dòng này sẽ xóa máy khỏi hệ thống.\nNếu máy đã chuyển kho, lịch sử chuyển cũng bị xóa.\nTiếp tục?")) return;
     try {
         await api.delete(`/kho/nhap/chi-tiet/${maCTPN}`);
         alert("Đã xóa thành công!");

@@ -35,7 +35,6 @@ public class GiaoDichKhoService {
     public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi(Integer maKho) {
         List<PhieuNhap> listEntity;
 
-        // [LOGIC MỚI] Kiểm tra nếu có mã kho thì lọc, ngược lại lấy tất cả
         if (maKho != null && maKho > 0) {
             listEntity = phieuNhapDAO.findByMaKhoOrderByNgayNhapDesc(maKho);
         } else {
@@ -49,16 +48,16 @@ public class GiaoDichKhoService {
             dto.setSoPhieu(pn.getSoPhieu());
             dto.setNgayNhap(pn.getNgayNhap());
             dto.setGhiChu(pn.getGhiChu());
-
-            // 1. Tổng số ban đầu
             dto.setTongTien(pn.getTongTien());
             dto.setTongSoLuongMay(pn.getTongSoLuong());
 
             if (pn.getKhoNhap() != null) dto.setTenKho(pn.getKhoNhap().getTenKho());
             if (pn.getNhaCungCap() != null) dto.setTenKhachHang(pn.getNhaCungCap().getTenDonVi());
 
-            // 2. Tính toán SỐ LƯỢNG CÒN LẠI và TIỀN CÒN LẠI
-            int demConLai = 0;
+            // --- [LOGIC MỚI BẮT ĐẦU] ---
+            int slConLaiTaiKho = 0;   // Còn nằm im tại kho nhập
+            int slDaChuyenDi = 0;     // Đã chuyển sang kho khác
+            int slDaBan = 0;          // Đã xuất bán
             BigDecimal tienCon = BigDecimal.ZERO;
 
             Set<String> hangSet = new HashSet<>();
@@ -66,34 +65,56 @@ public class GiaoDichKhoService {
 
             if (pn.getDanhSachChiTiet() != null) {
                 for (ChiTietPhieuNhap ct : pn.getDanhSachChiTiet()) {
+                    // 1. Tóm tắt tên SP
                     if (ct.getSanPham() != null) {
                         String keyDisplay = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
                         spCountMap.put(keyDisplay, spCountMap.getOrDefault(keyDisplay, 0) + 1);
-
                         if (ct.getSanPham().getHangSanXuat() != null) {
                             hangSet.add(ct.getSanPham().getHangSanXuat().getTenHang());
                         }
                     }
 
-                    // Logic tính tồn kho
-                    if (ct.getMayIn() != null && Boolean.TRUE.equals(ct.getMayIn().getTonKho())) {
-                        demConLai++;
-                        if (ct.getDonGia() != null) {
-                            tienCon = tienCon.add(ct.getDonGia());
+                    // 2. Phân loại trạng thái máy
+                    MayIn may = ct.getMayIn();
+                    if (may != null) {
+                        boolean tonKho = Boolean.TRUE.equals(may.getTonKho());
+
+                        if (!tonKho) {
+                            // Case 1: Đã bán
+                            slDaBan++;
+                        } else {
+                            // Case 2: Còn tồn kho (check xem đang ở kho nào)
+                            boolean dungKho = may.getKho().getMaKho().equals(pn.getKhoNhap().getMaKho());
+
+                            if (dungKho) {
+                                // Vẫn ở kho nhập
+                                slConLaiTaiKho++;
+                                if (ct.getDonGia() != null) tienCon = tienCon.add(ct.getDonGia());
+                            } else {
+                                // Đã chuyển sang kho khác (Vẫn tồn kho nhưng không ở đây)
+                                slDaChuyenDi++;
+                            }
                         }
                     }
                 }
             }
 
-            dto.setSoLuongConLai(demConLai);
+            // Gán giá trị hiển thị
+            dto.setSoLuongConLai(slConLaiTaiKho); // Chỉ hiển thị số thực tế còn tại kho này
             dto.setTienConLai(tienCon);
             dto.setDanhSachHang(String.join(", ", hangSet));
 
+            // Tạo chuỗi tóm tắt thông minh hơn
             List<String> summaryParts = new ArrayList<>();
+            // Hiển thị cảnh báo nếu có hàng đã chuyển hoặc đã bán
+            if (slDaChuyenDi > 0) summaryParts.add("(Đã chuyển: " + slDaChuyenDi + ")");
+            if (slDaBan > 0) summaryParts.add("(Đã bán: " + slDaBan + ")");
+
             for (String key : spCountMap.keySet()) {
                 summaryParts.add(key + " x" + spCountMap.get(key));
             }
             dto.setTomTatSanPham(String.join(", ", summaryParts));
+
             listDto.add(dto);
         }
         return listDto;

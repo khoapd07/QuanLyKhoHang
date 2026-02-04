@@ -45,10 +45,9 @@
                         </div>
                         
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">
-                                2. Chọn Mã Máy 
-                                <span v-if="availableSerials.length > 0" class="badge bg-success">Tồn: {{ availableSerials.length }}</span>
-                                <span v-else class="badge bg-secondary">Tồn: 0</span>
+                            <label class="form-label fw-bold d-flex justify-content-between">
+                                <span>2. Chọn Mã Máy <span class="badge bg-secondary">Tồn: {{ availableSerials.length }}</span></span>
+                                <span class="text-primary" v-if="selectedSerials.length > 0">Đang chọn: {{ selectedSerials.length }}</span>
                             </label>
                             
                             <div class="dropdown">
@@ -61,13 +60,28 @@
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                                 
-                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
-                                    <input type="text" class="form-control mb-2" v-model="searchText" placeholder="🔍 Tìm serial nhanh...">
+                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 400px; overflow-y: auto;">
+                                    <input type="text" class="form-control mb-2" v-model="searchText" placeholder="🔍 Tìm serial (hoặc gõ Shift để chọn nhiều)...">
                                     
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-2 mb-2 bg-light rounded border" v-if="filteredSerials.length > 0">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="checkbox" id="selectAll" 
+                                                   :checked="isAllSelected" 
+                                                   @change="toggleSelectAll">
+                                            <label class="form-check-label fw-bold cursor-pointer" for="selectAll">
+                                                Chọn tất cả ({{ filteredSerials.length }})
+                                            </label>
+                                        </div>
+                                    </div>
+
                                     <div v-if="filteredSerials.length > 0">
-                                        <div class="form-check py-1" v-for="s in filteredSerials" :key="s">
-                                            <input class="form-check-input" type="checkbox" :value="s" :id="s" v-model="selectedSerials">
-                                            <label class="form-check-label w-100" :for="s" style="cursor: pointer;">
+                                        <div class="form-check py-1 px-2 hover-bg" v-for="(s, index) in filteredSerials" :key="s">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   :value="s" :id="s" 
+                                                   v-model="selectedSerials"
+                                                   @click="handleShiftClick($event, index)">
+                                            
+                                            <label class="form-check-label w-100 cursor-pointer" :for="s">
                                                 {{ s }}
                                             </label>
                                         </div>
@@ -88,7 +102,10 @@
                     
                     <div class="mt-2 d-flex flex-wrap gap-1" v-if="selectedSerials.length > 0">
                         <span v-for="s in selectedSerials" :key="s" class="badge bg-primary">
-                            {{ s }} <i class="fas fa-times ms-1" style="cursor: pointer;" @click="removeSerial(s)"></i>
+                            {{ s }} <i class="fas fa-times ms-1 cursor-pointer" @click="removeSerial(s)"></i>
+                        </span>
+                        <span class="badge bg-danger cursor-pointer" @click="selectedSerials = []" v-if="selectedSerials.length > 2">
+                            Xóa hết
                         </span>
                     </div>
                 </div>
@@ -110,7 +127,7 @@
                         <td class="fw-bold text-primary">{{ getTenSP(item.maSP) }}</td>
                         <td class="fw-bold text-center">{{ item.danhSachSeri.length }}</td>
                         <td>
-                            <div class="d-flex flex-wrap gap-1">
+                            <div class="d-flex flex-wrap gap-1" style="max-height: 100px; overflow-y: auto;">
                                 <span class="badge bg-secondary" v-for="s in item.danhSachSeri" :key="s">{{ s }}</span>
                             </div>
                         </td>
@@ -142,94 +159,120 @@ const listKho = ref([]);
 const listSanPham = ref([]);
 const form = reactive({ maKhoDi: null, maKhoDen: null, ghiChu: '' });
 
-// Item đang thao tác
 const currentItem = reactive({ maSP: '' });
 const listHienThi = ref([]);
 
 // Logic Multi-select
-const availableSerials = ref([]); // Danh sách máy lấy từ API
-const selectedSerials = ref([]);  // Danh sách máy đang tích chọn
+const availableSerials = ref([]); 
+const selectedSerials = ref([]);  
 const searchText = ref("");
+let lastCheckedIndex = -1; // Biến lưu vị trí click gần nhất để xử lý Shift
 
-// Lọc serial theo ô tìm kiếm
+// Hàm lấy data an toàn
+const getDataSafe = (res) => {
+    if(!res || !res.data) return [];
+    if(res.data.content && Array.isArray(res.data.content)) return res.data.content;
+    if(Array.isArray(res.data)) return res.data;
+    return [];
+}
+
 const filteredSerials = computed(() => {
     if (!searchText.value) return availableSerials.value;
     return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
 });
 
-// Load dữ liệu ban đầu
+// [LOGIC MỚI] Kiểm tra xem đã chọn hết danh sách chưa
+const isAllSelected = computed(() => {
+    if (filteredSerials.value.length === 0) return false;
+    return filteredSerials.value.every(s => selectedSerials.value.includes(s));
+});
+
+// [LOGIC MỚI] Xử lý nút Chọn Tất Cả
+const toggleSelectAll = (e) => {
+    const isChecked = e.target.checked;
+    if (isChecked) {
+        // Thêm những cái chưa có trong filteredSerials vào selectedSerials
+        filteredSerials.value.forEach(s => {
+            if (!selectedSerials.value.includes(s)) {
+                selectedSerials.value.push(s);
+            }
+        });
+    } else {
+        // Bỏ chọn những cái đang hiển thị
+        selectedSerials.value = selectedSerials.value.filter(s => !filteredSerials.value.includes(s));
+    }
+};
+
+// [LOGIC MỚI] Xử lý Shift + Click
+const handleShiftClick = (event, index) => {
+    // Nếu giữ phím Shift và đã từng click 1 cái trước đó
+    if (event.shiftKey && lastCheckedIndex !== -1) {
+        const start = Math.min(lastCheckedIndex, index);
+        const end = Math.max(lastCheckedIndex, index);
+        
+        // Lấy danh sách serial nằm trong khoảng click
+        const subList = filteredSerials.value.slice(start, end + 1);
+        const isChecking = event.target.checked;
+
+        subList.forEach(serial => {
+            if (isChecking) {
+                if (!selectedSerials.value.includes(serial)) selectedSerials.value.push(serial);
+            } else {
+                selectedSerials.value = selectedSerials.value.filter(s => s !== serial);
+            }
+        });
+    }
+    // Cập nhật vị trí click cuối cùng
+    lastCheckedIndex = index;
+};
+
 const loadMaster = async () => {
     try {
         const [k, s] = await Promise.all([
             api.get('/kho'), 
             api.get('/san-pham')
         ]);
-        
-        listKho.value = k.data; 
-        
-        // [FIX LỖI QUAN TRỌNG] Kiểm tra nếu API trả về dạng Page (có .content) hay List thường
-        if (s.data && s.data.content && Array.isArray(s.data.content)) {
-            listSanPham.value = s.data.content; // Trường hợp có phân trang
-        } else {
-            listSanPham.value = s.data; // Trường hợp list thường
-        }
-    } catch(e) { 
-        console.error("Lỗi tải master data:", e); 
-    }
+        listKho.value = getDataSafe(k); 
+        listSanPham.value = getDataSafe(s);
+    } catch(e) { console.error("Lỗi tải master data:", e); }
 };
 
-// Khi chọn sản phẩm -> Gọi API lấy máy tồn kho
 const onChonSanPham = async () => {
-    // Reset lựa chọn cũ
     selectedSerials.value = []; 
     availableSerials.value = [];
+    searchText.value = "";
+    lastCheckedIndex = -1;
     
-    if (!form.maKhoDi) {
-        alert("Vui lòng chọn Kho Đi trước!");
-        currentItem.maSP = "";
-        return;
-    }
+    if (!form.maKhoDi) return alert("Vui lòng chọn Kho Đi trước!");
 
     try {
-        // Gọi API lấy máy tồn của Sản phẩm X tại Kho Y
         const res = await api.get('/kho/may-in/kha-dung', { 
-            params: { 
-                maSP: currentItem.maSP, 
-                maKho: form.maKhoDi 
-            } 
+            params: { maSP: currentItem.maSP, maKho: form.maKhoDi } 
         });
         availableSerials.value = res.data;
-    } catch(e) { 
-        console.error(e);
-        alert("Lỗi tải danh sách máy tồn kho!"); 
-    }
+    } catch(e) { console.error(e); alert("Lỗi tải danh sách máy tồn kho!"); }
 };
 
-// Thêm dòng vào bảng bên dưới
 const themVaoDanhSach = () => {
     if (!currentItem.maSP) return alert("Chưa chọn sản phẩm!");
-    if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để chuyển!");
+    if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào!");
 
-    // Thêm vào danh sách hiển thị
     listHienThi.value.push({ 
         maSP: currentItem.maSP, 
         danhSachSeri: [...selectedSerials.value] 
     });
 
-    // Reset để chọn tiếp SP khác
     currentItem.maSP = ""; 
     selectedSerials.value = []; 
     availableSerials.value = [];
     searchText.value = "";
+    lastCheckedIndex = -1;
 };
 
-// Gửi dữ liệu về Server
 const luuPhieu = async () => {
     if (!form.maKhoDi || !form.maKhoDen) return alert("Vui lòng chọn đủ Kho Đi và Kho Đến!");
     
-    // Gom tất cả serial từ các dòng thành 1 mảng duy nhất
     const allSerials = listHienThi.value.flatMap(x => x.danhSachSeri);
-    
     const payload = {
         maKhoDi: form.maKhoDi,
         maKhoDen: form.maKhoDen,
@@ -247,27 +290,18 @@ const luuPhieu = async () => {
     }
 };
 
-// Reset khi đổi Kho Đi
 const resetSelection = () => { 
-    currentItem.maSP = ""; 
-    listHienThi.value = []; 
-    selectedSerials.value = []; 
-    availableSerials.value = [];
+    currentItem.maSP = ""; listHienThi.value = []; selectedSerials.value = []; availableSerials.value = []; 
 };
-
-// Bỏ tích 1 serial
-const removeSerial = (s) => {
-    selectedSerials.value = selectedSerials.value.filter(item => item !== s);
-};
-
-// Helper lấy tên SP
+const removeSerial = (s) => { selectedSerials.value = selectedSerials.value.filter(item => item !== s); };
 const getTenSP = (id) => listSanPham.value.find(s => s.maSP === id)?.tenSP || id;
 
 onMounted(() => loadMaster());
 </script>
 
 <style scoped>
-/* Thanh cuộn đẹp cho dropdown */
 .dropdown-menu::-webkit-scrollbar { width: 6px; }
 .dropdown-menu::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
+.cursor-pointer { cursor: pointer; }
+.hover-bg:hover { background-color: #f8f9fa; }
 </style>
