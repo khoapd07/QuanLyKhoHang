@@ -26,6 +26,7 @@
                 <table class="table table-hover table-bordered align-middle">
                     <thead class="table-light text-center">
                         <tr>
+                            <th width="50px">STT</th>
                             <th>Số Phiếu</th>
                             <th>Ngày Nhập</th>
                             <th>Kho</th>
@@ -37,7 +38,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in paginatedData" :key="item.soPhieu">
+                        <tr v-for="(item, index) in paginatedData" :key="item.soPhieu">
+                            <td class="text-center fw-bold text-secondary">
+                                {{ (pagination.page * pagination.size) + index + 1 }}
+                            </td>
+
                             <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                             <td>{{ formatDate(item.ngayNhap) }}</td>
                             <td>{{ item.tenKho }}</td>
@@ -74,7 +79,7 @@
                             </td>
                         </tr>
                         <tr v-if="paginatedData.length === 0">
-                            <td colspan="8" class="text-center text-muted">Không tìm thấy dữ liệu phù hợp</td>
+                            <td colspan="9" class="text-center text-muted">Không tìm thấy dữ liệu phù hợp</td>
                         </tr>
                     </tbody>
                 </table>
@@ -128,7 +133,7 @@ import NhapKhoChiTiet from './NhapKhoChiTiet.vue';
 const API_URL = '/kho/nhap'; 
 
 const danhSachPhieu = ref([]);
-const listKho = ref([]); // Danh sách kho cho Admin lọc
+const listKho = ref([]); 
 const showModal = ref(false);
 const showEditModal = ref(false); 
 const selectedSoPhieu = ref(null);
@@ -136,9 +141,8 @@ const loading = ref(false);
 const editItem = ref({ soPhieu: '', ghiChu: '' }); 
 const searchQuery = ref("");
 
-// [MỚI] State phân quyền
 const isAdmin = ref(false);
-const filterMaKho = ref(0); // 0 = Tất cả, >0 = Kho cụ thể
+const filterMaKho = ref(0); 
 
 const pagination = reactive({
     page: 0,
@@ -147,12 +151,10 @@ const pagination = reactive({
     totalPages: 0
 });
 
-// --- LOGIC PHÂN QUYỀN & LOAD KHO ---
 const setupPhanQuyen = async () => {
     const role = localStorage.getItem('userRole');
     let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
     
-    // Fallback nếu chưa có maKho trong localStorage
     if (!userMaKho) {
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
         userMaKho = userInfo.maKho;
@@ -160,8 +162,8 @@ const setupPhanQuyen = async () => {
 
     if (role === 'ADMIN') {
         isAdmin.value = true;
-        filterMaKho.value = 0; // Mặc định xem tất cả
-        await loadDanhSachKho(); // Load list kho để admin chọn
+        filterMaKho.value = 0; 
+        await loadDanhSachKho(); 
     } else {
         isAdmin.value = false;
         filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0;
@@ -175,12 +177,10 @@ const loadDanhSachKho = async () => {
     } catch (e) { console.error(e); }
 };
 
-// --- API ---
 const layDanhSach = async () => {
     loading.value = true;
     try {
         const params = {};
-        // Gửi maKho lên server để lọc
         if (filterMaKho.value && filterMaKho.value !== 0) {
             params.maKho = filterMaKho.value;
         }
@@ -189,11 +189,9 @@ const layDanhSach = async () => {
         danhSachPhieu.value = res.data;
     } catch (e) { 
         console.error("Lỗi data:", e); 
-        // Xử lý lỗi nếu backend chưa hỗ trợ param
     } finally { loading.value = false; }
 };
 
-// --- PHÂN TRANG & SEARCH ---
 const filteredList = computed(() => {
     if (!searchQuery.value) return danhSachPhieu.value;
     const query = searchQuery.value.toLowerCase();
@@ -237,7 +235,6 @@ const changePage = (pageIndex) => {
     }
 };
 
-// --- HELPER FUNCTIONS ---
 const moChiTiet = (soPhieu) => {
     selectedSoPhieu.value = soPhieu;
     showModal.value = true;
