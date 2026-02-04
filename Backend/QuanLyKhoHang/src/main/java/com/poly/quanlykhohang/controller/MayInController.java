@@ -4,6 +4,7 @@ import com.poly.quanlykhohang.dao.MayInDAO;
 import com.poly.quanlykhohang.dao.KhoDAO; // Thêm import KhoDAO
 import com.poly.quanlykhohang.entity.MayIn;
 import com.poly.quanlykhohang.entity.Kho; // Thêm import Entity Kho
+import com.poly.quanlykhohang.service.MayInService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,17 +26,21 @@ public class MayInController {
     @Autowired
     private KhoDAO khoDAO; // Inject thêm KhoDAO để cập nhật vị trí kho nếu cần
 
+    @Autowired
+    private MayInService mayInService;
+
     // 1. Lấy danh sách (Giữ nguyên)
     @GetMapping
     public ResponseEntity<Page<MayIn>> getAll(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Integer maKho
     ) {
         // Tạo đối tượng Pageable (trang, kích thước, sắp xếp theo ngày tạo mới nhất)
         Pageable pageable = PageRequest.of(page, size, Sort.by("ngayTao").descending());
 
         // Trả về Page<MayIn> thay vì List<MayIn>
-        return ResponseEntity.ok(mayInDAO.findAll(pageable));
+        return ResponseEntity.ok(mayInService.layDanhSachMayIn(page, size, maKho));
     }
 
     // 2. Cập nhật thông tin máy (API MỚI)

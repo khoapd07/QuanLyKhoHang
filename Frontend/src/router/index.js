@@ -44,7 +44,7 @@ const routes = [
       { path: 'loai-san-pham', component: LoaiSP },
       { path: 'danh-muc-may', name: 'DMMay', component: DMMay },
       { path: 'don-vi', name: 'DonVi', component: DonVi },
-      { path: 'kho', name: 'Kho', component: Kho },
+      { path: 'kho', name: 'Kho', component: Kho, meta: { requiresAdmin: true } },
       { path: 'hang-san-xuat', name: 'Hang', component: Hang },
       { path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
 
@@ -65,7 +65,7 @@ const routes = [
       { path: 'bao-cao-ton-dau-nam', name: 'BaoCaoTonDauNam', component: BaoCaoTonDauNam },
 
       // 5. Hệ thống
-      { path: 'tai-khoan', name: 'TaiKhoan', component: TaiKhoan }
+      { path: 'tai-khoan', name: 'TaiKhoan', component: TaiKhoan ,meta: { requiresAdmin: true }}
     ]
   }
 ]

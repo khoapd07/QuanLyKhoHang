@@ -1,6 +1,8 @@
 package com.poly.quanlykhohang.dao;
 
 import com.poly.quanlykhohang.entity.MayIn;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,4 +42,7 @@ public interface MayInDAO extends JpaRepository<MayIn, String> {
 
     @Query("SELECT m.maMay FROM MayIn m WHERE m.sanPham.maSP = :maSP AND m.kho.maKho = :maKho AND m.tonKho = true")
     List<String> findMaMayTonKho(@Param("maSP") String maSP, @Param("maKho") Integer maKho);
+
+    @Query("SELECT m FROM MayIn m WHERE m.kho.maKho = :maKho")
+    Page<MayIn> findByKhoMaKho(@Param("maKho") Integer maKho, Pageable pageable);
 }

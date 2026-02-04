@@ -88,7 +88,7 @@
               </router-link>
             </li>
             <li class="nav-item">
-              <router-link to="/kho" class="nav-link" active-class="active">
+              <router-link to="/kho" class="nav-link" active-class="active" v-if="isAdmin">
                 <i class="nav-icon bi bi-house-door"></i>
                 <p>Kho bãi</p>
               </router-link>

@@ -8,24 +8,27 @@ const API_URL = '/may-in';
 const API_KHO = '/kho'; 
 
 // --- STATE ---
-const danhSachMay = ref([]); // Chỉ chứa 20 máy của trang hiện tại
+const danhSachMay = ref([]); 
 const danhSachKho = ref([]);
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 let modalInstance = null;
 
+// [MỚI] State phân quyền
+const isAdmin = ref(false);
+const filterMaKho = ref(0); // 0 = Tất cả
+
 // --- STATE PHÂN TRANG (Server-side) ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // Cố định 20 theo yêu cầu
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
 // --- COMPUTED: TÍNH TOÁN NÚT HIỂN THỊ ---
-// Logic này giữ nguyên để hiển thị số trang đẹp (1, 2 ... 5, 6)
 const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value + 1;
-    const delta = 2; // Hiển thị rộng hơn chút
+    const delta = 2; 
     const range = [];
     const rangeWithDots = [];
     let l;
@@ -52,7 +55,7 @@ const paginationInfo = computed(() => ({
     totalPages: totalPages.value
 }));
 
-// --- FORM DATA & HELPER (Giữ nguyên) ---
+// --- FORM DATA & HELPER ---
 const form = reactive({
   maMay: '', tenSP: '', tenHang: '', tenLoai: '', ngayTao: '', soPhieuNhap: '', 
   soSeri: '', trangThai: 1, tonKho: true, maKho: null      
@@ -78,26 +81,48 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('vi-VN', { hour12: false });
 };
 
-// --- API METHODS (ĐÃ TỐI ƯU) ---
+// --- LOGIC PHÂN QUYỀN ---
+const setupPhanQuyen = async () => {
+    const role = localStorage.getItem('userRole');
+    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+    
+    if (!userMaKho) {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        userMaKho = userInfo.maKho;
+    }
 
-// 1. Load Data: Nhận tham số page
+    if (role === 'ADMIN') {
+        isAdmin.value = true;
+        filterMaKho.value = 0; // Mặc định xem tất cả
+    } else {
+        isAdmin.value = false;
+        // Staff bị ép xem kho của mình
+        filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0;
+    }
+};
+
+// --- API METHODS ---
+
+// 1. Load Data
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    // Gọi API với tham số page và size
-    // Backend trả về Page<MayIn> chứa: content, totalPages, totalElements...
+    const params = { page: page, size: itemsPerPage.value };
+    
+    // [MỚI] Gửi mã kho lên server để lọc
+    if (filterMaKho.value && filterMaKho.value !== 0) {
+        params.maKho = filterMaKho.value;
+    }
+
     const [resMay, resKho] = await Promise.all([
-      api.get(API_URL, { 
-          params: { page: page, size: itemsPerPage.value } 
-      }),
-      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value } // Cache kho nếu đã tải
+      api.get(API_URL, { params }),
+      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value }
     ]);
 
-    // Cập nhật State từ dữ liệu Server trả về
-    danhSachMay.value = resMay.data.content; // Mảng dữ liệu (20 dòng)
+    danhSachMay.value = resMay.data.content; 
     totalPages.value = resMay.data.totalPages;
     totalElements.value = resMay.data.totalElements;
-    currentPage.value = resMay.data.number; // Trang hiện tại server xác nhận
+    currentPage.value = resMay.data.number; 
     
     if(resKho.data) danhSachKho.value = resKho.data;
 
@@ -109,10 +134,9 @@ const loadData = async (page = 0) => {
   }
 };
 
-// 2. Chuyển trang: Gọi lại API loadData
 const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) {
-        loadData(page); // Gọi Server lấy dữ liệu trang mới
+        loadData(page); 
     }
 };
 
@@ -145,7 +169,7 @@ const saveChanges = async () => {
     await api.put(`${API_URL}/${form.maMay}`, payload);
     showMessage('success', 'Cập nhật thành công!');
     if (modalInstance) modalInstance.hide();
-    loadData(currentPage.value); // Load lại đúng trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
     showMessage('danger', 'Lỗi cập nhật: ' + error.message);
   }
@@ -156,7 +180,7 @@ const deleteMay = async (id, seri) => {
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData(0); // Xóa xong về trang đầu
+    loadData(0); 
   } catch (error) {
     showMessage('danger', 'Không thể xóa: ' + error.message);
   }
@@ -167,8 +191,9 @@ const showMessage = (type, text) => {
   setTimeout(() => message.value = { type: '', text: '' }, 3000);
 };
 
-onMounted(() => {
-  loadData(0); // Mặc định load trang 0
+onMounted(async () => {
+  await setupPhanQuyen();
+  loadData(0);
 });
 </script>
 
@@ -176,9 +201,17 @@ onMounted(() => {
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h3 class="text-primary"><i class="bi bi-qr-code"></i> Quản Lý Danh Mục Máy</h3>
-      <button class="btn btn-sm btn-outline-secondary" @click="loadData(currentPage)">
-        <i class="bi bi-arrow-clockwise"></i> Tải lại
-      </button>
+      
+      <div class="d-flex gap-2">
+          <select v-if="isAdmin" class="form-select form-select-sm" style="width: 200px;" v-model="filterMaKho" @change="loadData(0)">
+              <option :value="0">-- Tất cả kho --</option>
+              <option v-for="k in danhSachKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
+          </select>
+
+          <button class="btn btn-sm btn-outline-secondary" @click="loadData(currentPage)">
+            <i class="bi bi-arrow-clockwise"></i> Tải lại
+          </button>
+      </div>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">

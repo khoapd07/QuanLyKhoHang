@@ -39,58 +39,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt CORS
 
                 .authorizeHttpRequests(auth -> auth
-                        // ======================================================
-                        // NHÓM 1: PUBLIC (Không cần đăng nhập)
-                        // ======================================================
+                        // 1. PUBLIC: Không cần đăng nhập
                         .requestMatchers("/api/auth/**", "/api/upload/**", "/error").permitAll()
 
-                        // ======================================================
-                        // NHÓM 2: QUẢN TRỊ HỆ THỐNG (Chỉ ADMIN)
-                        // ======================================================
+                        // 2. ADMIN ONLY: Quản lý Tài khoản & Quản lý Kho (Thêm/Sửa/Xóa Kho)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/chi-nhanh/**").hasRole("ADMIN") // Khớp với API_URL trong KhoChiNhanh.vue
+                        .requestMatchers("/api/kho/tao-moi").hasRole("ADMIN")  // API tạo kho trong Controller
 
-                        // ======================================================
-                        // NHÓM 3: DANH MỤC (Sản phẩm, Kho, Đơn vị...)
-                        // -> GET (Xem): Ai đăng nhập cũng xem được (để Staff chọn khi nhập liệu)
-                        // -> CUD (Thêm/Sửa/Xóa): Chỉ ADMIN được phép
-                        // ======================================================
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/san-pham/**",
-                                "/api/don-vi/**",
-                                "/api/kho/**",
-                                "/api/hang-san-xuat/**",
-                                "/api/loai-san-pham/**",
-                                "/api/danh-muc-may/**",
-                                "/api/may-in/**",
-                                "/api/dashboard"
-                        ).authenticated()
+                        // Lưu ý: API "/api/kho" (GET danh sách kho) phải để Staff truy cập
+                        // để hiển thị dropdown chọn kho khi Nhập/Xuất.
 
-                        .requestMatchers(
-                                "/api/san-pham/**",
-                                "/api/don-vi/**",
-                                "/api/kho/**",
-                                "/api/hang-san-xuat/**",
-                                "/api/loai-san-pham/**",
-                                "/api/danh-muc-may/**",
-                                "/api/dashboard"
-                        ).authenticated()
-
-                        // ======================================================
-                        // NHÓM 4: NGHIỆP VỤ & BÁO CÁO (ADMIN & STAFF)
-                        // ======================================================
-                        // Nhập kho, Xuất kho, Chuyển kho, Thống kê, Tra cứu tồn
-                        // Logic phân quyền dữ liệu (Staff chỉ thấy kho mình) xử lý ở Service
-                        .requestMatchers(
-                                "/api/kho/nhap/**",
-                                "/api/kho/xuat/**",
-                                "/api/kho/chuyen/**",
-                                "/api/kho/may-in/**",
-                                "/api/thong-ke/**"
-                        ).authenticated()
-
-                        // ======================================================
-                        // CÁC REQUEST CÒN LẠI
-                        // ======================================================
+                        // 3. AUTHENTICATED: Tất cả các quyền còn lại (Sản phẩm, Đơn vị, Nhập/Xuất...)
+                        // Staff sẽ có quyền thêm/sửa/xóa như Admin ở các mục này
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -4,6 +4,10 @@ import com.poly.quanlykhohang.dao.*;
 import com.poly.quanlykhohang.entity.*;
 import com.poly.quanlykhohang.service.MayInService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -112,5 +116,17 @@ public class MayInServiceImpl implements MayInService {
                 .orElseThrow(() -> new RuntimeException("Kho đích không tồn tại"));
         mayIn.setKho(khoMoi);
         mayInDAO.save(mayIn);
+    }
+
+    @Override
+    public Page<MayIn> layDanhSachMayIn(int page, int size, Integer maKho) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "ngayTao"));
+
+        // [LOGIC MỚI]
+        if (maKho != null && maKho > 0) {
+            return mayInDAO.findByKhoMaKho(maKho, pageable);
+        }
+
+        return mayInDAO.findAll(pageable);
     }
 }
