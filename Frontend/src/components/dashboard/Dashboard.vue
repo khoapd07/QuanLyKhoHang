@@ -223,7 +223,6 @@ const fetchDashboardData = async () => {
 
   } catch (e) {
     console.error("Lỗi tải dashboard:", e);
-    // Có thể thêm thông báo lỗi UI ở đây
   }
 };
 
