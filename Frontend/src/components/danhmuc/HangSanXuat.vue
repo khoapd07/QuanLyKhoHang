@@ -68,10 +68,14 @@ const loadData = async (page = 0) => {
     });
     
     // Cập nhật State từ Page<HangSanXuat>
-    danhSach.value = response.data.content;
-    totalPages.value = response.data.totalPages;
-    totalElements.value = response.data.totalElements;
-    currentPage.value = response.data.number;
+    // [SỬA] Đảm bảo lấy đúng content
+    if(response.data) {
+        danhSach.value = response.data.content || [];
+        totalPages.value = response.data.totalPages || 0;
+        totalElements.value = response.data.totalElements || 0;
+        // [QUAN TRỌNG] Lấy số trang hiện tại để tính STT (đề phòng null)
+        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    }
 
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
@@ -185,41 +189,46 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
-          <thead class="table-dark">
-            <tr>
-              <th class="text-center" width="80px">STT</th>
-              <th class="text-center" width="10%">ID</th>
-              <th>Tên Hãng Sản Xuất</th>
-              <th class="text-center" width="20%">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="isLoading">
-              <td colspan="4" class="text-center py-4">
-                  <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
-              </td>
-            </tr>
-            
-            <tr v-else v-for="(item, index) in danhSach" :key="item.maHang">
-              <td class="text-center">{{ (currentPage * itemsPerPage) + index + 1 }}</td>
-              <td class="text-center fw-bold text-muted">{{ item.maHang }}</td>
-              <td class="fw-medium text-primary">{{ item.tenHang }}</td>
-              <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
-                  <i class="bi bi-pencil-square"></i> Sửa
-                </button>
-                <button class="btn btn-sm btn-outline-danger" @click="deleteData(item.maHang)">
-                  <i class="bi bi-trash"></i> Xóa
-                </button>
-              </td>
-            </tr>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                <th class="text-center" width="80px">STT</th>
+                <th class="text-center" width="10%">ID</th>
+                <th>Tên Hãng Sản Xuất</th>
+                <th class="text-center" width="20%">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-if="isLoading">
+                <td colspan="4" class="text-center py-4">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
+                </td>
+                </tr>
+                
+                <tr v-else v-for="(item, index) in danhSach" :key="item.maHang">
+                <td class="text-center">
+                    {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
+                </td>
+                
+                <td class="text-center fw-bold text-muted">{{ item.maHang }}</td>
+                <td class="fw-medium text-primary">{{ item.tenHang }}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
+                    <i class="bi bi-pencil-square"></i> Sửa
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" @click="deleteData(item.maHang)">
+                    <i class="bi bi-trash"></i> Xóa
+                    </button>
+                </td>
+                </tr>
 
-            <tr v-if="!isLoading && danhSach.length === 0">
-              <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu hãng sản xuất.</td>
-            </tr>
-          </tbody>
-        </table>
+                <tr v-if="!isLoading && danhSach.length === 0">
+                <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu hãng sản xuất.</td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
       </div>
 
       <div class="card-footer bg-white border-top-0">
@@ -244,7 +253,7 @@ onMounted(() => {
                 </ul>
           </div>
           <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
-              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              Hiển thị {{ ((currentPage || 0) * itemsPerPage) + 1 }} - {{ Math.min(((currentPage || 0) + 1) * itemsPerPage, paginationInfo.total) }} 
               trong tổng {{ paginationInfo.total }} hãng
           </div>
       </div>

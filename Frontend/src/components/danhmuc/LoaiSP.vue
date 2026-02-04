@@ -13,13 +13,13 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false); 
 let modalInstance = null; 
 
-// --- STATE PHÂN TRANG (Server-side) ---
+// --- STATE PHÂN TRANG ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // 20 item/trang
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
-// --- COMPUTED: TÍNH TOÁN PHÂN TRANG ---
+// --- COMPUTED: THANH PHÂN TRANG ---
 const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value + 1;
@@ -56,7 +56,7 @@ const form = reactive({
   tenLoai: ''
 });
 
-// --- CÁC HÀM TƯƠNG TÁC API ---
+// --- API METHODS ---
 
 // 1. Lấy danh sách (GET) - Có phân trang
 const loadData = async (page = 0) => {
@@ -66,11 +66,14 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // Cập nhật State từ Page<LoaiSanPham>
-    danhSach.value = response.data.content;
-    totalPages.value = response.data.totalPages;
-    totalElements.value = response.data.totalElements;
-    currentPage.value = response.data.number;
+    // [SỬA] Xử lý an toàn dữ liệu trả về để tránh lỗi STT
+    if (response.data) {
+        danhSach.value = response.data.content || [];
+        totalPages.value = response.data.totalPages || 0;
+        totalElements.value = response.data.totalElements || 0;
+        // Nếu backend trả về null/undefined thì gán = 0
+        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    }
     
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
@@ -103,7 +106,7 @@ const saveData = async () => {
       showMessage('success', 'Thêm mới loại sản phẩm thành công!');
     }
     closeModal();
-    loadData(currentPage.value); // Load lại trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
     const errorMsg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + errorMsg);
@@ -117,14 +120,14 @@ const deleteData = async (id) => {
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData(0); // Xóa xong về trang đầu
+    loadData(0); 
   } catch (error) {
     const msg = error.response?.data?.message || 'Không thể xóa (có thể dữ liệu đang được sử dụng)';
     showMessage('danger', msg);
   }
 };
 
-// --- HÀM HỖ TRỢ GIAO DIỆN ---
+// --- HELPER FUNCTIONS ---
 const showMessage = (type, text) => {
   message.value = { type, text };
   setTimeout(() => message.value = { type: '', text: '' }, 3000);
@@ -157,7 +160,7 @@ const closeModal = () => {
   }
 };
 
-// --- KHỞI TẠO ---
+// --- LIFECYCLE ---
 onMounted(() => {
   loadData(0);
 });
@@ -184,42 +187,47 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <table class="table table-striped table-hover mb-0 align-middle">
-          <thead class="table-dark">
-            <tr>
-              <th class="text-center" style="width: 80px;">STT</th>
-              <th class="text-center" style="width: 150px;">Mã Loại</th>
-              <th>Tên Loại Sản Phẩm</th>
-              <th class="text-center" style="width: 200px;">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="isLoading">
-              <td colspan="4" class="text-center py-4">
-                <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
-                <span class="ms-2">Đang tải dữ liệu...</span>
-              </td>
-            </tr>
-            
-            <tr v-else v-for="(item, index) in danhSach" :key="item.maLoai">
-              <td class="text-center">{{ (currentPage * itemsPerPage) + index + 1 }}</td>
-              <td class="text-center fw-bold">{{ item.maLoai }}</td>
-              <td class="fw-medium">{{ item.tenLoai }}</td>
-              <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
-                  <i class="bi bi-pencil-square"></i> Sửa
-                </button>
-                <button class="btn btn-sm btn-outline-danger" @click="deleteData(item.maLoai)">
-                  <i class="bi bi-trash"></i> Xóa
-                </button>
-              </td>
-            </tr>
+        <div class="table-responsive"> <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                <th class="text-center" style="width: 80px;">STT</th>
+                <th class="text-center" style="width: 150px;">Mã Loại</th>
+                <th>Tên Loại Sản Phẩm</th>
+                <th class="text-center" style="width: 200px;">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-if="isLoading">
+                <td colspan="4" class="text-center py-4">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                    <span class="ms-2">Đang tải dữ liệu...</span>
+                </td>
+                </tr>
+                
+                <tr v-else v-for="(item, index) in danhSach" :key="item.maLoai">
+                
+                <td class="text-center">
+                    {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
+                </td>
 
-            <tr v-if="!isLoading && danhSach.length === 0">
-              <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu nào.</td>
-            </tr>
-          </tbody>
-        </table>
+                <td class="text-center fw-bold">{{ item.maLoai }}</td>
+                <td class="fw-medium">{{ item.tenLoai }}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
+                    <i class="bi bi-pencil-square"></i> Sửa
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" @click="deleteData(item.maLoai)">
+                    <i class="bi bi-trash"></i> Xóa
+                    </button>
+                </td>
+                </tr>
+
+                <tr v-if="!isLoading && danhSach.length === 0">
+                <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu nào.</td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
       </div>
 
       <div class="card-footer bg-white border-top-0">
@@ -244,7 +252,7 @@ onMounted(() => {
                 </ul>
           </div>
           <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
-              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              Hiển thị {{ ((currentPage || 0) * itemsPerPage) + 1 }} - {{ Math.min(((currentPage || 0) + 1) * itemsPerPage, paginationInfo.total) }} 
               trong tổng {{ paginationInfo.total }} loại
           </div>
       </div>
@@ -268,7 +276,7 @@ onMounted(() => {
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Tên Loại <span class="text-danger">*</span></label>
+                <label class="form-label fw-bold">Tên Loại <span class="text-danger">*</span></label>
                 <input 
                   v-model="form.tenLoai" 
                   type="text" 

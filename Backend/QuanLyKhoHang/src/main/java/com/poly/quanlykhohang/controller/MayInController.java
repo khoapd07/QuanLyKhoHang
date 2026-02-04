@@ -2,6 +2,7 @@ package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.MayInDAO;
 import com.poly.quanlykhohang.dao.KhoDAO; // Thêm import KhoDAO
+import com.poly.quanlykhohang.dto.MayInResponseDTO;
 import com.poly.quanlykhohang.entity.MayIn;
 import com.poly.quanlykhohang.entity.Kho; // Thêm import Entity Kho
 import com.poly.quanlykhohang.service.MayInService;
@@ -31,7 +32,7 @@ public class MayInController {
 
     // 1. Lấy danh sách (Giữ nguyên)
     @GetMapping
-    public ResponseEntity<Page<MayIn>> getAll(
+    public ResponseEntity<Page<MayInResponseDTO>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Integer maKho

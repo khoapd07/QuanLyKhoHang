@@ -109,7 +109,6 @@ const loadData = async (page = 0) => {
   try {
     const params = { page: page, size: itemsPerPage.value };
     
-    // [MỚI] Gửi mã kho lên server để lọc
     if (filterMaKho.value && filterMaKho.value !== 0) {
         params.maKho = filterMaKho.value;
     }
@@ -119,10 +118,12 @@ const loadData = async (page = 0) => {
       danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value }
     ]);
 
-    danhSachMay.value = resMay.data.content; 
-    totalPages.value = resMay.data.totalPages;
-    totalElements.value = resMay.data.totalElements;
-    currentPage.value = resMay.data.number; 
+    if (resMay.data) {
+        danhSachMay.value = resMay.data.content || []; 
+        totalPages.value = resMay.data.totalPages || 0;
+        totalElements.value = resMay.data.totalElements || 0;
+        currentPage.value = (typeof resMay.data.number === 'number') ? resMay.data.number : 0; 
+    }
     
     if(resKho.data) danhSachKho.value = resKho.data;
 
@@ -142,15 +143,18 @@ const changePage = (page) => {
 
 const openEditModal = (may) => {
   form.maMay = may.maMay;
-  form.tenSP = may.sanPham?.tenSP || '---';
-  form.tenHang = may.sanPham?.hangSanXuat?.tenHang || '---';
-  form.tenLoai = may.sanPham?.loaiSanPham?.tenLoai || '---'; 
+  
+  // [SỬA] Lấy dữ liệu phẳng từ DTO
+  form.tenSP = may.tenSP || '---';
+  form.tenHang = may.tenHang || '---';
+  form.tenLoai = may.tenLoai || '---';
+  
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
   form.tonKho = may.tonKho; 
-  form.maKho = may.kho?.maKho || null;
+  form.maKho = may.maKho || null; // [SỬA] Dùng maKho trực tiếp
 
   const modalEl = document.getElementById('modalChiTietMay');
   modalInstance = new bootstrap.Modal(modalEl);
@@ -241,21 +245,17 @@ onMounted(async () => {
               </tr>
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
                 
-                <td class="text-center">{{ (currentPage * itemsPerPage) + index + 1 }}</td>
+                <td class="text-center">{{ ((currentPage || 0) * itemsPerPage) + index + 1 }}</td>
                 
                 <td class="fw-bold text-primary">{{ may.maMay }}</td>
+                
                 <td>
-                  <div>{{ may.sanPham?.tenSP }}</div>
-                  <small class="text-muted">{{ may.sanPham?.hangSanXuat?.tenHang }}</small>
-                </td>
+                  <div>{{ may.tenSP }}</div> <small class="text-muted">{{ may.tenHang }}</small> </td>
                 
                 <td class="text-center">
-                    <span class="badge bg-light text-dark border">{{ may.sanPham?.loaiSanPham?.tenLoai }}</span>
-                </td>
+                    <span class="badge bg-light text-dark border">{{ may.tenLoai || '---' }}</span> </td>
 
-                <td>{{ may.kho?.tenKho || '---' }}</td>
-                
-                <td class="text-center">
+                <td>{{ may.tenKho || '---' }}</td> <td class="text-center">
                   <span :class="['badge', getTrangThaiInfo(may.trangThai).class]">
                     {{ getTrangThaiInfo(may.trangThai).text }}
                   </span>
@@ -305,7 +305,7 @@ onMounted(async () => {
                 </ul>
           </div>
           <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
-              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              Hiển thị {{ ((currentPage || 0) * itemsPerPage) + 1 }} - {{ Math.min(((currentPage || 0) + 1) * itemsPerPage, paginationInfo.total) }} 
               trong tổng {{ paginationInfo.total }} máy
           </div>
       </div>

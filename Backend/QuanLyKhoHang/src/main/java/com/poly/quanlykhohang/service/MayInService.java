@@ -1,5 +1,6 @@
 package com.poly.quanlykhohang.service;
 
+import com.poly.quanlykhohang.dto.MayInResponseDTO;
 import com.poly.quanlykhohang.entity.MayIn;
 import org.springframework.data.domain.Page;
 
@@ -19,5 +20,5 @@ public interface MayInService {
     void capNhatTrangThai(String soSeri, Integer trangThaiMoi);
     void chuyenKho(String soSeri, Integer maKhoMoi);
 
-    Page<MayIn> layDanhSachMayIn(int page, int size, Integer maKho);
+    Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho);
 }

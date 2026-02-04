@@ -1,6 +1,7 @@
 package com.poly.quanlykhohang.service.impl;
 
 import com.poly.quanlykhohang.dao.*;
+import com.poly.quanlykhohang.dto.MayInResponseDTO;
 import com.poly.quanlykhohang.entity.*;
 import com.poly.quanlykhohang.service.MayInService;
 import lombok.RequiredArgsConstructor;
@@ -119,14 +120,56 @@ public class MayInServiceImpl implements MayInService {
     }
 
     @Override
-    public Page<MayIn> layDanhSachMayIn(int page, int size, Integer maKho) {
+    public Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "ngayTao"));
 
-        // [LOGIC MỚI]
+        // 1. Lấy dữ liệu Entity từ DB
+        Page<MayIn> pageEntity;
         if (maKho != null && maKho > 0) {
-            return mayInDAO.findByKhoMaKho(maKho, pageable);
+            pageEntity = mayInDAO.findByKhoMaKho(maKho, pageable);
+        } else {
+            pageEntity = mayInDAO.findAll(pageable);
         }
 
-        return mayInDAO.findAll(pageable);
+        // 2. Chuyển đổi (Map) từ Entity sang DTO
+        // Hàm .map() của Page sẽ tự động duyệt qua từng phần tử
+        return pageEntity.map(this::convertToDTO);
+    }
+
+    private MayInResponseDTO convertToDTO(MayIn entity) {
+        MayInResponseDTO dto = new MayInResponseDTO();
+        dto.setMaMay(entity.getMaMay());
+        dto.setSoSeri(entity.getSoSeri());
+        dto.setTrangThai(entity.getTrangThai());
+        dto.setTonKho(entity.getTonKho());
+        dto.setNgayTao(entity.getNgayTao());
+
+        // Xử lý Phiếu nhập (nếu có quan hệ)
+        // Giả sử bạn lưu soPhieuNhap dạng String trong MayIn, nếu là Object thì getSoPhieu()
+        dto.setSoPhieuNhap(entity.getSoPhieuNhap());
+
+        // Xử lý Kho
+        if (entity.getKho() != null) {
+            dto.setMaKho(entity.getKho().getMaKho());
+            dto.setTenKho(entity.getKho().getTenKho());
+        }
+
+        // Xử lý Sản Phẩm (QUAN TRỌNG: Lấy TenHang và TenLoai)
+        if (entity.getSanPham() != null) {
+            dto.setMaSP(entity.getSanPham().getMaSP());
+            dto.setTenSP(entity.getSanPham().getTenSP());
+
+            // Lấy Hãng
+            if (entity.getSanPham().getHangSanXuat() != null) {
+                dto.setTenHang(entity.getSanPham().getHangSanXuat().getTenHang());
+            }
+
+            // Lấy Loại (Đây là chỗ sửa lỗi của bạn)
+            if (entity.getSanPham().getLoaiSanPham() != null) {
+                dto.setTenLoai(entity.getSanPham().getLoaiSanPham().getTenLoai());
+            }
+        }
+
+        return dto;
     }
 }

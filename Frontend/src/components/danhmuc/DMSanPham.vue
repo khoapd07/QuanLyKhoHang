@@ -6,10 +6,12 @@ import * as bootstrap from 'bootstrap';
 // --- CẤU HÌNH API ---
 const API_URL = '/san-pham';
 const API_HANG_SX = '/hang-san-xuat'; 
+const API_LOAI_SP = '/loai-san-pham'; 
 
 // --- STATE ---
 const danhSach = ref([]);
 const listHangSanXuat = ref([]); 
+const listLoaiSanPham = ref([]); 
 const isLoading = ref(false);
 const isEditMode = ref(false);
 const alertMsg = ref('');
@@ -19,11 +21,11 @@ let modalInstance = null;
 
 // --- STATE PHÂN TRANG (Server-side) ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // 20 sản phẩm/trang
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
-// --- COMPUTED: TÍNH TOÁN THANH PHÂN TRANG ---
+// --- COMPUTED ---
 const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value + 1;
@@ -33,9 +35,7 @@ const visiblePages = computed(() => {
     let l;
 
     for (let i = 1; i <= total; i++) {
-        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
-            range.push(i);
-        }
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
     }
     for (let i of range) {
         if (l) {
@@ -56,30 +56,39 @@ const paginationInfo = computed(() => ({
 
 // Form Data
 const form = reactive({
-  maSP: '', tenSP: '', donViTinh: '', maHang: null, moTa: ''
+  maSP: '', tenSP: '', donViTinh: '', maHang: null, maLoai: null, moTa: ''
 });
 
 // --- METHODS ---
 
-// 1. Load Data (Phân trang sản phẩm, nhưng lấy hết hãng SX)
+// 1. Load Data
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    // Gọi song song: API SP có phân trang, API Hãng lấy hết
-    const [resSP, resHang] = await Promise.all([
+    const [resSP, resHang, resLoai] = await Promise.all([
         api.get(API_URL, { params: { page: page, size: itemsPerPage.value } }),
-        // Nếu đã có danh sách hãng thì không gọi lại để tiết kiệm
-        listHangSanXuat.value.length === 0 ? api.get(API_HANG_SX) : { data: listHangSanXuat.value }
+        listHangSanXuat.value.length === 0 ? api.get(API_HANG_SX) : { data: listHangSanXuat.value },
+        listLoaiSanPham.value.length === 0 ? api.get(API_LOAI_SP) : { data: listLoaiSanPham.value }
     ]);
 
-    // Update danh sách sản phẩm & thông tin trang
-    danhSach.value = resSP.data.content;
-    totalPages.value = resSP.data.totalPages;
-    totalElements.value = resSP.data.totalElements;
-    currentPage.value = resSP.data.number;
+    // Update danh sách sản phẩm
+    if (resSP.data) {
+        danhSach.value = resSP.data.content || [];
+        totalPages.value = resSP.data.totalPages || 0;
+        totalElements.value = resSP.data.totalElements || 0;
+        // [SỬA] Đảm bảo lấy đúng page number để tính STT
+        currentPage.value = (typeof resSP.data.number === 'number') ? resSP.data.number : 0;
+    }
 
     // Update danh sách hãng
-    if(resHang.data) listHangSanXuat.value = resHang.data;
+    const rawHang = resHang.data;
+    if (Array.isArray(rawHang)) listHangSanXuat.value = rawHang;
+    else if (rawHang?.content) listHangSanXuat.value = rawHang.content;
+
+    // Update danh sách loại
+    const rawLoai = resLoai.data;
+    if (Array.isArray(rawLoai)) listLoaiSanPham.value = rawLoai;
+    else if (rawLoai?.content) listLoaiSanPham.value = rawLoai.content;
 
   } catch (error) {
     showAlert('Lỗi tải dữ liệu: ' + (error.response?.data?.message || error.message), 'danger');
@@ -88,11 +97,8 @@ const loadData = async (page = 0) => {
   }
 };
 
-// Chuyển trang
 const changePage = (page) => {
-    if (page >= 0 && page < totalPages.value) {
-        loadData(page);
-    }
+    if (page >= 0 && page < totalPages.value) loadData(page);
 };
 
 // 2. Lưu
@@ -107,7 +113,8 @@ const saveData = async () => {
       tenSP: form.tenSP,
       donViTinh: form.donViTinh,
       moTa: form.moTa,
-      hangSanXuat: form.maHang ? { maHang: form.maHang } : null
+      hangSanXuat: form.maHang ? { maHang: form.maHang } : null,
+      loaiSanPham: form.maLoai ? { maLoai: form.maLoai } : null 
   };
 
   try {
@@ -119,7 +126,7 @@ const saveData = async () => {
       showAlert('Thêm mới thành công!', 'success');
     }
     closeModal();
-    loadData(currentPage.value); // Load lại đúng trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
     const msg = error.response?.data || error.message; 
     showAlert('Lỗi: ' + msg, 'danger');
@@ -129,11 +136,10 @@ const saveData = async () => {
 // 3. Xóa
 const deleteData = async (id) => {
   if (!confirm(`Bạn có chắc muốn xóa sản phẩm [${id}] không?`)) return;
-
   try {
     await api.delete(`${API_URL}/${id}`);
     showAlert('Đã xóa thành công!', 'success');
-    loadData(0); // Xóa xong về trang 0
+    loadData(0); 
   } catch (error) {
     const msg = error.response?.data || error.message;
     showAlert('Không thể xóa: ' + msg, 'danger');
@@ -155,6 +161,7 @@ const openEditModal = (item) => {
   form.donViTinh = item.donViTinh;
   form.moTa = item.moTa;
   form.maHang = item.hangSanXuat ? item.hangSanXuat.maHang : null;
+  form.maLoai = item.loaiSanPham ? item.loaiSanPham.maLoai : null; 
   showModal();
 };
 
@@ -174,7 +181,9 @@ const closeModal = () => {
 };
 
 const resetForm = () => {
-  form.maSP = ''; form.tenSP = ''; form.donViTinh = ''; form.maHang = null; form.moTa = '';
+  form.maSP = ''; form.tenSP = ''; form.donViTinh = ''; 
+  form.maHang = null; form.maLoai = null; 
+  form.moTa = '';
 };
 
 const showAlert = (msg, type) => {
@@ -183,7 +192,6 @@ const showAlert = (msg, type) => {
   setTimeout(() => alertMsg.value = '', 3000);
 };
 
-// --- LIFECYCLE ---
 onMounted(() => {
   loadData(0);
 });
@@ -212,31 +220,41 @@ onMounted(() => {
       <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover table-striped mb-0 align-middle">
-            <thead class="table-dark">
+            <thead class="table-dark text-center">
                 <tr>
-                <th>Mã SP</th>
+                <th width="50px">STT</th> <th>Mã SP</th>
                 <th>Tên Sản Phẩm</th>
                 <th>ĐVT</th>
                 <th>Hãng SX</th>
+                <th>Loại SP</th> 
                 <th>Mô Tả</th>
                 <th class="text-center" width="150">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="isLoading">
-                <td colspan="6" class="text-center py-4">
+                <td colspan="8" class="text-center py-4">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mb-0 mt-2">Đang tải dữ liệu...</p>
                 </td>
                 </tr>
                 
-                <tr v-else v-for="sp in danhSach" :key="sp.maSP">
+                <tr v-else v-for="(sp, index) in danhSach" :key="sp.maSP">
+                
+                <td class="text-center">
+                    {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
+                </td>
+
                 <td class="fw-bold text-primary">{{ sp.maSP }}</td>
                 <td class="fw-bold">{{ sp.tenSP }}</td>
-                <td><span class="badge bg-info text-dark">{{ sp.donViTinh }}</span></td>
+                <td class="text-center"><span class="badge bg-info text-dark">{{ sp.donViTinh }}</span></td>
                 
-                <td class="text-success fw-bold">
+                <td class="text-success fw-bold text-center">
                     {{ sp.hangSanXuat ? sp.hangSanXuat.tenHang : '---' }}
+                </td>
+
+                <td class="text-center"> 
+                    <span class="badge bg-secondary">{{ sp.loaiSanPham ? sp.loaiSanPham.tenLoai : '---' }}</span>
                 </td>
                 
                 <td class="small text-muted">{{ sp.moTa }}</td>
@@ -250,7 +268,7 @@ onMounted(() => {
                 </td>
                 </tr>
                  <tr v-if="!isLoading && danhSach.length === 0">
-                    <td colspan="6" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
+                    <td colspan="8" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
                 </tr>
             </tbody>
             </table>
@@ -279,7 +297,7 @@ onMounted(() => {
                 </ul>
           </div>
           <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
-              Hiển thị {{ (currentPage * itemsPerPage) + 1 }} - {{ Math.min((currentPage + 1) * itemsPerPage, paginationInfo.total) }} 
+              Hiển thị {{ ((currentPage || 0) * itemsPerPage) + 1 }} - {{ Math.min(((currentPage || 0) + 1) * itemsPerPage, paginationInfo.total) }} 
               trong tổng {{ paginationInfo.total }} sản phẩm
           </div>
       </div>
@@ -312,11 +330,6 @@ onMounted(() => {
 
               <div class="row">
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Đơn Vị Tính</label>
-                  <input type="text" class="form-control" v-model="form.donViTinh" placeholder="Cái, Chiếc, Bộ...">
-                </div>
-                
-                <div class="col-md-6 mb-3">
                   <label class="form-label">Hãng Sản Xuất</label>
                   <select class="form-select" v-model="form.maHang">
                       <option :value="null" disabled>-- Chọn Hãng --</option>
@@ -325,6 +338,21 @@ onMounted(() => {
                       </option>
                   </select>
                 </div>
+                
+                <div class="col-md-6 mb-3"> 
+                  <label class="form-label">Loại Sản Phẩm</label>
+                  <select class="form-select" v-model="form.maLoai">
+                      <option :value="null" disabled>-- Chọn Loại --</option>
+                      <option v-for="l in listLoaiSanPham" :key="l.maLoai" :value="l.maLoai">
+                          {{ l.tenLoai }}
+                      </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                  <label class="form-label">Đơn Vị Tính</label>
+                  <input type="text" class="form-control" v-model="form.donViTinh" placeholder="Cái, Chiếc, Bộ...">
               </div>
 
               <div class="mb-3">
