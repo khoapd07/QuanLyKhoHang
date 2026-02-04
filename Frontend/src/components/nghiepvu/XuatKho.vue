@@ -29,6 +29,7 @@
                 <table class="table table-hover table-bordered align-middle">
                     <thead class="table-light text-center">
                         <tr>
+                            <th width="50px">STT</th>
                             <th>Số Phiếu</th>
                             <th>Ngày Xuất</th>
                             <th>Kho Xuất</th>
@@ -40,7 +41,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in paginatedData" :key="item.soPhieu">
+                        <tr v-for="(item, index) in paginatedData" :key="item.soPhieu">
+                            <td class="text-center fw-bold text-secondary">
+                                {{ (pagination.page * pagination.size) + index + 1 }}
+                            </td>
+
                             <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                             <td>{{ formatDate(item.ngayXuat) }}</td>
                             <td>{{ item.tenKho }}</td>
@@ -72,7 +77,7 @@
                             </td>
                         </tr>
                         <tr v-if="paginatedData.length === 0">
-                            <td colspan="8" class="text-center text-muted">Không tìm thấy dữ liệu phù hợp.</td>
+                            <td colspan="9" class="text-center text-muted">Không tìm thấy dữ liệu phù hợp.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -105,22 +110,19 @@ import XuatKhoChiTiet from './XuatKhoChiTiet.vue';
 const API_URL = '/kho/xuat'; 
 
 const danhSachPhieu = ref([]);
-const listKho = ref([]); // [MỚI] Danh sách kho cho Admin lọc
+const listKho = ref([]); 
 const loading = ref(false);
 const showModal = ref(false);
 const selectedSoPhieu = ref(null);
 const searchQuery = ref("");
 
-// [MỚI] State phân quyền
 const isAdmin = ref(false);
-const filterMaKho = ref(0); // 0 = Tất cả
+const filterMaKho = ref(0); 
 
-// --- CẤU HÌNH PHÂN TRANG ---
 const pagination = reactive({
     page: 0, size: 20, total: 0, totalPages: 0
 });
 
-// --- LOGIC PHÂN QUYỀN & LOAD KHO ---
 const setupPhanQuyen = async () => {
     const role = localStorage.getItem('userRole');
     let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -132,11 +134,10 @@ const setupPhanQuyen = async () => {
 
     if (role === 'ADMIN') {
         isAdmin.value = true;
-        filterMaKho.value = 0; // Mặc định xem tất cả
+        filterMaKho.value = 0; 
         await loadDanhSachKho(); 
     } else {
         isAdmin.value = false;
-        // Staff bị ép chọn kho của mình
         filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0;
     }
 };
@@ -148,12 +149,10 @@ const loadDanhSachKho = async () => {
     } catch (e) { console.error(e); }
 };
 
-// --- API LẤY DANH SÁCH ---
 const layDanhSach = async () => {
     loading.value = true;
     try {
         const params = {};
-        // Gửi maKho lên server để lọc (nếu Backend đã update nhận param)
         if (filterMaKho.value && filterMaKho.value !== 0) {
             params.maKho = filterMaKho.value;
         }
@@ -167,7 +166,6 @@ const layDanhSach = async () => {
     }
 };
 
-// --- PHÂN TRANG & SEARCH ---
 const filteredList = computed(() => {
     if (!searchQuery.value) return danhSachPhieu.value;
     const query = searchQuery.value.toLowerCase();
@@ -211,7 +209,6 @@ const changePage = (pageIndex) => {
     }
 };
 
-// --- HELPER FUNCTIONS ---
 const moChiTiet = (soPhieu) => {
     selectedSoPhieu.value = soPhieu;
     showModal.value = true;

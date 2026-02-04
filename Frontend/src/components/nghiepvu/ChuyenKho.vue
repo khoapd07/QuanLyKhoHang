@@ -19,6 +19,7 @@
                 <table class="table table-hover table-bordered align-middle">
                     <thead class="table-light text-center">
                         <tr>
+                            <th width="50px">STT</th>
                             <th>Số Phiếu</th>
                             <th>Ngày Chuyển</th>
                             <th>Kho Đi (Xuất)</th>
@@ -29,7 +30,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in paginatedData" :key="item.soPhieu">
+                        <tr v-for="(item, index) in paginatedData" :key="item.soPhieu">
+                            <td class="text-center fw-bold text-secondary">
+                                {{ (pagination.page * pagination.size) + index + 1 }}
+                            </td>
+
                             <td class="fw-bold text-primary">{{ item.soPhieu }}</td>
                             <td>{{ formatDate(item.ngayChuyen) }}</td>
                             <td class="text-danger fw-bold">{{ item.tenKhoDi }} <i class="fas fa-arrow-right text-muted small"></i></td>
@@ -49,7 +54,7 @@
                                 </button>
                             </td>
                         </tr>
-                        <tr v-if="paginatedData.length === 0"><td colspan="7" class="text-center text-muted">Không có dữ liệu.</td></tr>
+                        <tr v-if="paginatedData.length === 0"><td colspan="8" class="text-center text-muted">Không có dữ liệu.</td></tr>
                     </tbody>
                 </table>
 
@@ -92,10 +97,9 @@ watch(filteredList, (val) => {
 
 const paginatedData = computed(() => filteredList.value.slice(pagination.page * pagination.size, (pagination.page + 1) * pagination.size));
 const visiblePages = computed(() => {
-    // Logic hiển thị trang đơn giản (1..n)
     let pages = [];
     for(let i=1; i<=pagination.totalPages; i++) pages.push(i);
-    return pages.slice(0, 5); // Demo hiện 5 trang đầu
+    return pages.slice(0, 5); 
 });
 
 const changePage = (p) => { if(p >= 0 && p < pagination.totalPages) pagination.page = p; };
@@ -108,14 +112,13 @@ const loadData = async () => {
     } catch (e) { console.error(e); } finally { loading.value = false; }
 };
 
-// [MỚI] Hàm xóa phiếu chuyển
 const xoaPhieu = async (soPhieu) => {
     if(!confirm(`Bạn có chắc muốn HỦY phiếu chuyển ${soPhieu}?\nCác máy trong phiếu này sẽ được trả về kho cũ.`)) return;
     
     try {
         await api.delete(`/kho/chuyen/${soPhieu}`);
         alert("Đã hủy phiếu chuyển thành công!");
-        loadData(); // Tải lại danh sách
+        loadData(); 
     } catch (e) {
         const msg = e.response?.data?.message || e.message;
         alert("Lỗi: " + msg);
