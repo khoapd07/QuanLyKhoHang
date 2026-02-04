@@ -94,30 +94,38 @@
               </router-link>
             </li>
 
-            <li class="nav-header">NGHIỆP VỤ</li>
-            <li class="nav-item" :class="{ 'menu-open': isKhoMenuOpen }">
-              <a href="#" class="nav-link" @click.prevent="toggleKhoMenu">
-                <i class="nav-icon bi bi-clipboard-data"></i>
-                <p>
-                  Quản lý Kho
-                  <i class="nav-arrow bi bi-chevron-right float-end"></i>
-                </p>
-              </a>
-              <ul class="nav nav-treeview" :style="{ display: isKhoMenuOpen ? 'block' : 'none' }">
-                <li class="nav-item">
-                  <router-link to="/nhap-kho" class="nav-link" active-class="active">
-                    <i class="nav-icon bi bi-arrow-down-square"></i>
-                    <p>Nhập kho</p>
-                  </router-link>
-                </li>
-                <li class="nav-item">
-                  <router-link to="/xuat-kho" class="nav-link" active-class="active">
-                    <i class="nav-icon bi bi-arrow-up-square"></i>
-                    <p>Xuất kho</p>
-                  </router-link>
-                </li>
-              </ul>
-            </li>
+                        <li class="nav-header">NGHIỆP VỤ</li>
+              <li class="nav-item" :class="{ 'menu-open': isKhoMenuOpen }">
+                <a href="#" class="nav-link" @click.prevent="toggleKhoMenu">
+                  <i class="nav-icon bi bi-clipboard-data"></i>
+                  <p>
+                    Quản lý Kho
+                    <i class="nav-arrow bi bi-chevron-right float-end"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview" :style="{ display: isKhoMenuOpen ? 'block' : 'none' }">
+                  <li class="nav-item">
+                    <router-link to="/nhap-kho" class="nav-link" active-class="active">
+                      <i class="nav-icon bi bi-arrow-down-square"></i>
+                      <p>Nhập kho</p>
+                    </router-link>
+                  </li>
+
+                  <li class="nav-item">
+                    <router-link to="/xuat-kho" class="nav-link" active-class="active">
+                      <i class="nav-icon bi bi-arrow-up-square"></i>
+                      <p>Xuất kho</p>
+                    </router-link>
+                  </li>
+
+                  <li class="nav-item">
+                    <router-link to="/chuyen-kho" class="nav-link" active-class="active">
+                      <i class="nav-icon bi bi-arrow-left-right"></i>
+                      <p>Chuyển kho</p>
+                    </router-link>
+                  </li>
+                </ul>
+              </li>
 
             <li class="nav-header">BÁO CÁO</li>
             <li class="nav-item">

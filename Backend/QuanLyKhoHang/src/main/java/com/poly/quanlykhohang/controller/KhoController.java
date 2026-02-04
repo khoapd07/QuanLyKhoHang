@@ -1,25 +1,29 @@
 package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.MayInDAO;
-import com.poly.quanlykhohang.dto.PhieuNhapDTO;
-import com.poly.quanlykhohang.dto.PhieuXuatDTO;
+import com.poly.quanlykhohang.dto.*;
 import com.poly.quanlykhohang.entity.Kho;
+import com.poly.quanlykhohang.entity.PhieuChuyen;
 import com.poly.quanlykhohang.service.GiaoDichKhoService;
 import com.poly.quanlykhohang.service.KhoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/kho")
 public class KhoController {
 
     @Autowired
-    private GiaoDichKhoService giaoDichService;
+    private GiaoDichKhoService giaoDichService; // [QUAN TRỌNG] Dùng thống nhất 1 tên biến này
+
     @Autowired
     private MayInDAO mayInDAO;
+
     @Autowired
     private KhoService khoService;
 
@@ -37,7 +41,7 @@ public class KhoController {
         try {
             return ResponseEntity.ok(giaoDichService.layPhieuNhapChiTiet(soPhieu));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
@@ -47,7 +51,7 @@ public class KhoController {
             return ResponseEntity.ok(giaoDichService.nhapKho(dto));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("Lỗi nhập kho: " + e.getMessage());
+            return ResponseEntity.badRequest().body(createError("Lỗi nhập kho: " + e.getMessage()));
         }
     }
 
@@ -62,7 +66,7 @@ public class KhoController {
             giaoDichService.xoaPhieuNhap(soPhieu);
             return ResponseEntity.ok("Đã xóa thành công");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
@@ -73,7 +77,7 @@ public class KhoController {
             giaoDichService.xoaDongChiTietNhap(maCTPN);
             return ResponseEntity.ok("Đã xóa dòng chi tiết.");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
@@ -83,7 +87,7 @@ public class KhoController {
             giaoDichService.themDongVaoPhieuCu(soPhieu, dto);
             return ResponseEntity.ok("Đã bổ sung thành công!");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
@@ -101,7 +105,7 @@ public class KhoController {
         try {
             return ResponseEntity.ok(giaoDichService.layPhieuXuatChiTiet(soPhieu));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
@@ -111,7 +115,7 @@ public class KhoController {
             return ResponseEntity.ok(giaoDichService.xuatKho(dto));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("Lỗi xuất kho: " + e.getMessage());
+            return ResponseEntity.badRequest().body(createError("Lỗi xuất kho: " + e.getMessage()));
         }
     }
 
@@ -121,12 +125,12 @@ public class KhoController {
             giaoDichService.xoaPhieuXuat(soPhieu);
             return ResponseEntity.ok("Đã hủy phiếu xuất thành công.");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
 
     // ==================================================
-    // 3. QUẢN LÝ KHO (CRUD)
+    // 3. QUẢN LÝ KHO (CRUD) & TRA CỨU
     // ==================================================
 
     @GetMapping
@@ -146,5 +150,48 @@ public class KhoController {
 
         List<String> listSerials = mayInDAO.findMaMayTonKho(maSP, maKho);
         return ResponseEntity.ok(listSerials);
+    }
+
+    // ==================================================
+    // 4. QUẢN LÝ CHUYỂN KHO
+    // ==================================================
+
+    @GetMapping("/chuyen")
+    public ResponseEntity<List<PhieuChuyenResponseDTO>> layDanhSachChuyen() {
+        // [SỬA LỖI] Dùng đúng tên biến 'giaoDichService' đã khai báo ở trên
+        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuChuyen());
+    }
+
+    @GetMapping("/chuyen/{soPhieu}")
+    public ResponseEntity<PhieuChuyen> layChiTietChuyen(@PathVariable String soPhieu) {
+        return ResponseEntity.ok(giaoDichService.layChiTietPhieuChuyen(soPhieu));
+    }
+
+    @PostMapping("/chuyen")
+    public ResponseEntity<?> taoPhieuChuyen(@RequestBody ChuyenKhoDTO dto) {
+        try {
+            PhieuChuyen phieu = giaoDichService.thucHienChuyenKho(dto);
+            return ResponseEntity.ok(phieu);
+        } catch (Exception e) {
+            // [SỬA LỖI] Thay ErrorResponse bằng Map đơn giản
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
+    }
+
+    // Helper method để tạo JSON lỗi trả về frontend
+    private Map<String, String> createError(String message) {
+        Map<String, String> error = new HashMap<>();
+        error.put("message", message);
+        return error;
+    }
+
+    @DeleteMapping("/chuyen/{soPhieu}")
+    public ResponseEntity<?> xoaPhieuChuyen(@PathVariable String soPhieu) {
+        try {
+            giaoDichService.xoaPhieuChuyen(soPhieu);
+            return ResponseEntity.ok(createError("Đã hủy phiếu chuyển và hoàn trả máy về kho cũ."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
     }
 }

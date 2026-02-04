@@ -109,11 +109,11 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-// [QUAN TRỌNG] Dùng api thay vì axios thường
 import api from '@/utils/axios';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+// [FIX] Khởi tạo là mảng rỗng để tránh lỗi .filter is not a function khi chưa load xong
 const listKho = ref([]);
 const listSanPham = ref([]);
 const listDonVi = ref([]); 
@@ -122,10 +122,25 @@ const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '' });
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 });
 const listHienThi = ref([]);
 
-// Lọc Nhà Cung Cấp (Loại = 1)
+// Hàm an toàn để lấy mảng dữ liệu (dù Backend trả về Page hay List)
+const getDataSafe = (response) => {
+    if (!response || !response.data) return [];
+    // Nếu là Page object (có thuộc tính content là mảng)
+    if (response.data.content && Array.isArray(response.data.content)) {
+        return response.data.content;
+    }
+    // Nếu là mảng thường
+    if (Array.isArray(response.data)) {
+        return response.data;
+    }
+    return [];
+};
+
 const listNhaCungCap = computed(() => {
+    // [FIX] Kiểm tra chắc chắn là mảng trước khi filter
+    if (!Array.isArray(listDonVi.value)) return [];
+    
     return listDonVi.value.filter(dv => {
-        // Xử lý linh hoạt nếu backend trả về object hoặc số
         const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') 
                      ? dv.loaiDonVi.loaiDonVi 
                      : dv.loaiDonVi;
@@ -135,41 +150,38 @@ const listNhaCungCap = computed(() => {
 
 const loadData = async () => {
     try {
-        // Gọi song song các API Master Data
         const [k, s, d] = await Promise.all([
-            api.get('/kho'),      // Lấy danh sách kho
-            api.get('/san-pham'), // Lấy danh sách sản phẩm
-            api.get('/don-vi')    // Lấy danh sách đơn vị
+            api.get('/kho'),      
+            api.get('/san-pham'), 
+            api.get('/don-vi')    
         ]);
-        listKho.value = k.data;
-        listSanPham.value = s.data;
-        listDonVi.value = d.data;
+        
+        // [FIX] Áp dụng hàm lấy dữ liệu an toàn cho tất cả
+        listKho.value = getDataSafe(k);
+        listSanPham.value = getDataSafe(s);
+        listDonVi.value = getDataSafe(d);
+
+        console.log("Kho:", listKho.value); // Debug log
+        console.log("DonVi:", listDonVi.value); // Debug log
+
     } catch (e) { 
         console.error("Lỗi load danh mục: ", e);
-        // Có thể alert lỗi nếu cần thiết
     }
 };
 
 const themDong = () => {
     if(!currentItem.value.maSP) return alert("Vui lòng chọn sản phẩm!");
     if(currentItem.value.soLuong <= 0) return alert("Số lượng phải lớn hơn 0");
-    
-    // Thêm vào danh sách hiển thị tạm thời
     listHienThi.value.push({...currentItem.value});
-    
-    // Reset số lượng về 1 để nhập tiếp
     currentItem.value.soLuong = 1;
 };
 
 const luuPhieu = async () => {
-    // Validate Header
     if(!phieuNhap.value.maKho) return alert("Vui lòng chọn Kho!");
     if(!phieuNhap.value.maDonVi) return alert("Vui lòng chọn Nhà Cung Cấp!");
     if(listHienThi.value.length === 0) return alert("Chưa có sản phẩm nào!");
     
     try {
-        // Gửi request tạo phiếu
-        // URL: /api/kho/nhap (Khớp KhoController)
         await api.post('/kho/nhap', {
             maKho: phieuNhap.value.maKho,
             maDonVi: phieuNhap.value.maDonVi, 

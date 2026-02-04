@@ -152,31 +152,38 @@ const phieuXuat = ref({ maKho: null, maDonVi: null, ghiChu: '', chiTietPhieuXuat
 const currentItem = ref({ maSP: '', donGia: 0 });
 const listHienThi = ref([]);
 
-// --- LOGIC MỚI: MULTI-SELECT ---
-const availableSerials = ref([]); // Danh sách máy lấy từ API
-const selectedSerials = ref([]);  // Các máy user tích chọn
-const searchText = ref("");       // Text tìm kiếm
+const availableSerials = ref([]); 
+const selectedSerials = ref([]);  
+const searchText = ref("");       
 
-// 1. Filter danh sách dựa trên ô tìm kiếm
 const filteredSerials = computed(() => {
     if (!searchText.value) return availableSerials.value;
     return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
 });
 
-// 2. Khi chọn SP, gọi API lấy danh sách máy tồn kho
+// Hàm an toàn để lấy mảng dữ liệu (dù Backend trả về Page hay List)
+const getDataSafe = (response) => {
+    if (!response || !response.data) return [];
+    if (response.data.content && Array.isArray(response.data.content)) {
+        return response.data.content;
+    }
+    if (Array.isArray(response.data)) {
+        return response.data;
+    }
+    return [];
+};
+
 const onChonSanPham = async () => {
-    // Reset chọn cũ
     selectedSerials.value = [];
     availableSerials.value = [];
     
     if (!phieuXuat.value.maKho) {
         alert("Vui lòng chọn Kho Xuất trước!");
-        currentItem.value.maSP = ""; // Reset SP nếu chưa chọn kho
+        currentItem.value.maSP = ""; 
         return;
     }
 
     try {
-        // Gọi API: /api/kho/may-in/kha-dung?maSP=...&maKho=...
         const res = await api.get('/kho/may-in/kha-dung', {
             params: {
                 maSP: currentItem.value.maSP,
@@ -190,22 +197,21 @@ const onChonSanPham = async () => {
     }
 };
 
-// 3. Reset khi đổi Kho
 const resetSelection = () => {
     currentItem.value.maSP = "";
     availableSerials.value = [];
     selectedSerials.value = [];
-    listHienThi.value = []; // Xóa luôn danh sách đã thêm vì khác kho
+    listHienThi.value = []; 
 };
 
-// 4. Xóa tag serial đã chọn
 const removeSerial = (s) => {
     selectedSerials.value = selectedSerials.value.filter(item => item !== s);
 };
 
-// ------------------------------------------------
-
 const listKhachHang = computed(() => {
+    // [FIX] Kiểm tra chắc chắn là mảng
+    if (!Array.isArray(listDonVi.value)) return [];
+
     return listDonVi.value.filter(dv => {
         const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
         return loai === 2;
@@ -219,9 +225,12 @@ const loadMasterData = async () => {
              api.get('/don-vi'),   
              api.get('/san-pham')  
         ]);
-        listKho.value = k.data; 
-        listDonVi.value = d.data; 
-        listSanPham.value = s.data;
+        
+        // [FIX] Dùng hàm getDataSafe
+        listKho.value = getDataSafe(k);
+        listDonVi.value = getDataSafe(d);
+        listSanPham.value = getDataSafe(s);
+
     } catch (e) { console.error(e); }
 };
 
@@ -229,15 +238,13 @@ const themDongChiTiet = () => {
     if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
     if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
 
-    // Thêm vào danh sách hiển thị
     listHienThi.value.push({
         maSP: currentItem.value.maSP,
         donGia: currentItem.value.donGia,
-        soLuong: selectedSerials.value.length, // SL tự động bằng số máy đã chọn
-        danhSachSeri: [...selectedSerials.value] // Copy mảng
+        soLuong: selectedSerials.value.length, 
+        danhSachSeri: [...selectedSerials.value] 
     });
 
-    // Reset form item để chọn tiếp SP khác
     currentItem.value.maSP = "";
     currentItem.value.donGia = 0;
     selectedSerials.value = [];
@@ -271,7 +278,6 @@ onMounted(() => loadMasterData());
 </script>
 
 <style scoped>
-/* Tùy chỉnh thanh cuộn cho dropdown */
 .dropdown-menu::-webkit-scrollbar {
     width: 6px;
 }

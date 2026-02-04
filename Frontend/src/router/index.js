@@ -19,6 +19,10 @@ import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
 import XuatKho from '../components/nghiepvu/XuatKho.vue'
 import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' 
 
+// Nghiệp vụ CHUYỂN KHO (Mới thêm)
+import ChuyenKho from '../components/nghiepvu/ChuyenKho.vue'
+import ChuyenKhoTao from '../components/nghiepvu/ChuyenKhoTao.vue'
+
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
 
 import TaiKhoan from '../components/admin/TaiKhoan.vue'
@@ -42,7 +46,7 @@ const routes = [
       { path: 'don-vi', name: 'DonVi', component: DonVi },
       { path: 'kho', name: 'Kho', component: Kho },
       { path: 'hang-san-xuat', name: 'Hang', component: Hang },
-      {path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
+      { path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
 
       // Nhập kho
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },
@@ -50,12 +54,14 @@ const routes = [
 
       // Xuất kho
       { path: 'xuat-kho', name: 'XuatKho', component: XuatKho },
-      { path: 'xuat-kho/tao-moi', name: 'TaoPhieuXuat', component: XuatKhoTao }, // Trỏ vào file Tao
+      { path: 'xuat-kho/tao-moi', name: 'TaoPhieuXuat', component: XuatKhoTao }, 
+
+      // Chuyển kho (Mới thêm)
+      { path: 'chuyen-kho', name: 'ChuyenKho', component: ChuyenKho },
+      { path: 'chuyen-kho/tao-moi', name: 'ChuyenKhoTao', component: ChuyenKhoTao },
 
       // Báo cáo & Hệ thống
       { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },
-
-
       { path: 'bao-cao-ton-dau-nam', name: 'BaoCaoTonDauNam', component: BaoCaoTonDauNam },
 
       // 5. Hệ thống
@@ -68,11 +74,6 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
-
-// router.beforeEach((to, from, next) => {
-//   console.log("Dev Mode: Bypassing Auth check");
-//   next();
-// })
 
 router.beforeEach((to, from, next) => {
   // 1. Lấy token từ LocalStorage

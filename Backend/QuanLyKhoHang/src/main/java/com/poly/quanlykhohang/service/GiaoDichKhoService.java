@@ -28,6 +28,8 @@ public class GiaoDichKhoService {
     @Autowired private SanPhamDAO sanPhamDAO;
     @Autowired private MayInDAO mayInDAO;
     @Autowired private IdGenerator idGenerator;
+    @Autowired private PhieuChuyenDAO phieuChuyenDAO;
+    @Autowired private ChiTietPhieuChuyenDAO chiTietPhieuChuyenDAO;
 
     // ================= NHẬP KHO =================
     public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi() {
@@ -175,22 +177,48 @@ public class GiaoDichKhoService {
 
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuNhap(String soPhieu) {
-        PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu).orElseThrow();
-        for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
-            if (ct.getMayIn() != null && Boolean.FALSE.equals(ct.getMayIn().getTonKho())) {
-                throw new RuntimeException("Không thể xóa phiếu nhập! Máy " + ct.getMayIn().getMaMay() + " đã được xuất bán.");
+        // 1. Tìm phiếu nhập
+        PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập"));
+
+        // 2. Tạo bản sao danh sách để duyệt (tránh lỗi thay đổi list khi đang duyệt)
+        List<ChiTietPhieuNhap> listCanXoa = new ArrayList<>(phieuNhap.getDanhSachChiTiet());
+
+        // [SỬA LỖI QUAN TRỌNG TẠI ĐÂY]
+        // Thay vì set null, ta dùng .clear() để báo Hibernate danh sách này bị làm rỗng
+        // nhưng vẫn giữ nguyên tham chiếu wrapper của Hibernate.
+        phieuNhap.getDanhSachChiTiet().clear();
+
+        // Lưu tạm để Hibernate cập nhật trạng thái "rỗng" của Phiếu Nhập xuống DB
+        // Điều này giúp ngắt kết nối giữa Phiếu Nhập và các Chi Tiết
+        phieuNhapDAO.save(phieuNhap);
+
+        // 3. Xử lý xóa từng dòng chi tiết và máy móc đi kèm
+        for (ChiTietPhieuNhap ct : listCanXoa) {
+            MayIn may = ct.getMayIn();
+
+            // Kiểm tra máy
+            if (may != null) {
+                // Nếu máy đã bán -> Chặn luôn (Rollback toàn bộ)
+                if (Boolean.FALSE.equals(may.getTonKho())) {
+                    throw new RuntimeException("Lỗi: Máy " + may.getMaMay() + " đã xuất bán, không thể xóa phiếu nhập!");
+                }
+
+                // Xóa lịch sử chuyển kho của máy này (nếu có)
+                List<ChiTietPhieuChuyen> lichSuChuyen = chiTietPhieuChuyenDAO.findByMayIn(may);
+                if (!lichSuChuyen.isEmpty()) {
+                    chiTietPhieuChuyenDAO.deleteAll(lichSuChuyen);
+                }
+
+                // Xóa Máy (Vì dòng chi tiết nhập đã bị ngắt kết nối ở bước clear() trên, nên xóa máy an toàn)
+                mayInDAO.delete(may);
             }
+
+            // Xóa dòng chi tiết phiếu nhập (Dọn dẹp rác)
+            chiTietPhieuNhapDAO.delete(ct);
         }
-        if (phieuNhap.getDanhSachChiTiet() != null) {
-            List<ChiTietPhieuNhap> listCT = new ArrayList<>(phieuNhap.getDanhSachChiTiet());
-            for (ChiTietPhieuNhap ct : listCT) {
-                SanPham sp = ct.getSanPham();
-                if(sp != null) sp.setSoLuong(Math.max(0, sp.getSoLuong() - 1));
-                sanPhamDAO.save(sp);
-                chiTietPhieuNhapDAO.delete(ct);
-                if(ct.getMayIn() != null) mayInDAO.delete(ct.getMayIn());
-            }
-        }
+
+        // 4. Cuối cùng xóa Phiếu Nhập Header
         phieuNhapDAO.delete(phieuNhap);
     }
 
@@ -385,5 +413,136 @@ public class GiaoDichKhoService {
         phieuNhapDAO.save(phieuNhap);
         sp.setSoLuong(sp.getSoLuong() + soLuongThem);
         sanPhamDAO.save(sp);
+    }
+    // 1. LẤY DANH SÁCH PHIẾU CHUYỂN (HIỂN THỊ)
+    public List<PhieuChuyenResponseDTO> layDanhSachPhieuChuyen() {
+        List<PhieuChuyen> listEntity = phieuChuyenDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayChuyen"));
+        List<PhieuChuyenResponseDTO> listDto = new ArrayList<>();
+
+        for (PhieuChuyen pc : listEntity) {
+            PhieuChuyenResponseDTO dto = new PhieuChuyenResponseDTO();
+            dto.setSoPhieu(pc.getSoPhieu());
+            dto.setNgayChuyen(pc.getNgayChuyen());
+            dto.setGhiChu(pc.getGhiChu());
+            if (pc.getKhoDi() != null) dto.setTenKhoDi(pc.getKhoDi().getTenKho());
+            if (pc.getKhoDen() != null) dto.setTenKhoDen(pc.getKhoDen().getTenKho());
+
+            // Tóm tắt sản phẩm: [Mã SP] Tên SP xSL
+            Map<String, Integer> spCountMap = new LinkedHashMap<>();
+            int tongSL = 0;
+
+            if (pc.getDanhSachChiTiet() != null) {
+                tongSL = pc.getDanhSachChiTiet().size();
+                for (ChiTietPhieuChuyen ct : pc.getDanhSachChiTiet()) {
+                    if (ct.getSanPham() != null) {
+                        String key = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
+                        spCountMap.put(key, spCountMap.getOrDefault(key, 0) + 1);
+                    }
+                }
+            }
+            dto.setTongSoLuong(tongSL);
+
+            List<String> summaryParts = new ArrayList<>();
+            for (String key : spCountMap.keySet()) {
+                summaryParts.add(key + " x" + spCountMap.get(key));
+            }
+            dto.setTomTatSanPham(String.join(", ", summaryParts));
+
+            listDto.add(dto);
+        }
+        return listDto;
+    }
+
+    // 2. LẤY CHI TIẾT 1 PHIẾU
+    public PhieuChuyen layChiTietPhieuChuyen(String soPhieu) {
+        return phieuChuyenDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu chuyển: " + soPhieu));
+    }
+
+    // 3. THỰC HIỆN CHUYỂN KHO (TẠO MỚI)
+    @Transactional(rollbackFor = Exception.class)
+    public PhieuChuyen thucHienChuyenKho(ChuyenKhoDTO dto) {
+        // Validate
+        if (dto.getMaKhoDi().equals(dto.getMaKhoDen())) {
+            throw new RuntimeException("Kho đi và Kho đến không được trùng nhau!");
+        }
+        if (dto.getDanhSachSerial() == null || dto.getDanhSachSerial().isEmpty()) {
+            throw new RuntimeException("Chưa chọn máy nào để chuyển!");
+        }
+
+        Kho khoDi = khoDAO.findById(dto.getMaKhoDi()).orElseThrow(() -> new RuntimeException("Kho đi lỗi"));
+        Kho khoDen = khoDAO.findById(dto.getMaKhoDen()).orElseThrow(() -> new RuntimeException("Kho đến lỗi"));
+
+        // Sinh mã phiếu: CK + YYYYMM + STT
+        String prefix = "CK" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
+        String lastId = phieuChuyenDAO.findLastId(prefix).orElse(null);
+        String soPhieuMoi = idGenerator.generateNextId("CK", lastId);
+
+        // Lưu Header
+        PhieuChuyen phieu = new PhieuChuyen();
+        phieu.setSoPhieu(soPhieuMoi);
+        phieu.setNgayChuyen(LocalDateTime.now());
+        phieu.setKhoDi(khoDi);
+        phieu.setKhoDen(khoDen);
+        phieu.setGhiChu(dto.getGhiChu());
+
+        PhieuChuyen savedPhieu = phieuChuyenDAO.save(phieu);
+
+        // Xử lý từng máy
+        List<ChiTietPhieuChuyen> listChiTiet = new ArrayList<>();
+        for (String serial : dto.getDanhSachSerial()) {
+            MayIn may = mayInDAO.findById(serial)
+                    .orElseThrow(() -> new RuntimeException("Máy " + serial + " không tồn tại!"));
+
+            // Validate logic kho
+            if (!may.getKho().getMaKho().equals(khoDi.getMaKho())) {
+                throw new RuntimeException("Lỗi: Máy " + serial + " không nằm trong kho đi!");
+            }
+            if (!Boolean.TRUE.equals(may.getTonKho())) {
+                throw new RuntimeException("Lỗi: Máy " + serial + " đã bán, không thể chuyển!");
+            }
+
+            // A. Cập nhật vị trí máy sang Kho Đến
+            may.setKho(khoDen);
+            mayInDAO.save(may);
+
+            // B. Lưu chi tiết lịch sử
+            ChiTietPhieuChuyen ct = new ChiTietPhieuChuyen();
+            ct.setPhieuChuyen(savedPhieu);
+            ct.setMayIn(may);
+            ct.setSanPham(may.getSanPham());
+            chiTietPhieuChuyenDAO.save(ct);
+
+            listChiTiet.add(ct);
+        }
+
+        savedPhieu.setDanhSachChiTiet(listChiTiet);
+        return savedPhieu;
+    }
+    // =============================================================
+    // [MỚI] XÓA PHIẾU CHUYỂN (Nút xóa bên giao diện Chuyển Kho)
+    // Logic: Hoàn trả máy về Kho Đi (Undo)
+    // =============================================================
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaPhieuChuyen(String soPhieu) {
+        PhieuChuyen phieuChuyen = phieuChuyenDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Phiếu chuyển không tồn tại"));
+
+        Kho khoDi = phieuChuyen.getKhoDi(); // Kho gốc ban đầu
+
+        // Duyệt qua danh sách máy trong phiếu chuyển
+        for (ChiTietPhieuChuyen ct : phieuChuyen.getDanhSachChiTiet()) {
+            MayIn may = ct.getMayIn();
+
+            // Nếu máy vẫn còn tồn kho (chưa bán), ta trả nó về Kho Gốc
+            if (may != null && Boolean.TRUE.equals(may.getTonKho())) {
+                may.setKho(khoDi); // Cập nhật lại kho
+                mayInDAO.save(may);
+            }
+            // Nếu máy đã bán rồi thì thôi, chỉ xóa lịch sử chuyển.
+        }
+
+        // Xóa phiếu chuyển (Chi tiết sẽ tự xóa do Cascade hoặc xóa tay nếu config khác)
+        phieuChuyenDAO.delete(phieuChuyen);
     }
 }
