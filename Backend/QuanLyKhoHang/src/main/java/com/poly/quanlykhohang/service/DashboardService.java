@@ -11,6 +11,7 @@ import java.util.List;
 import com.poly.quanlykhohang.dto.dashboard.DashboardCardDTO;
 import com.poly.quanlykhohang.dto.dashboard.DashboardChartDTO;
 import com.poly.quanlykhohang.dto.dashboard.DashboardResponse;
+import com.poly.quanlykhohang.dto.dashboard.TransferChartDTO;
 
 @Service
 public class DashboardService {
@@ -69,5 +70,38 @@ public class DashboardService {
         }
 
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransferChartDTO> getTransferChartData(Integer maKho, Integer nam) {
+        List<TransferChartDTO> chartList = new ArrayList<>();
+
+        try {
+            StoredProcedureQuery query = entityManager.createStoredProcedureQuery("sp_ThongKe_ChuyenKho_TheoThang");
+
+            // Đăng ký tham số
+            query.registerStoredProcedureParameter("MaKho", Integer.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("Nam", Integer.class, ParameterMode.IN);
+
+            // Truyền giá trị (Mặc định năm nay nếu null)
+            int currentYear = (nam != null) ? nam : java.time.Year.now().getValue();
+
+            query.setParameter("MaKho", maKho != null ? maKho : 0);
+            query.setParameter("Nam", currentYear);
+
+            query.execute();
+
+            List<Object[]> result = query.getResultList();
+            for (Object[] row : result) {
+                chartList.add(new TransferChartDTO(
+                        (Integer) row[0], // Month
+                        (Integer) row[1], // TransferInQty
+                        (Integer) row[2]  // TransferOutQty
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return chartList;
     }
 }

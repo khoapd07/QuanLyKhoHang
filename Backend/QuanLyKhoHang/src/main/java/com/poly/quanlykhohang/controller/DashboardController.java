@@ -27,4 +27,12 @@ public class DashboardController {
             return ResponseEntity.badRequest().body("Lỗi tải dữ liệu: " + e.getMessage());
         }
     }
+
+    @GetMapping("/transfer-chart")
+    public ResponseEntity<?> getTransferChart(
+            @RequestParam(defaultValue = "0") Integer maKho,
+            @RequestParam(required = false) Integer nam
+    ) {
+        return ResponseEntity.ok(dashboardService.getTransferChartData(maKho, nam));
+    }
 }
