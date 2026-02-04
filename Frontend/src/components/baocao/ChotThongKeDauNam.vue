@@ -45,29 +45,29 @@
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Kho/Chi nhánh áp dụng</label>
-                      <select class="form-control" v-model="filters.warehouseId">
-                        <option :value="0">Tất cả các kho (Tổng hợp)</option>
+                      <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin">
+                        <option :value="0" v-if="isAdmin">Tất cả các kho (Tổng hợp)</option>
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
                   </div>
                   <div class="col-lg-2 col-md-12 col-12 d-flex align-items-end">
-                     <div class="form-group w-100">
+                      <div class="form-group w-100">
                         <button type="button" class="btn btn-warning btn-block" @click="thucHienChotSo" :disabled="loading">
                           <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i> 
                           {{ loading ? 'Đang xử lý...' : 'Chốt Sổ' }}
                         </button>
-                     </div>
+                      </div>
                   </div>
                 </div>
 
                 <div class="mt-4" v-if="reportData.length > 0">
                   <div class="d-flex justify-content-between align-items-center mb-2">
-                     <h5 class="text-success m-0">
-                        <i class="fas fa-check-circle"></i> Kết quả vừa chốt: {{ currentTenKho }}
-                        <span class="badge badge-secondary ml-2">Tổng: {{ actionPagination.total }} dòng</span>
-                     </h5>
-                     <button type="button" class="btn btn-sm btn-info" @click="printToWord(filters.nam, filters.warehouseId, currentTenKho)">
+                      <h5 class="text-success m-0">
+                         <i class="fas fa-check-circle"></i> Kết quả vừa chốt: {{ currentTenKho }}
+                         <span class="badge badge-secondary ml-2">Tổng: {{ actionPagination.total }} dòng</span>
+                      </h5>
+                      <button type="button" class="btn btn-sm btn-info" @click="printToWord(filters.nam, filters.warehouseId, currentTenKho)">
                         <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> 
                         {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
                       </button>
@@ -111,20 +111,14 @@
                         <li class="page-item" :class="{ disabled: actionPagination.page === 0 }">
                             <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page - 1)">« Trước</a>
                         </li>
-                        
-                        <li v-for="(page, index) in visibleActionPages" 
-                            :key="index" 
-                            class="page-item" 
-                            :class="{ active: page === actionPagination.page + 1, disabled: page === '...' }">
+                        <li v-for="(page, index) in visibleActionPages" :key="index" class="page-item" :class="{ active: page === actionPagination.page + 1, disabled: page === '...' }">
                             <a class="page-link" href="#" @click.prevent="page !== '...' ? changeActionPage(page - 1) : null">{{ page }}</a>
                         </li>
-
                         <li class="page-item" :class="{ disabled: actionPagination.page >= actionPagination.totalPages - 1 }">
                             <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page + 1)">Sau »</a>
                         </li>
                     </ul>
                   </div>
-
                 </div>
               </div>
 
@@ -139,29 +133,29 @@
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Chọn Kho</label>
-                      <select class="form-control" v-model="historyFilters.warehouseId">
-                        <option :value="0">Tất cả các kho</option>
+                      <select class="form-control" v-model="historyFilters.warehouseId" :disabled="!isAdmin">
+                        <option :value="0" v-if="isAdmin">Tất cả các kho</option>
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
                   </div>
                   <div class="col-lg-2 col-md-12 col-12 d-flex align-items-end">
-                     <div class="form-group w-100">
+                      <div class="form-group w-100">
                         <button type="button" class="btn btn-primary btn-block" @click="searchHistory" :disabled="loadingHistory">
                           <i class="fas" :class="loadingHistory ? 'fa-spinner fa-spin' : 'fa-search'"></i> 
                           {{ loadingHistory ? 'Đang tải...' : 'Xem Dữ Liệu' }}
                         </button>
-                     </div>
+                      </div>
                   </div>
                 </div>
 
                 <div class="mt-4" v-if="historyData.length > 0">
                    <div class="d-flex justify-content-between align-items-center mb-2">
-                     <h5 class="text-primary m-0">
-                        <i class="fas fa-list-alt"></i> Dữ liệu lưu trữ: {{ historyTenKho }}
-                        <span class="badge badge-secondary ml-2">Tổng: {{ historyPagination.total }} dòng</span>
-                     </h5>
-                     <button type="button" class="btn btn-sm btn-info" @click="printToWord(historyFilters.nam, historyFilters.warehouseId, historyTenKho)">
+                      <h5 class="text-primary m-0">
+                         <i class="fas fa-list-alt"></i> Dữ liệu lưu trữ: {{ historyTenKho }}
+                         <span class="badge badge-secondary ml-2">Tổng: {{ historyPagination.total }} dòng</span>
+                      </h5>
+                      <button type="button" class="btn btn-sm btn-info" @click="printToWord(historyFilters.nam, historyFilters.warehouseId, historyTenKho)">
                         <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> 
                         {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
                       </button>
@@ -176,7 +170,6 @@
                           <th>Thành Tiền</th>
                         </tr>
                       </thead>
-                      
                       <tbody>
                           <tr v-for="(item, index) in historyData" :key="index">
                             <td class="text-center">{{ item.stt }}</td>
@@ -206,14 +199,9 @@
                         <li class="page-item" :class="{ disabled: historyPagination.page === 0 }">
                             <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page - 1)">« Trước</a>
                         </li>
-                        
-                        <li v-for="(page, index) in visibleHistoryPages" 
-                            :key="index" 
-                            class="page-item" 
-                            :class="{ active: page === historyPagination.page + 1, disabled: page === '...' }">
+                        <li v-for="(page, index) in visibleHistoryPages" :key="index" class="page-item" :class="{ active: page === historyPagination.page + 1, disabled: page === '...' }">
                             <a class="page-link" href="#" @click.prevent="page !== '...' ? changeHistoryPage(page - 1) : null">{{ page }}</a>
                         </li>
-
                         <li class="page-item" :class="{ disabled: historyPagination.page >= historyPagination.totalPages - 1 }">
                             <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page + 1)">Sau »</a>
                         </li>
@@ -249,8 +237,11 @@ const activeTab = ref('action');
 
 // --- DATA DÙNG CHUNG ---
 const khoList = ref([]);
-const isExporting = ref(false); // Trạng thái đang in ấn
+const isExporting = ref(false);
 const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+
+// [SỬA 3]: Biến xác định quyền Admin
+const isAdmin = ref(false);
 
 // =================== TAB 1: STATE & LOGIC ===================
 const filters = reactive({
@@ -261,15 +252,10 @@ const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
 
-// [THÊM] State phân trang cho TAB 1
 const actionPagination = reactive({
-    page: 0,
-    size: 20,
-    total: 0,
-    totalPages: 0
+    page: 0, size: 20, total: 0, totalPages: 0
 });
 
-// [THÊM] Computed hiển thị trang TAB 1
 const visibleActionPages = computed(() => {
     const total = actionPagination.totalPages;
     const current = actionPagination.page + 1;
@@ -302,13 +288,9 @@ const historyTenKho = ref('');
 const searchedHistory = ref(false);
 
 const historyPagination = reactive({
-    page: 0,
-    size: 20,
-    total: 0,
-    totalPages: 0
+    page: 0, size: 20, total: 0, totalPages: 0
 });
 
-// Computed hiển thị trang TAB 2
 const visibleHistoryPages = computed(() => {
     const total = historyPagination.totalPages;
     const current = historyPagination.page + 1;
@@ -336,26 +318,20 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('vi-VN', { style: 'decimal', currency: 'VND' }).format(value);
 };
 
-// --- LOGIC GỌI API ---
+// --- LOGIC API ---
 
-// 1. Chốt sổ (Click nút Chốt) - Reset về trang 0
 const thucHienChotSo = async () => {
   if(!confirm(`Bạn có chắc chắn muốn chốt sổ cho năm ${filters.nam}? Dữ liệu cũ sẽ bị đè!`)) return;
-  actionPagination.page = 0; // Reset về trang đầu
+  actionPagination.page = 0;
   goiApiChotSo();
 };
 
-// [THÊM] Hàm chuyển trang TAB 1
 const changeActionPage = (newPage) => {
     if (newPage < 0 || newPage >= actionPagination.totalPages) return;
     actionPagination.page = newPage;
-    
-    // Gọi API Lấy Lịch Sử của năm vừa chốt (chứ ko phải chốt lại)
-    // Lưu ý: Sau khi chốt xong, ta chỉ cần gọi API xem kết quả (GET) chứ không gọi POST chốt nữa
     goiApiXemKetQuaSauChot();
 };
 
-// Hàm dùng chung để gọi API Chốt (POST)
 const goiApiChotSo = async () => {
   loading.value = true;
   reportData.value = []; 
@@ -363,17 +339,13 @@ const goiApiChotSo = async () => {
     const response = await api.post(`${API_BASE}/chot-so`, null, {
       params: { nam: filters.nam, maKho: filters.warehouseId }
     });
-    // Sau khi chốt xong, server trả về trang 0. Ta hiển thị luôn.
     const data = response.data;
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet;
     
-    // Cập nhật phân trang
     actionPagination.page = data.currentPage;
     actionPagination.total = data.totalItems;
     actionPagination.totalPages = data.totalPages;
-    
-    // Cập nhật tổng
     if (data.grandTotal) grandTotal.value = data.grandTotal;
     alert("Chốt sổ thành công!");
   } catch (error) {
@@ -384,12 +356,10 @@ const goiApiChotSo = async () => {
   }
 };
 
-// [THÊM] Hàm xem kết quả phân trang TAB 1 (GET)
-// Logic: Năm chốt là 2025 -> Kết quả là Tồn đầu 2026 -> Gọi API LichSu 2026
 const goiApiXemKetQuaSauChot = async () => {
     loading.value = true;
     try {
-        const namKetQua = parseInt(filters.nam) + 1; // Chốt 2025 ra kết quả 2026
+        const namKetQua = parseInt(filters.nam) + 1; 
         const response = await api.get(`${API_BASE}/lich-su`, {
             params: { 
                 nam: namKetQua, 
@@ -456,7 +426,7 @@ const xemLichSu = async () => {
     }
 }
 
-// 3. In Word (Load All Data)
+// 3. In Word
 const loadFile = async (url) => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Không thể tải file mẫu: ${url}`);
@@ -468,10 +438,6 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
   isExporting.value = true;
 
   try {
-      // Vì "Kết quả chốt" của năm X thực chất là "Lịch sử tồn đầu" của năm X+1
-      // Nên nếu đang ở Tab 1 (Chốt), ta cần +1 năm để lấy đúng dữ liệu.
-      // Nếu ở Tab 2 (Xem Lịch Sử), ta lấy đúng năm người dùng nhập.
-      
       let namCanLay = namInput;
       if (activeTab.value === 'action') {
           namCanLay = parseInt(namInput) + 1;
@@ -482,7 +448,7 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
                 nam: namCanLay, 
                 maKho: maKhoInput,
                 page: 0,
-                size: 999999 // Lấy tất cả
+                size: 999999 
             }
       });
       
@@ -550,14 +516,45 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
   }
 };
 
+// [SỬA 4]: Logic phân quyền tải Kho
 const loadKho = async () => {
     try {
         const res = await api.get('/kho');
         khoList.value = res.data;
-        if (res.data.length > 0) {
-            filters.warehouseId = res.data[0].maKho;
-            historyFilters.warehouseId = res.data[0].maKho;
+
+        // --- XỬ LÝ PHÂN QUYỀN ---
+        const role = localStorage.getItem('userRole');
+        
+        // Cố gắng lấy maKho từ 3 nguồn: userInfo JSON, key riêng 'maKho', hoặc 'userMaKho'
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        if (!userMaKho) {
+             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+             userMaKho = userInfo.maKho;
         }
+
+        if (role === 'ADMIN') {
+             isAdmin.value = true;
+             // Admin mặc định chọn "Tất cả" (0) hoặc kho đầu tiên
+             if (res.data.length > 0) {
+                 filters.warehouseId = 0;
+                 historyFilters.warehouseId = 0;
+             }
+        } else {
+             // STAFF
+             isAdmin.value = false;
+             if (userMaKho) {
+                 // Staff bị ép chọn kho của mình
+                 filters.warehouseId = parseInt(userMaKho);
+                 historyFilters.warehouseId = parseInt(userMaKho);
+             } else {
+                 // Trường hợp lỗi ko tìm thấy kho của user (fallback)
+                 if (res.data.length > 0) {
+                     filters.warehouseId = res.data[0].maKho;
+                     historyFilters.warehouseId = res.data[0].maKho;
+                 }
+             }
+        }
+
     } catch (e) {
         console.error("Lỗi tải kho:", e);
     }
@@ -583,5 +580,11 @@ onMounted(() => loadKho());
     pointer-events: none;
     background-color: #fff;
     color: #6c757d;
+}
+/* Style cho select bị disabled */
+select:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
+    cursor: not-allowed;
 }
 </style>

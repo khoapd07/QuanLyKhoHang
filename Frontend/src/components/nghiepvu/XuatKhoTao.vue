@@ -10,7 +10,7 @@
             <div class="row mb-4">
                 <div class="col-md-4">
                     <label class="form-label">Kho Xuất (*)</label>
-                    <select class="form-select" v-model="phieuXuat.maKho" @change="resetSelection">
+                    <select class="form-select" v-model="phieuXuat.maKho" @change="resetSelection" :disabled="!isAdmin">
                         <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
@@ -156,12 +156,14 @@ const availableSerials = ref([]);
 const selectedSerials = ref([]);  
 const searchText = ref("");       
 
+// [SỬA 2]: Biến xác định quyền Admin
+const isAdmin = ref(false);
+
 const filteredSerials = computed(() => {
     if (!searchText.value) return availableSerials.value;
     return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
 });
 
-// Hàm an toàn để lấy mảng dữ liệu (dù Backend trả về Page hay List)
 const getDataSafe = (response) => {
     if (!response || !response.data) return [];
     if (response.data.content && Array.isArray(response.data.content)) {
@@ -209,7 +211,6 @@ const removeSerial = (s) => {
 };
 
 const listKhachHang = computed(() => {
-    // [FIX] Kiểm tra chắc chắn là mảng
     if (!Array.isArray(listDonVi.value)) return [];
 
     return listDonVi.value.filter(dv => {
@@ -226,10 +227,35 @@ const loadMasterData = async () => {
              api.get('/san-pham')  
         ]);
         
-        // [FIX] Dùng hàm getDataSafe
         listKho.value = getDataSafe(k);
         listDonVi.value = getDataSafe(d);
         listSanPham.value = getDataSafe(s);
+
+        // [SỬA 3]: Xử lý phân quyền chọn kho
+        const role = localStorage.getItem('userRole');
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        
+        if (!userMaKho) {
+             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+             userMaKho = userInfo.maKho;
+        }
+
+        if (role === 'ADMIN') {
+             isAdmin.value = true;
+             // Admin để mặc định là null để tự chọn
+        } else {
+             // STAFF
+             isAdmin.value = false;
+             if (userMaKho) {
+                 // Staff bị ép chọn kho của mình
+                 phieuXuat.value.maKho = parseInt(userMaKho);
+             } else {
+                 // Fallback: nếu lỗi, chọn kho đầu tiên
+                 if (listKho.value.length > 0) {
+                     phieuXuat.value.maKho = listKho.value[0].maKho;
+                 }
+             }
+        }
 
     } catch (e) { console.error(e); }
 };

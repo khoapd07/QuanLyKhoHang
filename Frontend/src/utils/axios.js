@@ -34,10 +34,13 @@ api.interceptors.response.use(
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             
+            
             // Chuyển hướng về Login (dùng window.location để refresh sạch sẽ)
             // if (window.location.pathname !== '/login') {
             //     window.location.href = '/login';
             // }
+
+            alert('Phiên đăng nhập của bạn đã hết hạn hoặc bạn không có quyền truy cập.');
         }
         return Promise.reject(error);
     }

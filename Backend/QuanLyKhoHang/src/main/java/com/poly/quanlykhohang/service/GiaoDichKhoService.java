@@ -32,8 +32,16 @@ public class GiaoDichKhoService {
     @Autowired private ChiTietPhieuChuyenDAO chiTietPhieuChuyenDAO;
 
     // ================= NHẬP KHO =================
-    public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi() {
-        List<PhieuNhap> listEntity = phieuNhapDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
+    public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi(Integer maKho) {
+        List<PhieuNhap> listEntity;
+
+        // [LOGIC MỚI] Kiểm tra nếu có mã kho thì lọc, ngược lại lấy tất cả
+        if (maKho != null && maKho > 0) {
+            listEntity = phieuNhapDAO.findByMaKhoOrderByNgayNhapDesc(maKho);
+        } else {
+            listEntity = phieuNhapDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
+        }
+
         List<PhieuNhapResponseDTO> listDto = new ArrayList<>();
 
         for (PhieuNhap pn : listEntity) {
@@ -49,17 +57,16 @@ public class GiaoDichKhoService {
             if (pn.getKhoNhap() != null) dto.setTenKho(pn.getKhoNhap().getTenKho());
             if (pn.getNhaCungCap() != null) dto.setTenKhachHang(pn.getNhaCungCap().getTenDonVi());
 
-            // 2. Tính toán SỐ LƯỢNG CÒN LẠI và TIỀN CÒN LẠI (Dựa trên TonKho = true)
+            // 2. Tính toán SỐ LƯỢNG CÒN LẠI và TIỀN CÒN LẠI
             int demConLai = 0;
             BigDecimal tienCon = BigDecimal.ZERO;
 
             Set<String> hangSet = new HashSet<>();
-            Map<String, Integer> spCountMap = new LinkedHashMap<>(); // Dùng LinkedHashMap để giữ thứ tự
+            Map<String, Integer> spCountMap = new LinkedHashMap<>();
 
             if (pn.getDanhSachChiTiet() != null) {
                 for (ChiTietPhieuNhap ct : pn.getDanhSachChiTiet()) {
                     if (ct.getSanPham() != null) {
-                        // [SỬA] Hiển thị tóm tắt kèm Mã SP: "[IP15] iPhone 15 Pro Max"
                         String keyDisplay = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
                         spCountMap.put(keyDisplay, spCountMap.getOrDefault(keyDisplay, 0) + 1);
 
@@ -68,7 +75,7 @@ public class GiaoDichKhoService {
                         }
                     }
 
-                    // Logic tính tồn kho thực tế
+                    // Logic tính tồn kho
                     if (ct.getMayIn() != null && Boolean.TRUE.equals(ct.getMayIn().getTonKho())) {
                         demConLai++;
                         if (ct.getDonGia() != null) {
@@ -222,9 +229,16 @@ public class GiaoDichKhoService {
         phieuNhapDAO.delete(phieuNhap);
     }
 
-    public List<PhieuXuatResponseDTO> layDanhSachPhieuXuatHienThi() {
+    public List<PhieuXuatResponseDTO> layDanhSachPhieuXuatHienThi(Integer maKho) {
         List<PhieuXuat> listEntity = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
         List<PhieuXuatResponseDTO> listDto = new ArrayList<>();
+
+        if (maKho != null && maKho > 0) {
+            listEntity = phieuXuatDAO.findByMaKhoOrderByNgayXuatDesc(maKho);
+        } else {
+            listEntity = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
+        }
+
         for (PhieuXuat px : listEntity) {
             PhieuXuatResponseDTO dto = new PhieuXuatResponseDTO();
             dto.setSoPhieu(px.getSoPhieu());

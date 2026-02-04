@@ -32,8 +32,8 @@
               <div class="col-lg-3 col-md-6 col-12">
                 <div class="form-group">
                   <label>Kho/Chi nhánh</label>
-                  <select class="form-control" v-model="filters.warehouseId">
-                    <option :value="0">Tất cả kho</option>
+                  <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin">
+                    <option :value="0" v-if="isAdmin">Tất cả kho</option>
                     <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                   </select>
                 </div>
@@ -56,12 +56,12 @@
             </button>
             
             <button v-if="reportData.length > 0" 
-        type="button" 
-        class="btn btn-success ml-2" 
-        @click="printToWord"
-        :disabled="isExporting"> <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> 
-    {{ isExporting ? 'Đang xuất...' : 'Xuất Word' }}
-</button>
+                type="button" 
+                class="btn btn-success ml-2" 
+                @click="printToWord"
+                :disabled="isExporting"> <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> 
+                {{ isExporting ? 'Đang xuất...' : 'Xuất Word' }}
+            </button>
           </div>
         </div>
 
@@ -172,24 +172,22 @@ import { saveAs } from "file-saver";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
-// --- CẤU HÌNH API ---
-// Sửa đường dẫn thành tương đối (vì base URL đã có /api)
 const API_URL = '/thong-ke/xuat-nhap-ton';
 
-// --- STATE ---
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 const isExporting = ref(false);
 
-// ---PHÂN TRANG ---
+// [SỬA 3] Thêm biến trạng thái Admin
+const isAdmin = ref(false);
+
 const pagination = reactive({
     page: 0,
-    size: 20, // Mặc định 20 dòng/trang
+    size: 20, 
     total: 0,
     totalPages: 0
 });
 
-// --- LOGIC TÍNH TOÁN HIỂN THỊ SỐ TRANG (1 ... 4 5 6 ... 10) ---
 const visiblePages = computed(() => {
     const total = pagination.totalPages;
     const current = pagination.page + 1;
@@ -215,7 +213,6 @@ const visiblePages = computed(() => {
     return rangeWithDots;
 });
 
-//  HÀM CHUYỂN TRANG 
 const changePage = (newPage) => {
     if (newPage < 0 || newPage >= pagination.totalPages) return;
     pagination.page = newPage;
@@ -247,15 +244,41 @@ const reportTitle = computed(() => {
     return `Báo cáo: ${currentTenKho.value} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
 });
 
-
 const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-// --- LOAD DATA ---
+// [SỬA 4] Cập nhật hàm loadKho để xử lý phân quyền
 const loadKho = async () => {
     try {
-        // Sử dụng api.get thay vì axios.get
         const res = await api.get('/kho');
         khoList.value = res.data;
+
+        // --- XỬ LÝ PHÂN QUYỀN ---
+        const role = localStorage.getItem('userRole');
+        
+        // Lấy maKho từ localStorage (đã lưu ở bước Login)
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        if (!userMaKho) {
+             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+             userMaKho = userInfo.maKho;
+        }
+
+        if (role === 'ADMIN') {
+             isAdmin.value = true;
+             // Admin mặc định chọn "Tất cả" (0)
+             filters.warehouseId = 0;
+        } else {
+             // STAFF
+             isAdmin.value = false;
+             if (userMaKho) {
+                 // Staff bị ép chọn kho của mình
+                 filters.warehouseId = parseInt(userMaKho);
+             } else {
+                 // Fallback: nếu không tìm thấy kho của user, chọn kho đầu tiên
+                 if (khoList.value.length > 0) {
+                     filters.warehouseId = khoList.value[0].maKho;
+                 }
+             }
+        }
     } catch (e) {
         console.error("Lỗi tải kho:", e);
     }
@@ -294,7 +317,6 @@ const fetchInventoryReport = async () => {
   }
 };
 
-// --- EXPORT WORD ---
 const loadFile = async (url) => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Lỗi tải file mẫu: ${url}`);
@@ -302,22 +324,18 @@ const loadFile = async (url) => {
 };
 
 const printToWord = async () => {
-
   if (isExporting.value) return;
-
   isExporting.value = true;
   
-
   try {
-
       const response = await api.get(API_URL, {
         params: {
           maKho: filters.warehouseId,
           tuNgay: filters.startDate,
           denNgay: filters.endDate,
           loaiLoc: filters.statusId,
-          page: 0,          // Luôn lấy từ trang đầu
-          size: 999999      // Lấy số lượng cực lớn để bao gồm tất cả
+          page: 0,          
+          size: 999999      
         }
       });
 
@@ -336,8 +354,6 @@ const printToWord = async () => {
           return acc;
       }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-
-
       const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
       const zip = new PizZip(content);
       const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
@@ -355,10 +371,8 @@ const printToWord = async () => {
           ngayBatDau: formatDateString(filters.startDate),
           ngayKetThuc: formatDateString(filters.endDate),
           tenKho: currentTenKho.value,
-          
-          // Dùng dataToExport (Tất cả) thay vì reportData (Trang hiện tại)
           p: dataToExport.map((item, index) => ({
-              stt: index + 1, // Đánh lại số thứ tự từ 1 đến hết
+              stt: index + 1,
               ma: item.maSP,
               ten: item.tenSP, 
               dvt: item.donvitinh,
@@ -369,19 +383,16 @@ const printToWord = async () => {
               gia: formatCurrency(item.giaBQ),
               tien: formatCurrency(item.thanhTien)
           })),
-
           sumTDK: exportTotals.tdk,
           sumNTK: exportTotals.ntk,
           sumXTK: exportTotals.xtk,
           sumTCK: exportTotals.tck,
           sumTien: formatCurrency(exportTotals.tien),
-
           d: dd, m: mm, y: yyyy, h: String(hours).padStart(2,'0'), ph: minutes, ampm: ampm
       };
 
       doc.render(dataToRender);
       const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      
       saveAs(out, `BaoCao_XuatNhapTon_${currentTenKho.value}_${filters.endDate}.docx`);
 
   } catch (error) {
@@ -405,19 +416,15 @@ const formatDateString = (dateStr) => {
 }
 
 onMounted(async () => {
-    const token = localStorage.getItem('token'); // Hoặc tên key bạn dùng lưu token
+    const token = localStorage.getItem('token'); 
     
     if (!token) {
         console.warn("Chưa có token, chuyển hướng về login...");
-        // router.push('/login'); // Nếu dùng vue-router
         return;
     }
 
-
     await loadKho();
     fetchInventoryReport();
-
-
 });
 </script>
 

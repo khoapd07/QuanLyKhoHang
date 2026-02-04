@@ -32,8 +32,8 @@ public class KhoController {
     // ==================================================
 
     @GetMapping("/nhap")
-    public ResponseEntity<?> layDanhSachPhieuNhap() {
-        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuNhapHienThi());
+    public ResponseEntity<?> layDanhSachPhieuNhap(@RequestParam(required = false) Integer maKho) {
+        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuNhapHienThi(maKho));
     }
 
     @GetMapping("/nhap/{soPhieu}")
@@ -96,8 +96,8 @@ public class KhoController {
     // ==================================================
 
     @GetMapping("/xuat")
-    public ResponseEntity<?> layDanhSachPhieuXuat() {
-        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuXuatHienThi());
+    public ResponseEntity<?> layDanhSachPhieuXuat(@RequestParam(required = false) Integer maKho) {
+        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuXuatHienThi(maKho));
     }
 
     @GetMapping("/xuat/{soPhieu}")

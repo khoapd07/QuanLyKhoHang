@@ -3,6 +3,11 @@
         <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Quản lý Xuất Kho (Bán Hàng)</h5>
             <div class="d-flex gap-2">
+                <select v-if="isAdmin" class="form-select form-select-sm" style="width: 180px;" v-model="filterMaKho" @change="layDanhSach">
+                    <option :value="0">-- Tất cả kho --</option>
+                    <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
+                </select>
+
                 <input type="text" class="form-control form-control-sm border-dark" 
                        v-model="searchQuery" 
                        placeholder="🔍 Tìm theo số phiếu, khách hàng..." 
@@ -77,18 +82,9 @@
                         <li class="page-item" :class="{ disabled: pagination.page === 0 }">
                             <a class="page-link" href="#" @click.prevent="changePage(pagination.page - 1)">« Trước</a>
                         </li>
-                        
-                        <li v-for="(page, index) in visiblePages" 
-                            :key="index" 
-                            class="page-item" 
-                            :class="{ active: page === pagination.page + 1, disabled: page === '...' }">
-                            
-                            <a class="page-link" href="#" 
-                               @click.prevent="page !== '...' ? changePage(page - 1) : null">
-                                {{ page }}
-                            </a>
+                        <li v-for="(page, index) in visiblePages" :key="index" class="page-item" :class="{ active: page === pagination.page + 1, disabled: page === '...' }">
+                            <a class="page-link" href="#" @click.prevent="page !== '...' ? changePage(page - 1) : null">{{ page }}</a>
                         </li>
-
                         <li class="page-item" :class="{ disabled: pagination.page >= pagination.totalPages - 1 }">
                             <a class="page-link" href="#" @click.prevent="changePage(pagination.page + 1)">Sau »</a>
                         </li>
@@ -109,20 +105,69 @@ import XuatKhoChiTiet from './XuatKhoChiTiet.vue';
 const API_URL = '/kho/xuat'; 
 
 const danhSachPhieu = ref([]);
+const listKho = ref([]); // [MỚI] Danh sách kho cho Admin lọc
 const loading = ref(false);
 const showModal = ref(false);
 const selectedSoPhieu = ref(null);
 const searchQuery = ref("");
 
+// [MỚI] State phân quyền
+const isAdmin = ref(false);
+const filterMaKho = ref(0); // 0 = Tất cả
+
 // --- CẤU HÌNH PHÂN TRANG ---
 const pagination = reactive({
-    page: 0,        // Trang hiện tại (0-index)
-    size: 20,       // Số dòng mỗi trang
-    total: 0,       // Tổng số dòng sau khi lọc
-    totalPages: 0   // Tổng số trang
+    page: 0, size: 20, total: 0, totalPages: 0
 });
 
-// 1. Lọc dữ liệu (Search)
+// --- LOGIC PHÂN QUYỀN & LOAD KHO ---
+const setupPhanQuyen = async () => {
+    const role = localStorage.getItem('userRole');
+    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+    
+    if (!userMaKho) {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        userMaKho = userInfo.maKho;
+    }
+
+    if (role === 'ADMIN') {
+        isAdmin.value = true;
+        filterMaKho.value = 0; // Mặc định xem tất cả
+        await loadDanhSachKho(); 
+    } else {
+        isAdmin.value = false;
+        // Staff bị ép chọn kho của mình
+        filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0;
+    }
+};
+
+const loadDanhSachKho = async () => {
+    try {
+        const res = await api.get('/kho');
+        listKho.value = res.data;
+    } catch (e) { console.error(e); }
+};
+
+// --- API LẤY DANH SÁCH ---
+const layDanhSach = async () => {
+    loading.value = true;
+    try {
+        const params = {};
+        // Gửi maKho lên server để lọc (nếu Backend đã update nhận param)
+        if (filterMaKho.value && filterMaKho.value !== 0) {
+            params.maKho = filterMaKho.value;
+        }
+
+        const res = await api.get(API_URL, { params });
+        danhSachPhieu.value = res.data;
+    } catch (error) {
+        console.error(error);
+    } finally {
+        loading.value = false;
+    }
+};
+
+// --- PHÂN TRANG & SEARCH ---
 const filteredList = computed(() => {
     if (!searchQuery.value) return danhSachPhieu.value;
     const query = searchQuery.value.toLowerCase();
@@ -133,61 +178,40 @@ const filteredList = computed(() => {
     );
 });
 
-// 2. Cập nhật thông số phân trang khi dữ liệu lọc thay đổi
 watch(filteredList, (newVal) => {
     pagination.total = newVal.length;
     pagination.totalPages = Math.ceil(newVal.length / pagination.size);
-    pagination.page = 0; // Reset về trang đầu khi tìm kiếm
+    pagination.page = 0;
 }, { immediate: true });
 
-// 3. Cắt dữ liệu hiển thị (Paginate)
 const paginatedData = computed(() => {
     const start = pagination.page * pagination.size;
     const end = start + pagination.size;
     return filteredList.value.slice(start, end);
 });
 
-// 4. Logic hiển thị số trang (1 2 ... 5 6 7 ... 10)
 const visiblePages = computed(() => {
     const total = pagination.totalPages;
     const current = pagination.page + 1; 
     const delta = 2;
     const range = [];
-
     for (let i = Math.max(2, current - delta); i <= Math.min(total - 1, current + delta); i++) {
         range.push(i);
     }
-
     if (current - delta > 2) range.unshift("...");
     if (current + delta < total - 1) range.push("...");
-
     range.unshift(1);
     if (total > 1) range.push(total);
-
     return range;
 });
 
-// 5. Hàm chuyển trang
 const changePage = (pageIndex) => {
     if (pageIndex >= 0 && pageIndex < pagination.totalPages) {
         pagination.page = pageIndex;
     }
 };
 
-// ------------------------------------
-
-const layDanhSach = async () => {
-    loading.value = true;
-    try {
-        const res = await api.get(API_URL);
-        danhSachPhieu.value = res.data;
-    } catch (error) {
-        console.error(error);
-    } finally {
-        loading.value = false;
-    }
-};
-
+// --- HELPER FUNCTIONS ---
 const moChiTiet = (soPhieu) => {
     selectedSoPhieu.value = soPhieu;
     showModal.value = true;
@@ -210,8 +234,7 @@ const isYearLocked = (dateInput) => {
     let year = 0;
     if (Array.isArray(dateInput)) year = dateInput[0];
     else year = new Date(dateInput).getFullYear();
-    const currentYear = new Date().getFullYear();
-    return year < currentYear;
+    return year < new Date().getFullYear();
 };
 
 const splitSummary = (str) => str ? str.split(', ') : [];
@@ -231,5 +254,8 @@ const formatCurrency = (v) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
 };
 
-onMounted(() => layDanhSach());
+onMounted(async () => {
+    await setupPhanQuyen();
+    layDanhSach();
+});
 </script>

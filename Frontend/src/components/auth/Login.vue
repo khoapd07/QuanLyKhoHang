@@ -58,11 +58,10 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import axios from 'axios';
 import { useRouter } from 'vue-router';
+// 1. Import instance axios đã cấu hình
+import api from '@/utils/axios'; 
 
-// --- CẤU HÌNH ---
-const API_LOGIN = 'http://localhost:8080/api/auth/login';
 const router = useRouter();
 
 // --- STATE ---
@@ -80,34 +79,42 @@ const handleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    // 1. Gọi API Login (Gửi JSON { tenTaiKhoan, password })
-    const response = await axios.post(API_LOGIN, form);
+    // 2. Sử dụng api instance thay vì axios thường
+    // Lưu ý: Đường dẫn này nối tiếp vào baseURL trong file utils/axios.js
+    // Ví dụ: baseURL là 'http://localhost:8080/api' thì url gọi sẽ là 'http://localhost:8080/api/auth/login'
+    const response = await api.post('/auth/login', form);
     
-    // 2. Lấy dữ liệu trả về (Token & User info)
-    // Lưu ý: Backend trả về Map<String, Object> nên sẽ có các key như 'token', 'username', 'role'...
-    const data = response.data;
-    const token = data.token; 
-    
-    // 3. Lưu vào LocalStorage để dùng cho các request sau
-    if (token) {
-        localStorage.setItem('token', token);
-        // Lưu thêm thông tin user nếu cần hiển thị (ví dụ tên, role)
-        localStorage.setItem('user', JSON.stringify({
-            username: data.username || form.tenTaiKhoan,
-            role: data.role || 'USER'
+    // Một số cấu hình axios interceptor trả về data trực tiếp (bỏ qua .data). 
+    // Nếu file utils của bạn trả về response gốc thì dùng dòng dưới:
+    const data = response.data; 
+    // Nếu utils của bạn đã return response.data thì dùng: const data = response;
+
+    if (data.token) {
+        // --- LƯU THÔNG TIN ---
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userRole', data.role); 
+        localStorage.setItem('hoTen', data.hoTen);
+        
+        
+        localStorage.setItem('userInfo', JSON.stringify({
+            username: data.tenTaiKhoan,
+            role: data.role,
+            hoTen: data.hoTen
         }));
 
-        // 4. Chuyển hướng vào trang Dashboard
-        router.push('/dashboard');
+        localStorage.setItem('maKho', data.maKho);
+
+        // 3. Chuyển hướng (Không cần set header thủ công nữa vì utils/axios nên xử lý việc này)
+        router.push('/dashboard'); 
     } else {
-        errorMessage.value = "Phản hồi không chứa Token!";
+        errorMessage.value = "Lỗi: Server không trả về Token!";
     }
 
   } catch (error) {
     console.error("Login Error:", error);
     if (error.response) {
-       // Lỗi từ Backend trả về (400, 401...)
-       errorMessage.value = error.response.data || "Sai tài khoản hoặc mật khẩu!";
+       // Lỗi từ backend (401, 400...)
+       errorMessage.value = error.response.data?.message || "Sai tên đăng nhập hoặc mật khẩu!";
     } else {
        errorMessage.value = "Không thể kết nối đến Server!";
     }
@@ -124,5 +131,8 @@ const handleLogin = async () => {
 }
 .input-group-text {
   border-color: #ced4da;
+}
+.login-container {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 </style>

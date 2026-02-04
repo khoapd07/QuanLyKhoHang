@@ -10,7 +10,7 @@
             <div class="row mb-4">
                 <div class="col-md-4">
                     <label class="form-label">Chọn Kho Nhập (*)</label>
-                    <select class="form-select" v-model="phieuNhap.maKho">
+                    <select class="form-select" v-model="phieuNhap.maKho" :disabled="!isAdmin">
                         <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
@@ -113,7 +113,6 @@ import api from '@/utils/axios';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
-// [FIX] Khởi tạo là mảng rỗng để tránh lỗi .filter is not a function khi chưa load xong
 const listKho = ref([]);
 const listSanPham = ref([]);
 const listDonVi = ref([]); 
@@ -122,14 +121,14 @@ const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '' });
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 });
 const listHienThi = ref([]);
 
-// Hàm an toàn để lấy mảng dữ liệu (dù Backend trả về Page hay List)
+// [SỬA 2]: Thêm biến isAdmin
+const isAdmin = ref(false);
+
 const getDataSafe = (response) => {
     if (!response || !response.data) return [];
-    // Nếu là Page object (có thuộc tính content là mảng)
     if (response.data.content && Array.isArray(response.data.content)) {
         return response.data.content;
     }
-    // Nếu là mảng thường
     if (Array.isArray(response.data)) {
         return response.data;
     }
@@ -137,9 +136,7 @@ const getDataSafe = (response) => {
 };
 
 const listNhaCungCap = computed(() => {
-    // [FIX] Kiểm tra chắc chắn là mảng trước khi filter
     if (!Array.isArray(listDonVi.value)) return [];
-    
     return listDonVi.value.filter(dv => {
         const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') 
                      ? dv.loaiDonVi.loaiDonVi 
@@ -156,13 +153,36 @@ const loadData = async () => {
             api.get('/don-vi')    
         ]);
         
-        // [FIX] Áp dụng hàm lấy dữ liệu an toàn cho tất cả
         listKho.value = getDataSafe(k);
         listSanPham.value = getDataSafe(s);
         listDonVi.value = getDataSafe(d);
 
-        console.log("Kho:", listKho.value); // Debug log
-        console.log("DonVi:", listDonVi.value); // Debug log
+        // [SỬA 3]: Xử lý phân quyền chọn kho
+        const role = localStorage.getItem('userRole');
+        
+        // Lấy maKho từ localStorage
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        if (!userMaKho) {
+             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+             userMaKho = userInfo.maKho;
+        }
+
+        if (role === 'ADMIN') {
+             isAdmin.value = true;
+             // Admin để mặc định là null để tự chọn
+        } else {
+             // STAFF
+             isAdmin.value = false;
+             if (userMaKho) {
+                 // Staff bị ép chọn kho của mình
+                 phieuNhap.value.maKho = parseInt(userMaKho);
+             } else {
+                 // Fallback: Nếu lỗi không tìm thấy kho, chọn kho đầu tiên hoặc để trống
+                 if (listKho.value.length > 0) {
+                     phieuNhap.value.maKho = listKho.value[0].maKho;
+                 }
+             }
+        }
 
     } catch (e) { 
         console.error("Lỗi load danh mục: ", e);
