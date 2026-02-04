@@ -45,8 +45,8 @@
     <div class="chart-section">
       <div class="chart-header">
         <h2>Biểu Đồ Xuất Nhập 12 Tháng</h2>
-        <select v-model="selectedKho" @change="fetchDashboardData" class="chart-filter">
-            <option :value="0">Tất cả kho</option>
+        <select v-model="selectedKho" @change="fetchDashboardData" class="chart-filter" :disabled="!isAdmin">
+            <option :value="0" v-if="isAdmin">Tất cả kho</option>
             <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
         </select>
       </div>
@@ -65,9 +65,9 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
-import api from '@/utils/axios'; // Đảm bảo đường dẫn này đúng với dự án của bạn
+import api from '@/utils/axios';
 
-// Import các thành phần của Chart.js và vue-chartjs
+// Import Chart.js components
 import {
   Chart as ChartJS,
   Title,
@@ -79,41 +79,36 @@ import {
 } from 'chart.js';
 import { Bar } from 'vue-chartjs';
 
-// Đăng ký các module Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// --- STATE QUẢN LÝ DỮ LIỆU ---
+// --- STATE ---
 const currentYear = new Date().getFullYear();
 const loaded = ref(false);
 const selectedKho = ref(0);
-const khoList = ref([]); // Danh sách kho để filter
+const khoList = ref([]);
+const isAdmin = ref(false); // [NEW] Biến kiểm tra quyền Admin
 
-// State cho các thẻ thống kê (Card)
 const stats = reactive({
   totalStock: 0,
   importMonth: 0,
   exportMonth: 0
 });
 
-// Cấu hình dữ liệu biểu đồ (Mặc định rỗng)
 const chartData = ref({
-  labels: [
-    'Thg 1', 'Thg 2', 'Thg 3', 'Thg 4', 'Thg 5', 'Thg 6', 
-    'Thg 7', 'Thg 8', 'Thg 9', 'Thg 10', 'Thg 11', 'Thg 12'
-  ],
+  labels: [ 'Thg 1', 'Thg 2', 'Thg 3', 'Thg 4', 'Thg 5', 'Thg 6', 'Thg 7', 'Thg 8', 'Thg 9', 'Thg 10', 'Thg 11', 'Thg 12' ],
   datasets: [
     {
       label: 'Nhập kho',
-      backgroundColor: '#3b82f6', // Màu xanh
-      data: [], // Sẽ được API lấp đầy
+      backgroundColor: '#3b82f6',
+      data: [],
       borderRadius: 4,
       barPercentage: 0.6,
       categoryPercentage: 0.8
     },
     {
       label: 'Xuất kho',
-      backgroundColor: '#9ca3af', // Màu xám
-      data: [], // Sẽ được API lấp đầy
+      backgroundColor: '#9ca3af',
+      data: [],
       borderRadius: 4,
       barPercentage: 0.6,
       categoryPercentage: 0.8
@@ -121,81 +116,90 @@ const chartData = ref({
   ]
 });
 
-// Cấu hình giao diện biểu đồ (Options)
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: {
-      position: 'top',
-    },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-    }
+    legend: { position: 'top' },
+    tooltip: { mode: 'index', intersect: false }
   },
   scales: {
     y: {
       beginAtZero: true,
       grid: { color: '#f3f4f6' },
-      ticks: { precision: 0 } // Chỉ hiển thị số nguyên
+      ticks: { precision: 0 }
     },
-    x: {
-      grid: { display: false }
-    }
+    x: { grid: { display: false } }
   }
 };
 
-// --- HÀM HELPER ---
 const formatNumber = (num) => {
   if(!num) return '0';
   return new Intl.NumberFormat('vi-VN').format(num);
 };
 
-// --- GỌI API ---
+// --- LOGIC PHÂN QUYỀN ---
+const setupPhanQuyen = () => {
+    const role = localStorage.getItem('userRole');
+    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+    
+    // Fallback: Lấy maKho từ userInfo JSON nếu key lẻ không có
+    if (!userMaKho) {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        userMaKho = userInfo.maKho;
+    }
 
-// 1. Tải danh sách kho (để làm bộ lọc)
+    if (role === 'ADMIN') {
+        isAdmin.value = true;
+        selectedKho.value = 0; // Admin mặc định xem tất cả
+    } else {
+        isAdmin.value = false;
+        // Staff buộc phải xem kho của mình
+        if (userMaKho) {
+            selectedKho.value = parseInt(userMaKho);
+        } else {
+            // Trường hợp lỗi (Staff không có kho), có thể set 0 hoặc xử lý khác
+            // Ở đây tạm set 0, nhưng backend sẽ chặn nếu logic backend chặt chẽ
+            selectedKho.value = 0; 
+        }
+    }
+};
+
+// --- API CALLS ---
 const loadKhoList = async () => {
     try {
-        const res = await api.get('/kho'); // Giả sử bạn có API lấy list kho
+        const res = await api.get('/kho');
         khoList.value = res.data;
     } catch (e) {
-        console.error("Không tải được danh sách kho", e);
+        console.error("Lỗi tải danh sách kho", e);
     }
 }
 
-// 2. Tải dữ liệu Dashboard
 const fetchDashboardData = async () => {
-  loaded.value = false; // Reset trạng thái loading
+  loaded.value = false;
   try {
-    // Gọi API Backend: /api/dashboard/stats?maKho=...
     const response = await api.get('/dashboard/stats', {
         params: { 
             maKho: selectedKho.value,
-            nam: currentYear // Backend sẽ tự lấy năm nay nếu null, nhưng truyền vào cho chắc
+            nam: currentYear 
         }
     });
     
     const data = response.data;
 
-    // A. Cập nhật số liệu cho Cards
+    // Update Cards
     if (data.cards) {
         stats.totalStock = data.cards.totalStock;
         stats.importMonth = data.cards.importMonth;
         stats.exportMonth = data.cards.exportMonth;
     }
 
-    // B. Cập nhật dữ liệu cho Biểu đồ
+    // Update Chart
     if (data.chart && Array.isArray(data.chart)) {
-        // API trả về List<DashboardChartDTO> gồm month, importQty, exportQty
-        // Ta cần tách thành 2 mảng riêng biệt cho ChartJS
-        
-        // Tạo mảng rỗng 12 phần tử (để đảm bảo thứ tự tháng 1 -> 12)
         const importArr = new Array(12).fill(0);
         const exportArr = new Array(12).fill(0);
 
         data.chart.forEach(item => {
-            // item.month là 1 -> 12, nhưng index mảng là 0 -> 11
             const index = item.month - 1; 
             if (index >= 0 && index < 12) {
                 importArr[index] = item.importQty;
@@ -203,34 +207,25 @@ const fetchDashboardData = async () => {
             }
         });
 
-        // Gán vào Chart Data
         chartData.value = {
-            ...chartData.value, // Giữ nguyên labels
+            ...chartData.value,
             datasets: [
-                {
-                    ...chartData.value.datasets[0],
-                    data: importArr
-                },
-                {
-                    ...chartData.value.datasets[1],
-                    data: exportArr
-                }
+                { ...chartData.value.datasets[0], data: importArr },
+                { ...chartData.value.datasets[1], data: exportArr }
             ]
         };
     }
-
-    loaded.value = true; // Cho phép hiển thị biểu đồ
+    loaded.value = true;
 
   } catch (e) {
     console.error("Lỗi tải dashboard:", e);
-    // Có thể thêm thông báo lỗi UI ở đây
   }
 };
 
-// --- LIFECYCLE ---
-onMounted(() => {
-  loadKhoList();
-  fetchDashboardData();
+onMounted(async () => {
+  setupPhanQuyen(); // Thiết lập quyền trước
+  await loadKhoList(); // Tải danh sách kho (để hiển thị tên trong dropdown nếu cần)
+  fetchDashboardData(); // Tải dữ liệu dashboard
 });
 </script>
 
