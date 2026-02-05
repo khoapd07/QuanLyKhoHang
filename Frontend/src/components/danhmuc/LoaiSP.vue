@@ -66,13 +66,25 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [SỬA] Xử lý an toàn dữ liệu trả về để tránh lỗi STT
-    if (response.data) {
-        danhSach.value = response.data.content || [];
-        totalPages.value = response.data.totalPages || 0;
-        totalElements.value = response.data.totalElements || 0;
-        // Nếu backend trả về null/undefined thì gán = 0
-        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    // [SỬA] Logic xử lý dữ liệu chuẩn Page (giống HangSanXuat.vue đã sửa)
+    const data = response.data;
+    if(data) {
+        // 1. Lấy content
+        danhSach.value = data.content || [];
+
+        // 2. Lấy thông tin phân trang (Ưu tiên object lồng 'page' nếu có, không thì lấy phẳng)
+        if (data.page) {
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else {
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSach.value = [];
+        totalElements.value = 0;
     }
     
   } catch (error) {
@@ -269,12 +281,10 @@ onMounted(() => {
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              
               <div class="mb-3" v-if="isEditMode">
                 <label class="form-label text-muted">Mã Loại</label>
                 <input type="text" class="form-control" :value="form.maLoai" disabled readonly>
               </div>
-
               <div class="mb-3">
                 <label class="form-label fw-bold">Tên Loại <span class="text-danger">*</span></label>
                 <input 
@@ -286,7 +296,6 @@ onMounted(() => {
                   autofocus
                 >
               </div>
-
               <div class="text-end mt-4">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Đóng</button>
                 <button type="submit" class="btn btn-primary">
@@ -298,6 +307,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

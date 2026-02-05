@@ -4,6 +4,10 @@ import com.poly.quanlykhohang.dao.TaiKhoanDAO;
 import com.poly.quanlykhohang.entity.TaiKhoan;
 import com.poly.quanlykhohang.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;          // Import Page
+import org.springframework.data.domain.PageRequest;   // Import PageRequest
+import org.springframework.data.domain.Pageable;      // Import Pageable
+import org.springframework.data.domain.Sort;          // Import Sort
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,55 +21,55 @@ public class TaiKhoanController {
     private TaiKhoanDAO taiKhoanDAO;
 
     @Autowired
-    private AuthService authService; // Dùng để gọi hàm register (có mã hóa pass)
+    private AuthService authService;
 
-    // 1. Lấy danh sách tất cả nhân viên
+    // 1. Lấy danh sách CÓ PHÂN TRANG (Sửa lại hàm này)
     @GetMapping
-    public ResponseEntity<List<TaiKhoan>> getAll() {
+    public ResponseEntity<Page<TaiKhoan>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Sắp xếp theo ID giảm dần
+        Pageable pageable = PageRequest.of(page, size, Sort.by("maTaiKhoan").descending());
+        return ResponseEntity.ok(taiKhoanDAO.findAll(pageable));
+    }
+
+    // [MỚI] Hàm lấy toàn bộ list (nếu cần dùng cho dropdown ở đâu đó)
+    @GetMapping("/list")
+    public ResponseEntity<List<TaiKhoan>> getAllList() {
         return ResponseEntity.ok(taiKhoanDAO.findAll());
     }
 
-    // 2. Tạo tài khoản mới
+    // ... Các hàm create, update, delete giữ nguyên ...
     @PostMapping
     public ResponseEntity<?> create(@RequestBody TaiKhoan taiKhoan) {
         try {
-            // Kiểm tra trùng username
             if (taiKhoanDAO.findByTenTaiKhoan(taiKhoan.getTenTaiKhoan()).isPresent()) {
                 return ResponseEntity.badRequest().body("Tên tài khoản đã tồn tại!");
             }
-
-            // Nếu không chọn vai trò, mặc định là Staff (2)
             if (taiKhoan.getMaVaitro() == null) {
                 taiKhoan.setMaVaitro(2);
             }
-
-            // Gọi AuthService để lưu (nó sẽ tự mã hóa mật khẩu)
             TaiKhoan newTK = authService.register(taiKhoan);
             return ResponseEntity.ok(newTK);
-
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lỗi tạo tài khoản: " + e.getMessage());
         }
     }
 
-    // 3. Cập nhật thông tin (Đổi kho, đổi vai trò...)
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Integer id, @RequestBody TaiKhoan taiKhoanDetails) {
         return taiKhoanDAO.findById(id).map(tk -> {
             tk.setMaKho(taiKhoanDetails.getMaKho());
             tk.setMaVaitro(taiKhoanDetails.getMaVaitro());
-            // Không cho đổi username & password ở API này cho an toàn
             TaiKhoan updated = taiKhoanDAO.save(tk);
             return ResponseEntity.ok(updated);
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // 4. Xóa tài khoản (Hoặc khóa)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Integer id) {
-        if (!taiKhoanDAO.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
+        if (!taiKhoanDAO.existsById(id)) return ResponseEntity.notFound().build();
         taiKhoanDAO.deleteById(id);
         return ResponseEntity.ok().build();
     }

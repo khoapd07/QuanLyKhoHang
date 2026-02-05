@@ -1,13 +1,11 @@
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
-// [QUAN TRỌNG] Import instance 'api' đã cấu hình Interceptor thay vì 'axios' thường
+import { ref, onMounted, reactive, computed } from 'vue';
 import api from '@/utils/axios'; 
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
-// Lưu ý: baseURL đã là 'http://localhost:8080/api' trong file axios.js
 const API_USER = '/admin/tai-khoan'; 
-const API_KHO = '/kho'; 
+const API_KHO = '/chi-nhanh'; // [Lưu ý] Dùng API /chi-nhanh để lấy list kho (cần backend có api getAllList)
 
 // --- STATE ---
 const danhSachUser = ref([]);
@@ -17,7 +15,44 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
-// Danh sách Vai trò (Map theo Logic DB: 1=Admin, 2=Staff)
+// --- STATE PHÂN TRANG ---
+const currentPage = ref(0);
+const itemsPerPage = ref(20); 
+const totalPages = ref(0);
+const totalElements = ref(0);
+
+// --- COMPUTED: TÍNH TOÁN NÚT TRANG ---
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value + 1;
+    const delta = 2; 
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+    for (let i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
+});
+
+const paginationInfo = computed(() => ({
+    total: totalElements.value,
+    page: currentPage.value,
+    totalPages: totalPages.value
+}));
+
+// Danh sách Vai trò
 const danhSachVaiTro = [
   { id: 1, ten: 'Admin (Quản trị viên)' },
   { id: 2, ten: 'Staff (Nhân viên kho)' }
@@ -25,69 +60,90 @@ const danhSachVaiTro = [
 
 // Form Model
 const form = reactive({
-  maTaiKhoan: null,
-  tenTaiKhoan: '',
-  password: '',
-  maVaitro: 2, // Mặc định là Staff
-  maKho: null
+  maTaiKhoan: null, tenTaiKhoan: '', password: '', maVaitro: 2, maKho: null
 });
 
 // --- API METHODS ---
 
 // 1. Tải dữ liệu (Users + Kho)
-const loadData = async () => {
+const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    // Gọi bằng 'api' để có Token
     const [resUsers, resKho] = await Promise.all([
-      api.get(API_USER),
-      api.get(API_KHO)
+      api.get(API_USER, { params: { page: page, size: itemsPerPage.value } }),
+      // Nếu đã có danh sách kho thì không load lại
+      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: { content: danhSachKho.value } }
     ]);
     
-    danhSachUser.value = resUsers.data;
-    danhSachKho.value = resKho.data;
+    // Xử lý dữ liệu User (Phân trang)
+    const data = resUsers.data;
+    if(data) {
+        // Ưu tiên lấy content từ cấu trúc Page
+        danhSachUser.value = data.content || [];
+        
+        if (data.page) { // Cấu trúc lồng
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else { // Cấu trúc phẳng
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSachUser.value = [];
+        totalElements.value = 0;
+    }
+
+    // Xử lý dữ liệu Kho (Có thể API kho trả về Page hoặc List, cần handle cả 2)
+    const khoData = resKho.data;
+    if (Array.isArray(khoData)) {
+        danhSachKho.value = khoData;
+    } else if (khoData && khoData.content) {
+        danhSachKho.value = khoData.content;
+    }
+
   } catch (error) {
-    // Xử lý lỗi chuẩn (nếu hết hạn token axios.js đã lo, đây chỉ lo lỗi data)
-    const msg = error.response?.data?.message || error.response?.data || error.message;
+    const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
   } finally {
     isLoading.value = false;
   }
 };
 
-// 2. Lưu dữ liệu (Thêm / Sửa)
+const changePage = (page) => {
+    if (page >= 0 && page < totalPages.value) {
+        loadData(page);
+    }
+};
+
+// 2. Lưu dữ liệu
 const saveData = async () => {
-  // Validate cơ bản
   if (!isEditMode.value && (!form.tenTaiKhoan || !form.password)) {
     showMessage('warning', 'Vui lòng nhập tên tài khoản và mật khẩu!');
     return;
   }
 
-  // Chuẩn bị payload gửi đi
   const payload = {
     maVaitro: form.maVaitro,
-    maKho: form.maKho ? { maKho: form.maKho } : null // Gửi dạng Object nếu Backend yêu cầu Entity
-    // Hoặc nếu Backend chỉ nhận ID: maKho: form.maKho
+    maKho: form.maKho ? { maKho: form.maKho } : null 
   };
 
   if (!isEditMode.value) {
-    // Nếu thêm mới thì gửi thêm username/pass
     payload.tenTaiKhoan = form.tenTaiKhoan;
     payload.password = form.password;
   }
 
   try {
     if (isEditMode.value) {
-      // API Update: PUT /tai-khoan/{id}
       await api.put(`${API_USER}/${form.maTaiKhoan}`, payload);
       showMessage('success', 'Cập nhật tài khoản thành công!');
     } else {
-      // API Create: POST /tai-khoan
       await api.post(API_USER, payload);
       showMessage('success', 'Tạo tài khoản mới thành công!');
     }
     closeModal();
-    loadData(); // Tải lại bảng
+    loadData(currentPage.value); 
   } catch (error) {
     const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
@@ -96,43 +152,31 @@ const saveData = async () => {
 
 // 3. Xóa tài khoản
 const deleteData = async (id, name) => {
-  if (!confirm(`Bạn có chắc muốn xóa tài khoản [${name}]? Hành động này không thể hoàn tác.`)) return;
-
+  if (!confirm(`Bạn có chắc muốn xóa tài khoản [${name}]?`)) return;
   try {
     await api.delete(`${API_USER}/${id}`);
     showMessage('success', 'Đã xóa tài khoản thành công!');
-    loadData();
+    loadData(0);
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
+    const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Không thể xóa: ' + msg);
   }
 };
 
 // --- HELPER FUNCTIONS ---
-
 const showMessage = (type, text) => {
   message.value = { type, text };
   setTimeout(() => message.value = { type: '', text: '' }, 4000);
 };
 
-// Hàm lấy tên Kho từ ID (để hiển thị trên bảng)
 const getTenKho = (khoInput) => {
-  // Trường hợp backend trả về null
   if (!khoInput) return '---';
-
-  // Trường hợp backend trả về Object Kho {maKho: 1, tenKho: '...'}
-  if (typeof khoInput === 'object' && khoInput.tenKho) {
-    return khoInput.tenKho;
-  }
-  
-  // Trường hợp backend trả về ID (số), tìm trong danhSachKho đã tải
+  if (typeof khoInput === 'object' && khoInput.tenKho) return khoInput.tenKho;
   const found = danhSachKho.value.find(k => k.maKho === khoInput);
   return found ? found.tenKho : `Kho #${khoInput}`;
 };
 
-// Hàm lấy tên Vai trò
 const getTenVaiTro = (roleInput) => {
-    // Backend trả về số (1, 2) hoặc Object
     let id = roleInput;
     if (typeof roleInput === 'object' && roleInput?.maVaitro) {
         id = roleInput.maVaitro;
@@ -141,33 +185,22 @@ const getTenVaiTro = (roleInput) => {
     return found ? found.ten : 'Không xác định';
 };
 
-// Mở Modal Thêm
 const openAddModal = () => {
   isEditMode.value = false;
-  form.maTaiKhoan = null;
-  form.tenTaiKhoan = '';
-  form.password = '';
-  form.maVaitro = 2; // Mặc định Staff
-  
-  // Tự chọn kho đầu tiên nếu có
+  form.maTaiKhoan = null; form.tenTaiKhoan = ''; form.password = ''; form.maVaitro = 2; 
   form.maKho = danhSachKho.value.length > 0 ? danhSachKho.value[0].maKho : null;
-
   const modalEl = document.getElementById('modalTaiKhoan');
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
 };
 
-// Mở Modal Sửa
 const openEditModal = (item) => {
   isEditMode.value = true;
   form.maTaiKhoan = item.maTaiKhoan;
   form.tenTaiKhoan = item.tenTaiKhoan; 
-  form.password = ''; // Reset pass khi mở form sửa
-  
-  // Map dữ liệu vào form (xử lý cả trường hợp trả về Object hoặc ID)
+  form.password = ''; 
   form.maVaitro = (typeof item.maVaitro === 'object') ? item.maVaitro.maVaitro : item.maVaitro;
   
-  // Kiểm tra item.kho (hoặc item.maKho) tùy JSON backend trả về
   if (item.kho && typeof item.kho === 'object') {
      form.maKho = item.kho.maKho;
   } else {
@@ -186,9 +219,8 @@ const closeModal = () => {
   }
 };
 
-// --- LIFECYCLE ---
 onMounted(() => {
-  loadData();
+  loadData(0);
 });
 </script>
 
@@ -196,9 +228,14 @@ onMounted(() => {
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
       <h3 class="text-primary"><i class="bi bi-person-badge"></i> Quản Lý Tài Khoản</h3>
-      <button class="btn btn-primary" @click="openAddModal">
-        <i class="bi bi-person-plus-fill"></i> Tạo Tài Khoản
-      </button>
+      <div>
+           <button class="btn btn-outline-secondary me-2" @click="loadData(currentPage)">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          <button class="btn btn-primary" @click="openAddModal">
+            <i class="bi bi-person-plus-fill"></i> Tạo Tài Khoản
+          </button>
+      </div>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">
@@ -208,52 +245,87 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <table class="table table-hover table-bordered mb-0 align-middle">
-          <thead class="table-dark">
-            <tr>
-              <th class="text-center" width="5%">ID</th>
-              <th width="20%">Tên Đăng Nhập</th>
-              <th width="20%">Vai Trò</th>
-              <th>Thuộc Kho</th>
-              <th class="text-center" width="15%">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="isLoading">
-              <td colspan="5" class="text-center py-4">Đang tải dữ liệu...</td>
-            </tr>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                <th class="text-center" width="80px">STT</th>
+                <th class="text-center" width="5%">ID</th>
+                <th width="20%">Tên Đăng Nhập</th>
+                <th width="20%">Vai Trò</th>
+                <th>Thuộc Kho</th>
+                <th class="text-center" width="15%">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-if="isLoading">
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
+                </td>
+                </tr>
 
-            <tr v-else v-for="user in danhSachUser" :key="user.maTaiKhoan">
-              <td class="text-center fw-bold">{{ user.maTaiKhoan }}</td>
-              <td class="text-primary fw-medium">{{ user.tenTaiKhoan }}</td>
-              <td>
-                <span :class="['badge', (user.vaiTro?.maVaitro === 1 || user.maVaitro === 1) ? 'bg-danger' : 'bg-info text-dark']">
-                  {{ getTenVaiTro(user.vaiTro || user.maVaitro) }}
-                </span>
-              </td>
-              <td>
-                <i class="bi bi-geo-alt-fill text-danger"></i> {{ getTenKho(user.kho || user.maKho) }}
-              </td>
-              <td class="text-center">
-                <button class="btn btn-sm btn-outline-warning me-2" @click="openEditModal(user)" title="Sửa vai trò/kho">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
-                <button 
-                  class="btn btn-sm btn-outline-danger" 
-                  @click="deleteData(user.maTaiKhoan, user.tenTaiKhoan)"
-                  :disabled="user.tenTaiKhoan === 'admin'"
-                  title="Xóa tài khoản"
-                >
-                  <i class="bi bi-trash"></i>
-                </button>
-              </td>
-            </tr>
-            
-            <tr v-if="!isLoading && danhSachUser.length === 0">
-              <td colspan="5" class="text-center py-3">Chưa có tài khoản nào.</td>
-            </tr>
-          </tbody>
-        </table>
+                <tr v-else v-for="(user, index) in danhSachUser" :key="user.maTaiKhoan">
+                <td class="text-center">
+                    {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
+                </td>
+                <td class="text-center fw-bold">{{ user.maTaiKhoan }}</td>
+                <td class="text-primary fw-medium">{{ user.tenTaiKhoan }}</td>
+                <td>
+                    <span :class="['badge', (user.vaiTro?.maVaitro === 1 || user.maVaitro === 1) ? 'bg-danger' : 'bg-info text-dark']">
+                    {{ getTenVaiTro(user.vaiTro || user.maVaitro) }}
+                    </span>
+                </td>
+                <td>
+                    <i class="bi bi-geo-alt-fill text-danger"></i> {{ getTenKho(user.kho || user.maKho) }}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-warning me-2" @click="openEditModal(user)" title="Sửa vai trò/kho">
+                    <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button 
+                    class="btn btn-sm btn-outline-danger" 
+                    @click="deleteData(user.maTaiKhoan, user.tenTaiKhoan)"
+                    :disabled="user.tenTaiKhoan === 'admin'"
+                    title="Xóa tài khoản"
+                    >
+                    <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+                </tr>
+                
+                <tr v-if="!isLoading && (!danhSachUser || danhSachUser.length === 0)">
+                <td colspan="6" class="text-center py-3">Chưa có tài khoản nào.</td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
+      </div>
+
+      <div class="card-footer bg-white border-top-0">
+          <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="paginationInfo.total > 0">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item" :class="{ disabled: paginationInfo.page === 0 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page - 1)">« Trước</a>
+                    </li>
+
+                    <li v-for="(page, index) in visiblePages" :key="index" 
+                        class="page-item" 
+                        :class="{ active: page === paginationInfo.page + 1, disabled: page === '...' }">
+                        <a class="page-link" href="#" 
+                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                            {{ page }}
+                        </a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: paginationInfo.page >= paginationInfo.totalPages - 1 }">
+                        <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page + 1)">Sau »</a>
+                    </li>
+                </ul>
+          </div>
+          <div class="text-center text-muted small mt-1" v-if="paginationInfo.total > 0">
+              Hiển thị {{ ((currentPage || 0) * itemsPerPage) + 1 }} - {{ Math.min(((currentPage || 0) + 1) * itemsPerPage, paginationInfo.total) }} 
+              trong tổng {{ paginationInfo.total }} tài khoản
+          </div>
       </div>
     </div>
 

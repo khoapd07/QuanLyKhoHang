@@ -15,7 +15,7 @@ let modalInstance = null;
 
 // --- STATE PHÂN TRANG (Server-side) ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // Cố định 20 theo yêu cầu
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
@@ -51,30 +51,39 @@ const paginationInfo = computed(() => ({
 }));
 
 // Form Model
-const form = reactive({
-  maHang: null,
-  tenHang: ''
-});
+const form = reactive({ maHang: null, tenHang: '' });
 
 // --- CÁC HÀM XỬ LÝ API ---
 
-// 1. Lấy danh sách (Có phân trang)
+// 1. Lấy danh sách (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    // Gọi API với tham số page và size
     const response = await api.get(API_URL, {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // Cập nhật State từ Page<HangSanXuat>
-    // [SỬA] Đảm bảo lấy đúng content
-    if(response.data) {
-        danhSach.value = response.data.content || [];
-        totalPages.value = response.data.totalPages || 0;
-        totalElements.value = response.data.totalElements || 0;
-        // [QUAN TRỌNG] Lấy số trang hiện tại để tính STT (đề phòng null)
-        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    // [LOGIC MỚI] Kiểm tra cấu trúc dữ liệu trả về
+    const data = response.data;
+    if(data) {
+        // Luôn lấy content trước
+        danhSach.value = data.content || [];
+
+        // Kiểm tra xem thông tin phân trang nằm ở đâu (trực tiếp hay trong object 'page')
+        if (data.page) {
+            // Trường hợp bị lồng nhau (như bên Máy In)
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else {
+            // Trường hợp chuẩn Spring Boot (phẳng)
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSach.value = [];
+        totalElements.value = 0;
     }
 
   } catch (error) {
@@ -85,20 +94,18 @@ const loadData = async (page = 0) => {
   }
 };
 
-// Chuyển trang
 const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) {
         loadData(page);
     }
 };
 
-// 2. Lưu (Thêm mới hoặc Cập nhật)
+// 2. Lưu 
 const saveData = async () => {
   if (!form.tenHang.trim()) {
     showMessage('warning', 'Vui lòng nhập tên hãng sản xuất!');
     return;
   }
-
   try {
     if (isEditMode.value) {
       await api.put(`${API_URL}/${form.maHang}`, form);
@@ -108,28 +115,27 @@ const saveData = async () => {
       showMessage('success', 'Thêm mới thành công!');
     }
     closeModal();
-    loadData(currentPage.value); // Load lại đúng trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
-    const msg = error.response?.data?.message || error.response?.data || error.message;
-    showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
+    const msg = error.response?.data?.message || error.message;
+    showMessage('danger', 'Lỗi: ' + msg);
   }
 };
 
 // 3. Xóa
 const deleteData = async (id) => {
   if (!confirm('Bạn có chắc chắn muốn xóa hãng này không?')) return;
-
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa hãng sản xuất!');
-    loadData(0); // Xóa xong về trang đầu
+    loadData(0); 
   } catch (error) {
     const msg = error.response?.data?.message || 'Không thể xóa (có thể hãng đang có sản phẩm)';
     showMessage('danger', msg);
   }
 };
 
-// --- HÀM HỖ TRỢ GIAO DIỆN ---
+// --- HELPER ---
 const showMessage = (type, text) => {
   message.value = { type, text };
   setTimeout(() => message.value = { type: '', text: '' }, 3000);
@@ -137,9 +143,7 @@ const showMessage = (type, text) => {
 
 const openAddModal = () => {
   isEditMode.value = false;
-  form.maHang = null;
-  form.tenHang = '';
-  
+  form.maHang = null; form.tenHang = '';
   const modalEl = document.getElementById('modalHangSX');
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
@@ -147,9 +151,7 @@ const openAddModal = () => {
 
 const openEditModal = (item) => {
   isEditMode.value = true;
-  form.maHang = item.maHang;
-  form.tenHang = item.tenHang;
-
+  form.maHang = item.maHang; form.tenHang = item.tenHang;
   const modalEl = document.getElementById('modalHangSX');
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
@@ -162,7 +164,6 @@ const closeModal = () => {
   }
 };
 
-// --- KHỞI TẠO ---
 onMounted(() => {
   loadData(0);
 });
@@ -183,8 +184,7 @@ onMounted(() => {
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">
-      {{ message.text }}
-      <button type="button" class="btn-close" @click="message.text = ''"></button>
+      {{ message.text }} <button type="button" class="btn-close" @click="message.text = ''"></button>
     </div>
 
     <div class="card shadow-sm">
@@ -210,7 +210,6 @@ onMounted(() => {
                 <td class="text-center">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-                
                 <td class="text-center fw-bold text-muted">{{ item.maHang }}</td>
                 <td class="fw-medium text-primary">{{ item.tenHang }}</td>
                 <td class="text-center">
@@ -223,7 +222,7 @@ onMounted(() => {
                 </td>
                 </tr>
 
-                <tr v-if="!isLoading && danhSach.length === 0">
+                <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
                 <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu hãng sản xuất.</td>
                 </tr>
             </tbody>
@@ -270,23 +269,14 @@ onMounted(() => {
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              
               <div class="mb-3" v-if="isEditMode">
                 <label class="form-label text-muted small">Mã Hãng</label>
                 <input type="text" class="form-control bg-light" :value="form.maHang" disabled readonly>
               </div>
-
               <div class="mb-3">
                 <label class="form-label fw-bold">Tên Hãng <span class="text-danger">*</span></label>
-                <input 
-                  v-model="form.tenHang" 
-                  type="text" 
-                  class="form-control border-primary" 
-                  required 
-                  placeholder="Ví dụ: Canon, HP, Apple..."
-                >
+                <input v-model="form.tenHang" type="text" class="form-control border-primary" required placeholder="Ví dụ: Canon, HP...">
               </div>
-
               <div class="text-end mt-4 border-top pt-3">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Đóng</button>
                 <button type="submit" class="btn btn-primary px-4">
@@ -298,6 +288,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

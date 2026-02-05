@@ -4,6 +4,7 @@ import api from '@/utils/axios';
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH ---
+// Đảm bảo URL này khớp với Controller (@RequestMapping("/api/chi-nhanh"))
 const API_URL = '/chi-nhanh'; 
 
 // --- STATE ---
@@ -13,13 +14,13 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
-// --- STATE PHÂN TRANG (Server-side) ---
+// --- STATE PHÂN TRANG ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // 20 kho/trang
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
-// --- COMPUTED: TÍNH TOÁN THANH PHÂN TRANG ---
+// --- COMPUTED: THANH PHÂN TRANG ---
 const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value + 1;
@@ -50,14 +51,14 @@ const paginationInfo = computed(() => ({
     totalPages: totalPages.value
 }));
 
-// Form data (Model)
+// Form data
 const form = reactive({
   maKho: null, tenKho: '', diaChi: ''
 });
 
 // --- API METHODS ---
 
-// 1. Lấy danh sách (GET) - Có phân trang
+// 1. Lấy danh sách (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
@@ -65,13 +66,26 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [SỬA] Xử lý an toàn dữ liệu trả về để tránh lỗi STT
-    if (response.data) {
-        danhSach.value = response.data.content || [];
-        totalPages.value = response.data.totalPages || 0;
-        totalElements.value = response.data.totalElements || 0;
-        // Nếu backend trả về null/undefined thì gán = 0
-        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    const data = response.data;
+    if (data) {
+        // 1. Lấy content (Dữ liệu bảng)
+        danhSach.value = data.content || [];
+
+        // 2. Lấy thông tin phân trang (Xử lý cả 2 trường hợp cấu trúc)
+        if (data.page) {
+            // Trường hợp dữ liệu bị lồng trong object 'page' (như bên Máy In)
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else {
+            // Trường hợp dữ liệu phẳng (Spring Page chuẩn)
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSach.value = [];
+        totalElements.value = 0;
     }
 
   } catch (error) {
@@ -105,7 +119,7 @@ const saveData = async () => {
       showMessage('success', 'Thêm mới thành công!');
     }
     closeModal();
-    loadData(currentPage.value); // Load lại trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
     const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Lỗi lưu dữ liệu: ' + msg);
@@ -119,7 +133,7 @@ const deleteData = async (id) => {
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData(0); // Xóa xong về trang đầu
+    loadData(0); 
   } catch (error) {
     const msg = error.response?.data?.message || error.response?.data || error.message;
     showMessage('danger', 'Không thể xóa (có thể kho đang chứa hàng hóa): ' + msg);
@@ -159,7 +173,6 @@ const closeModal = () => {
   }
 };
 
-// --- LIFECYCLE ---
 onMounted(() => {
   loadData(0);
 });
@@ -186,7 +199,8 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <div class="table-responsive"> <table class="table table-hover table-striped mb-0 align-middle">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
             <thead class="table-dark">
                 <tr>
                 <th class="text-center" width="80px">STT</th> <th class="text-center" width="10%">Mã Kho</th>
@@ -203,11 +217,9 @@ onMounted(() => {
                 </td>
                 </tr>
                 <tr v-else v-for="(kho, index) in danhSach" :key="kho.maKho">
-                
                 <td class="text-center">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-
                 <td class="text-center fw-bold text-muted">#{{ kho.maKho }}</td>
                 <td class="fw-medium text-primary">{{ kho.tenKho }}</td>
                 <td>{{ kho.diaChi }}</td>
@@ -220,7 +232,7 @@ onMounted(() => {
                     </button>
                 </td>
                 </tr>
-                <tr v-if="!isLoading && danhSach && danhSach.length === 0">
+                <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
                 <td colspan="5" class="text-center text-muted py-3">Chưa có dữ liệu.</td>
                 </tr>
             </tbody>
@@ -267,29 +279,18 @@ onMounted(() => {
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              
               <div class="mb-3" v-if="isEditMode">
                  <label class="form-label text-muted">Mã Kho</label>
                  <input type="text" class="form-control" :value="form.maKho" disabled readonly>
               </div>
-
               <div class="mb-3">
                 <label class="form-label">Tên Chi Nhánh <span class="text-danger">*</span></label>
-                <input 
-                  v-model="form.tenKho" 
-                  type="text" 
-                  class="form-control" 
-                  required 
-                  placeholder="Ví dụ: Chi Nhánh Cầu Giấy"
-                  autofocus
-                >
+                <input v-model="form.tenKho" type="text" class="form-control" required placeholder="Ví dụ: Chi Nhánh Cầu Giấy" autofocus>
               </div>
-
               <div class="mb-3">
                 <label class="form-label">Địa Chỉ</label>
                 <textarea v-model="form.diaChi" class="form-control" rows="3" placeholder="Nhập địa chỉ cụ thể..."></textarea>
               </div>
-
               <div class="text-end mt-4">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
                 <button type="submit" class="btn btn-primary">
@@ -301,6 +302,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

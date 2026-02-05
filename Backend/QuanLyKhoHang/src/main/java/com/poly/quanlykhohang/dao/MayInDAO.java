@@ -46,10 +46,16 @@ public interface MayInDAO extends JpaRepository<MayIn, String> {
     @Query("SELECT m FROM MayIn m WHERE m.kho.maKho = :maKho")
     Page<MayIn> findByKhoMaKho(@Param("maKho") Integer maKho, Pageable pageable);
 
-    @Query("SELECT m FROM MayIn m " +
+    @Query(value = "SELECT m FROM MayIn m " +
             "WHERE (:maKho IS NULL OR m.kho.maKho = :maKho) " +
             "AND (:maSP IS NULL OR m.sanPham.maSP = :maSP) " +
-            "AND (:trangThai IS NULL OR m.trangThai = :trangThai)")
+            "AND (:trangThai IS NULL OR m.trangThai = :trangThai)",
+
+            // countQuery giúp Spring tính tổng số trang chính xác
+            countQuery = "SELECT COUNT(m) FROM MayIn m " +
+                    "WHERE (:maKho IS NULL OR m.kho.maKho = :maKho) " +
+                    "AND (:maSP IS NULL OR m.sanPham.maSP = :maSP) " +
+                    "AND (:trangThai IS NULL OR m.trangThai = :trangThai)")
     Page<MayIn> findByFilter(
             @Param("maKho") Integer maKho,
             @Param("maSP") String maSP,

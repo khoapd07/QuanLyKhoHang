@@ -5,6 +5,7 @@ import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
 const API_URL = '/san-pham';
+// Sử dụng API list mới cho dropdown (để không bị phân trang)
 const API_HANG_SX = '/hang-san-xuat'; 
 const API_LOAI_SP = '/loai-san-pham'; 
 
@@ -61,7 +62,7 @@ const form = reactive({
 
 // --- METHODS ---
 
-// 1. Load Data
+// 1. Load Data (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
@@ -71,16 +72,30 @@ const loadData = async (page = 0) => {
         listLoaiSanPham.value.length === 0 ? api.get(API_LOAI_SP) : { data: listLoaiSanPham.value }
     ]);
 
-    // Update danh sách sản phẩm
-    if (resSP.data) {
-        danhSach.value = resSP.data.content || [];
-        totalPages.value = resSP.data.totalPages || 0;
-        totalElements.value = resSP.data.totalElements || 0;
-        // [SỬA] Đảm bảo lấy đúng page number để tính STT
-        currentPage.value = (typeof resSP.data.number === 'number') ? resSP.data.number : 0;
+    // [LOGIC MỚI] Xử lý dữ liệu sản phẩm
+    const data = resSP.data;
+    if (data) {
+        // Luôn lấy content trước
+        danhSach.value = data.content || [];
+
+        // Kiểm tra xem thông tin phân trang nằm ở đâu
+        if (data.page) {
+            // Trường hợp bị lồng nhau
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else {
+            // Trường hợp chuẩn Spring Boot (phẳng)
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSach.value = [];
+        totalElements.value = 0;
     }
 
-    // Update danh sách hãng
+    // Update danh sách hãng (Xử lý fallback nếu API trả về Page thay vì List)
     const rawHang = resHang.data;
     if (Array.isArray(rawHang)) listHangSanXuat.value = rawHang;
     else if (rawHang?.content) listHangSanXuat.value = rawHang.content;
@@ -91,7 +106,8 @@ const loadData = async (page = 0) => {
     else if (rawLoai?.content) listLoaiSanPham.value = rawLoai.content;
 
   } catch (error) {
-    showAlert('Lỗi tải dữ liệu: ' + (error.response?.data?.message || error.message), 'danger');
+    const msg = error.response?.data?.message || error.message;
+    showAlert('Lỗi tải dữ liệu: ' + msg, 'danger');
   } finally {
     isLoading.value = false;
   }
@@ -267,7 +283,7 @@ onMounted(() => {
                     </button>
                 </td>
                 </tr>
-                 <tr v-if="!isLoading && danhSach.length === 0">
+                 <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
                     <td colspan="8" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
                 </tr>
             </tbody>

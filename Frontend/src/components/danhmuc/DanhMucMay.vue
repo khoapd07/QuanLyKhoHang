@@ -133,10 +133,23 @@ const loadData = async (page = 0) => {
     ]);
 
     if (resMay.data) {
-        danhSachMay.value = resMay.data.content || []; 
-        totalPages.value = resMay.data.totalPages || 0;
-        totalElements.value = resMay.data.totalElements || 0;
-        currentPage.value = (typeof resMay.data.number === 'number') ? resMay.data.number : 0; 
+        console.log("Dữ liệu API trả về:", resMay.data);
+        const data = resMay.data;
+
+        // Gán content (danh sách máy)
+        danhSachMay.value = data.content || []; 
+
+        // Gán thông tin phân trang (Lấy từ object 'page' bên trong)
+        if (data.page) {
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0; 
+            currentPage.value = data.page.number || 0;
+        } else {
+            // Fallback nếu API trả về cấu trúc phẳng (standard Spring Page)
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
     }
     
     if(resKho.data) danhSachKho.value = resKho.data;

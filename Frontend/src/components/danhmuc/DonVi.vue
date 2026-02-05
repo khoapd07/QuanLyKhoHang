@@ -15,7 +15,7 @@ let modalInstance = null;
 
 // --- STATE PHÂN TRANG (Server-side) ---
 const currentPage = ref(0);
-const itemsPerPage = ref(20); // 20 đơn vị/trang
+const itemsPerPage = ref(20); 
 const totalPages = ref(0);
 const totalElements = ref(0);
 
@@ -72,13 +72,26 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [SỬA] Xử lý an toàn dữ liệu trả về để tránh lỗi STT
-    if (response.data) {
-        danhSach.value = response.data.content || [];
-        totalPages.value = response.data.totalPages || 0;
-        totalElements.value = response.data.totalElements || 0;
-        // Nếu backend trả về null/undefined thì gán = 0
-        currentPage.value = (typeof response.data.number === 'number') ? response.data.number : 0;
+    // [SỬA LẠI] Logic gán dữ liệu chuẩn Page
+    const data = response.data;
+    if(data) {
+        // 1. Lấy content
+        danhSach.value = data.content || [];
+
+        // 2. Lấy thông tin phân trang (Ưu tiên object lồng 'page' nếu có)
+        if (data.page) {
+            totalPages.value = data.page.totalPages || 0;
+            totalElements.value = data.page.totalElements || 0;
+            currentPage.value = data.page.number || 0;
+        } else {
+            // Cấu trúc phẳng
+            totalPages.value = data.totalPages || 0;
+            totalElements.value = data.totalElements || 0;
+            currentPage.value = (typeof data.number === 'number') ? data.number : 0;
+        }
+    } else {
+        danhSach.value = [];
+        totalElements.value = 0;
     }
     
   } catch (error) {
@@ -113,7 +126,7 @@ const saveData = async () => {
       showMessage('success', 'Thêm mới đơn vị thành công!');
     }
     closeModal();
-    loadData(currentPage.value); // Load lại đúng trang hiện tại
+    loadData(currentPage.value); 
   } catch (error) {
     console.error("API Error:", error);
     let msg = "Lỗi không xác định";
@@ -131,7 +144,7 @@ const deleteData = async (id) => {
   try {
     await api.delete(`${API_URL}/${id}`);
     showMessage('success', 'Đã xóa thành công!');
-    loadData(0); // Xóa xong về trang 0
+    loadData(0); 
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Không thể xóa: ' + msg);
@@ -189,7 +202,6 @@ const closeModal = () => {
   }
 };
 
-// --- LIFECYCLE ---
 onMounted(() => {
   loadData(0);
 });
@@ -220,7 +232,8 @@ onMounted(() => {
           <table class="table table-hover table-striped mb-0 align-middle">
             <thead class="table-dark">
               <tr>
-                <th width="50px" class="text-center">STT</th> <th>Mã ĐV</th>
+                <th width="50px" class="text-center">STT</th> 
+                <th>Mã ĐV</th>
                 <th>Tên Đơn Vị</th>
                 <th>Liên Hệ</th>
                 <th>Loại</th>
@@ -236,11 +249,9 @@ onMounted(() => {
               </tr>
 
               <tr v-else v-for="(item, index) in danhSach" :key="item.maDonVi">
-                
                 <td class="text-center">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-
                 <td class="fw-bold text-primary">{{ item.maDonVi }}</td>
                 <td class="fw-medium">{{ item.tenDonVi }}</td>
                 <td>
