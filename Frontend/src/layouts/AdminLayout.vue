@@ -296,25 +296,32 @@ const toggleSidebar = () => {
 
 /* =========================================
    1. XỬ LÝ GIAO DIỆN ĐIỆN THOẠI (MOBILE < 992px)
+   (Giữ nguyên logic overlay vì mobile không đủ chỗ để đẩy)
    ========================================= */
 @media (max-width: 991.98px) {
   
-  /* --- A. KHUNG SIDEBAR (CỐ ĐỊNH 70PX) --- */
+  /* --- A. TRẠNG THÁI MẶC ĐỊNH (THU NHỎ - HIỆN ICON 70PX) --- */
   .app-wrapper .app-sidebar {
     display: block !important;
     position: fixed !important;
     top: 0; left: 0; bottom: 0;
+    
     width: 70px !important;
     min-width: 70px !important;
     max-width: 70px !important;
     flex: 0 0 70px !important;
-    height: 100vh;
-    background-color: #343a40;
+    
+    height: 100dvh !important; 
+    background-color: #343a40 !important;
     z-index: 1040 !important;
     transform: none !important; 
     margin-left: 0 !important;
     padding: 0 !important;
     box-shadow: none;
+    
+    /* Layout Flex dọc để cố định header */
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   /* Đẩy nội dung chính sang phải 70px */
@@ -325,16 +332,19 @@ const toggleSidebar = () => {
     width: calc(100% - 70px) !important;
   }
 
-  /* --- B. XỬ LÝ HEADER SIDEBAR --- */
+  /* --- B. HEADER SIDEBAR --- */
   .app-wrapper .sidebar-brand {
+    flex-shrink: 0 !important;
     justify-content: center !important;
     padding: 0 !important;
-    width: 70px !important;
+    width: 100% !important;
     height: 57px !important;
     display: flex !important;
     align-items: center !important;
+    background-color: #343a40 !important;
   }
   .sidebar-brand .brand-link { display: none !important; }
+  
   .sidebar-brand > a:not(.brand-link) {
     display: flex !important;
     justify-content: center !important;
@@ -346,10 +356,17 @@ const toggleSidebar = () => {
   }
   .sidebar-brand i { font-size: 1.5rem !important; }
 
-  /* --- C. XỬ LÝ MENU ITEM --- */
-  .sidebar-menu p,
-  .sidebar-menu .nav-arrow,
-  .nav-header { display: none !important; }
+  /* --- C. WRAPPER MENU (VÙNG CUỘN) --- */
+  .app-wrapper .sidebar-wrapper {
+    flex-grow: 1 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important; 
+    background-color: #343a40 !important;
+  }
+
+  /* --- D. XỬ LÝ MENU ITEM --- */
+  .sidebar-menu p, .sidebar-menu .nav-arrow, .nav-header { display: none !important; }
 
   .sidebar-menu .nav-link {
     width: 100% !important;
@@ -361,30 +378,31 @@ const toggleSidebar = () => {
     align-items: center !important;
   }
   .sidebar-menu .nav-icon { margin: 0 !important; font-size: 1.4rem !important; }
-  
-  /* Ẩn menu con khi thu nhỏ */
   .nav-treeview { display: none !important; }
 
 
-  /* --- D. TRẠNG THÁI MỞ RỘNG (KHI BẤM NÚT) --- */
+  /* --- E. TRẠNG THÁI MỞ RỘNG (KHI BẤM NÚT) --- */
   html body.sidebar-open .app-wrapper .app-sidebar {
     width: 260px !important;
     min-width: 260px !important;
     max-width: 260px !important;
     z-index: 9999 !important;
-    /* Cho phép cuộn dọc khi menu dài */
-    overflow-y: auto; 
+  }
+  
+  /* Cho phép cuộn khi mở rộng */
+  html body.sidebar-open .app-wrapper .sidebar-wrapper {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 50px !important;
   }
 
   /* Hiện lại Logo và sắp xếp Header */
   html body.sidebar-open .sidebar-brand .brand-link { 
-    display: flex !important;
-    align-items: center;
+    display: flex !important; align-items: center;
   }
   html body.sidebar-open .app-wrapper .sidebar-brand {
     justify-content: space-between !important;
     padding: 0 1rem !important;
-    width: 100% !important;
   }
   html body.sidebar-open .sidebar-brand > a:not(.brand-link) { width: auto !important; }
 
@@ -393,20 +411,12 @@ const toggleSidebar = () => {
   html body.sidebar-open .sidebar-menu .nav-arrow { display: inline-block !important; }
   html body.sidebar-open .nav-header { display: block !important; }
   
-  /* QUAN TRỌNG: Cho phép hiện menu con nếu Vue đang set display block */
-  html body.sidebar-open .nav-treeview { 
-    display: block; /* Mặc định để block để Vue control qua inline style */
-  }
-  /* Nếu bạn dùng v-show/v-if của Vue thì class này chỉ hỗ trợ, Vue sẽ tự thêm style="display: block" */
-  /* Tuy nhiên, để an toàn, ta chỉ reset display: none !important ở trên */
-  html body.sidebar-open .nav-treeview[style*="display: none"] {
-     display: none !important;
-  }
-  html body.sidebar-open .nav-treeview[style*="display: block"] {
-     display: block !important;
-  }
+  /* Hiện menu con */
+  html body.sidebar-open .nav-treeview { display: block; }
+  html body.sidebar-open .nav-treeview[style*="display: none"] { display: none !important; }
+  html body.sidebar-open .nav-treeview[style*="display: block"] { display: block !important; }
 
-  /* Style menu khi mở: Căn trái */
+  /* Style menu khi mở */
   html body.sidebar-open .sidebar-menu .nav-link {
     height: auto !important;
     text-align: left;
@@ -415,7 +425,7 @@ const toggleSidebar = () => {
   }
   html body.sidebar-open .sidebar-menu .nav-icon { margin-right: .5rem !important; }
 
-  /* Overlay */
+  /* Overlay Mobile */
   .sidebar-overlay {
     display: none;
     position: fixed;
@@ -437,13 +447,49 @@ const toggleSidebar = () => {
    2. XỬ LÝ GIAO DIỆN MÁY TÍNH (DESKTOP >= 992px)
    ========================================= */
 @media (min-width: 992px) {
+  
+  /* --- A. TRẠNG THÁI MẶC ĐỊNH (MỞ RỘNG) --- */
+  /* Sidebar cố định 260px */
+  .app-sidebar {
+    width: 260px !important;
+    min-width: 260px !important;
+    height: 100vh !important;      
+    overflow-y: auto !important;   /* Fix lỗi trắng chân trang trên desktop */
+    overflow-x: hidden !important;
+    background-color: #343a40 !important;
+    position: fixed !important;
+    top: 0; left: 0; bottom: 0;
+    z-index: 1040;
+    padding-bottom: 50px;
+  }
+
+  /* ĐẨY NỘI DUNG SANG PHẢI 260px (FIX LỖI ĐÈ LÊN NỘI DUNG) */
+  .app-header,
+  .app-main,
+  .app-footer {
+    margin-left: 260px !important;
+    width: calc(100% - 260px) !important;
+    transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
+  }
+
+  /* Tùy chỉnh thanh cuộn cho đẹp */
+  .app-sidebar::-webkit-scrollbar { width: 6px; }
+  .app-sidebar::-webkit-scrollbar-track { background: #343a40; }
+  .app-sidebar::-webkit-scrollbar-thumb { background: #6c757d; border-radius: 3px; }
+
+
+  /* --- B. TRẠNG THÁI THU NHỎ (SIDEBAR-COLLAPSE) --- */
+  
+  /* Sidebar thu về 70px */
   body.sidebar-collapse .app-sidebar {
     width: 70px !important;
     min-width: 70px !important;
     max-width: 70px !important;
     margin-left: 0 !important;
+    overflow: visible !important; /* Để hover menu con popup ra ngoài */
   }
 
+  /* Kéo nội dung về còn cách trái 70px */
   body.sidebar-collapse .app-header,
   body.sidebar-collapse .app-main,
   body.sidebar-collapse .app-footer {
@@ -451,6 +497,7 @@ const toggleSidebar = () => {
     width: calc(100% - 70px) !important;
   }
 
+  /* Ẩn hiện các thành phần khi thu nhỏ */
   body.sidebar-collapse .sidebar-brand .brand-link { display: none !important; }
   body.sidebar-collapse .sidebar-brand { justify-content: center !important; padding: 0 !important; }
   body.sidebar-collapse .sidebar-brand > a:not(.brand-link) {
