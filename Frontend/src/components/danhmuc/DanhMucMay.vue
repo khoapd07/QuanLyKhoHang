@@ -6,19 +6,21 @@ import * as bootstrap from 'bootstrap';
 // --- CẤU HÌNH ---
 const API_URL = '/may-in'; 
 const API_KHO = '/kho'; 
+const API_TRANG_THAI = '/trang-thai'; // [MỚI] API Trạng thái
 
 // --- STATE ---
 const danhSachMay = ref([]); 
 const danhSachKho = ref([]);
+const danhSachTrangThai = ref([]); // [MỚI] Chứa list trạng thái từ DB
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 let modalInstance = null;
 
-// [MỚI] State phân quyền
+// State phân quyền
 const isAdmin = ref(false);
-const filterMaKho = ref(0); // 0 = Tất cả
+const filterMaKho = ref(0); 
 
-// --- STATE PHÂN TRANG (Server-side) ---
+// --- STATE PHÂN TRANG ---
 const currentPage = ref(0);
 const itemsPerPage = ref(20); 
 const totalPages = ref(0);
@@ -55,22 +57,30 @@ const paginationInfo = computed(() => ({
     totalPages: totalPages.value
 }));
 
-// --- FORM DATA & HELPER ---
+// --- FORM DATA ---
 const form = reactive({
   maMay: '', tenSP: '', tenHang: '', tenLoai: '', ngayTao: '', soPhieuNhap: '', 
   soSeri: '', trangThai: 1, tonKho: true, maKho: null      
 });
 
-const TRANG_THAI_LIST = [
-  { id: 1, text: 'Mới (New)', class: 'bg-success' },
-  { id: 2, text: 'Like New', class: 'bg-info text-dark' },
-  { id: 3, text: 'Hỏng', class: 'bg-danger' },
-  { id: 4, text: 'Xác', class: 'bg-dark' },
-  { id: 5, text: 'Thu hồi', class: 'bg-warning text-dark' },
-  { id: 6, text: 'Nhập Khẩu', class: 'bg-primary' }
-];
+// [MỚI] Mapping màu sắc cho trạng thái (Database chỉ lưu tên, Frontend tự quy định màu)
+const getBadgeClass = (id) => {
+    switch (id) {
+        case 1: return 'bg-success';          // Mới
+        case 2: return 'bg-info text-dark';   // Like New
+        case 3: return 'bg-danger';           // Hỏng
+        case 4: return 'bg-dark';             // Xác
+        case 5: return 'bg-warning text-dark';// Thu hồi
+        case 6: return 'bg-primary';          // Nhập khẩu
+        default: return 'bg-secondary';       // Khác
+    }
+};
 
-const getTrangThaiInfo = (id) => TRANG_THAI_LIST.find(t => t.id === id) || { text: 'Khác', class: 'bg-secondary' };
+// [MỚI] Hàm lấy tên trạng thái từ ID (Dùng cho hiển thị bảng)
+const getTenTrangThai = (id) => {
+    const tt = danhSachTrangThai.value.find(t => t.maTrangThai === id);
+    return tt ? tt.tenTrangThai : 'Không xác định';
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return '---';
@@ -93,10 +103,9 @@ const setupPhanQuyen = async () => {
 
     if (role === 'ADMIN') {
         isAdmin.value = true;
-        filterMaKho.value = 0; // Mặc định xem tất cả
+        filterMaKho.value = 0; 
     } else {
         isAdmin.value = false;
-        // Staff bị ép xem kho của mình
         filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0;
     }
 };
@@ -108,14 +117,15 @@ const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
     const params = { page: page, size: itemsPerPage.value };
-    
     if (filterMaKho.value && filterMaKho.value !== 0) {
         params.maKho = filterMaKho.value;
     }
 
-    const [resMay, resKho] = await Promise.all([
+    // [SỬA] Load song song: Máy In, Kho, Trạng Thái
+    const [resMay, resKho, resTrangThai] = await Promise.all([
       api.get(API_URL, { params }),
-      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value }
+      danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value },
+      danhSachTrangThai.value.length === 0 ? api.get(API_TRANG_THAI) : { data: danhSachTrangThai.value }
     ]);
 
     if (resMay.data) {
@@ -126,6 +136,7 @@ const loadData = async (page = 0) => {
     }
     
     if(resKho.data) danhSachKho.value = resKho.data;
+    if(resTrangThai.data) danhSachTrangThai.value = resTrangThai.data;
 
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
@@ -143,8 +154,6 @@ const changePage = (page) => {
 
 const openEditModal = (may) => {
   form.maMay = may.maMay;
-  
-  // [SỬA] Lấy dữ liệu phẳng từ DTO
   form.tenSP = may.tenSP || '---';
   form.tenHang = may.tenHang || '---';
   form.tenLoai = may.tenLoai || '---';
@@ -154,7 +163,7 @@ const openEditModal = (may) => {
   form.soSeri = may.soSeri || '';
   form.trangThai = may.trangThai || 1;
   form.tonKho = may.tonKho; 
-  form.maKho = may.maKho || null; // [SỬA] Dùng maKho trực tiếp
+  form.maKho = may.maKho || null;
 
   const modalEl = document.getElementById('modalChiTietMay');
   modalInstance = new bootstrap.Modal(modalEl);
@@ -246,18 +255,16 @@ onMounted(async () => {
               <tr v-else v-for="(may, index) in danhSachMay" :key="may.maMay">
                 
                 <td class="text-center">{{ ((currentPage || 0) * itemsPerPage) + index + 1 }}</td>
-                
                 <td class="fw-bold text-primary">{{ may.maMay }}</td>
-                
                 <td>
                   <div>{{ may.tenSP }}</div> <small class="text-muted">{{ may.tenHang }}</small> </td>
-                
                 <td class="text-center">
                     <span class="badge bg-light text-dark border">{{ may.tenLoai || '---' }}</span> </td>
-
-                <td>{{ may.tenKho || '---' }}</td> <td class="text-center">
-                  <span :class="['badge', getTrangThaiInfo(may.trangThai).class]">
-                    {{ getTrangThaiInfo(may.trangThai).text }}
+                <td>{{ may.tenKho || '---' }}</td> 
+                
+                <td class="text-center">
+                  <span :class="['badge', getBadgeClass(may.trangThai)]">
+                    {{ getTenTrangThai(may.trangThai) }}
                   </span>
                 </td>
 
@@ -275,7 +282,7 @@ onMounted(async () => {
                   </button>
                 </td>
               </tr>
-              <tr v-if="!isLoading && danhSachMay.length === 0">
+              <tr v-if="!isLoading && (!danhSachMay || danhSachMay.length === 0)">
                  <td colspan="8" class="text-center py-3">Chưa có dữ liệu.</td>
               </tr>
             </tbody>
@@ -289,16 +296,13 @@ onMounted(async () => {
                     <li class="page-item" :class="{ disabled: paginationInfo.page === 0 }">
                         <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page - 1)">« Trước</a>
                     </li>
-
                     <li v-for="(page, index) in visiblePages" :key="index" 
                         class="page-item" 
                         :class="{ active: page === paginationInfo.page + 1, disabled: page === '...' }">
-                        <a class="page-link" href="#" 
-                            @click.prevent="page !== '...' ? changePage(page - 1) : null">
+                        <a class="page-link" href="#" @click.prevent="page !== '...' ? changePage(page - 1) : null">
                             {{ page }}
                         </a>
                     </li>
-
                     <li class="page-item" :class="{ disabled: paginationInfo.page >= paginationInfo.totalPages - 1 }">
                         <a class="page-link" href="#" @click.prevent="changePage(paginationInfo.page + 1)">Sau »</a>
                     </li>
@@ -363,22 +367,25 @@ onMounted(async () => {
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Tình Trạng (New/LikeNew...)</label>
+                  <label class="form-label">Tình Trạng (Từ DB)</label>
                   <select v-model="form.trangThai" class="form-select">
-                    <option v-for="tt in TRANG_THAI_LIST" :key="tt.id" :value="tt.id">
-                      {{ tt.text }}
+                    <option v-for="tt in danhSachTrangThai" :key="tt.maTrangThai" :value="tt.maTrangThai">
+                      {{ tt.tenTrangThai }}
                     </option>
                   </select>
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label">Vị trí Kho</label>
-                  <select v-model="form.maKho" class="form-select">
+                  <select v-model="form.maKho" class="form-select bg-light" disabled>
                     <option :value="null">-- Chưa xác định --</option>
                     <option v-for="k in danhSachKho" :key="k.maKho" :value="k.maKho">
                       {{ k.tenKho }}
                     </option>
                   </select>
+                  <div class="form-text text-muted small fst-italic">
+                      <i class="bi bi-info-circle"></i> Vị trí kho được cập nhật tự động qua Phiếu Nhập/Xuất.
+                  </div>
                 </div>
 
                 <div class="col-12 mt-3">
