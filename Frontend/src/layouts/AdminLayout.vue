@@ -227,11 +227,27 @@ const logout = () => {
 };
 
 const toggleKhoMenu = () => {
-  // Nếu sidebar đang thu nhỏ mà bấm vào menu con -> Tự động mở rộng sidebar ra
   const body = document.querySelector('body');
-  if (body.classList.contains('sidebar-collapse') && window.innerWidth >= 992) {
-    body.classList.remove('sidebar-collapse');
+  const isMobile = window.innerWidth < 992;
+
+  // 1. Xử lý tự động mở rộng Sidebar nếu đang thu nhỏ
+  if (isMobile) {
+     if (!body.classList.contains('sidebar-open')) {
+         body.classList.add('sidebar-open');
+         // Khi tự động mở sidebar, ta cũng set luôn trạng thái mở cho menu con
+         isKhoMenuOpen.value = true;
+         return; // Dừng lại, không toggle ngược lại
+     }
+  } else {
+     // Desktop
+     if (body.classList.contains('sidebar-collapse')) {
+         body.classList.remove('sidebar-collapse');
+         isKhoMenuOpen.value = true;
+         return;
+     }
   }
+
+  // 2. Nếu Sidebar đã mở rồi thì mới toggle menu con (Đóng/Mở)
   isKhoMenuOpen.value = !isKhoMenuOpen.value;
 };
 
@@ -288,12 +304,10 @@ const toggleSidebar = () => {
     display: block !important;
     position: fixed !important;
     top: 0; left: 0; bottom: 0;
-    
     width: 70px !important;
     min-width: 70px !important;
     max-width: 70px !important;
     flex: 0 0 70px !important;
-    
     height: 100vh;
     background-color: #343a40;
     z-index: 1040 !important;
@@ -311,9 +325,7 @@ const toggleSidebar = () => {
     width: calc(100% - 70px) !important;
   }
 
-  /* --- B. XỬ LÝ HEADER SIDEBAR (LOGO & NÚT) --- */
-  
-  /* 1. Header Container: Căn giữa, bỏ padding thừa */
+  /* --- B. XỬ LÝ HEADER SIDEBAR --- */
   .app-wrapper .sidebar-brand {
     justify-content: center !important;
     padding: 0 !important;
@@ -322,14 +334,7 @@ const toggleSidebar = () => {
     display: flex !important;
     align-items: center !important;
   }
-
-  /* 2. QUAN TRỌNG: Ẩn hoàn toàn thẻ chứa Logo (để không chiếm chỗ) */
-  .sidebar-brand .brand-link {
-    display: none !important;
-  }
-
-  /* 3. Căn giữa nút Toggle (Nút 3 gạch) */
-  /* Chọn thẻ a không phải brand-link (tức là nút toggle) */
+  .sidebar-brand .brand-link { display: none !important; }
   .sidebar-brand > a:not(.brand-link) {
     display: flex !important;
     justify-content: center !important;
@@ -339,19 +344,13 @@ const toggleSidebar = () => {
     margin: 0 !important;
     padding: 0 !important;
   }
-  .sidebar-brand i {
-    font-size: 1.5rem !important; /* Chỉnh lại icon to rõ */
-  }
+  .sidebar-brand i { font-size: 1.5rem !important; }
 
   /* --- C. XỬ LÝ MENU ITEM --- */
-  /* Ẩn chữ menu và mũi tên */
   .sidebar-menu p,
   .sidebar-menu .nav-arrow,
-  .nav-header {
-    display: none !important;
-  }
+  .nav-header { display: none !important; }
 
-  /* Căn giữa Icon Menu */
   .sidebar-menu .nav-link {
     width: 100% !important;
     height: 50px !important;
@@ -361,12 +360,9 @@ const toggleSidebar = () => {
     justify-content: center !important;
     align-items: center !important;
   }
-  .sidebar-menu .nav-icon {
-    margin: 0 !important;
-    font-size: 1.4rem !important;
-  }
+  .sidebar-menu .nav-icon { margin: 0 !important; font-size: 1.4rem !important; }
   
-  /* Ẩn menu con */
+  /* Ẩn menu con khi thu nhỏ */
   .nav-treeview { display: none !important; }
 
 
@@ -376,28 +372,39 @@ const toggleSidebar = () => {
     min-width: 260px !important;
     max-width: 260px !important;
     z-index: 9999 !important;
+    /* Cho phép cuộn dọc khi menu dài */
+    overflow-y: auto; 
   }
 
-  /* Hiện lại Logo và sắp xếp lại Header */
+  /* Hiện lại Logo và sắp xếp Header */
   html body.sidebar-open .sidebar-brand .brand-link { 
-    display: flex !important; /* Hiện lại logo */
+    display: flex !important;
     align-items: center;
   }
   html body.sidebar-open .app-wrapper .sidebar-brand {
-    justify-content: space-between !important; /* Logo trái, nút phải */
+    justify-content: space-between !important;
     padding: 0 1rem !important;
     width: 100% !important;
   }
-  /* Thu nhỏ vùng bấm của nút toggle lại khi mở menu */
-  html body.sidebar-open .sidebar-brand > a:not(.brand-link) {
-    width: auto !important;
-  }
+  html body.sidebar-open .sidebar-brand > a:not(.brand-link) { width: auto !important; }
 
   /* Hiện lại chữ menu */
   html body.sidebar-open .sidebar-menu p,
   html body.sidebar-open .sidebar-menu .nav-arrow { display: inline-block !important; }
   html body.sidebar-open .nav-header { display: block !important; }
-  html body.sidebar-open .nav-treeview { display: block; }
+  
+  /* QUAN TRỌNG: Cho phép hiện menu con nếu Vue đang set display block */
+  html body.sidebar-open .nav-treeview { 
+    display: block; /* Mặc định để block để Vue control qua inline style */
+  }
+  /* Nếu bạn dùng v-show/v-if của Vue thì class này chỉ hỗ trợ, Vue sẽ tự thêm style="display: block" */
+  /* Tuy nhiên, để an toàn, ta chỉ reset display: none !important ở trên */
+  html body.sidebar-open .nav-treeview[style*="display: none"] {
+     display: none !important;
+  }
+  html body.sidebar-open .nav-treeview[style*="display: block"] {
+     display: block !important;
+  }
 
   /* Style menu khi mở: Căn trái */
   html body.sidebar-open .sidebar-menu .nav-link {
@@ -406,9 +413,7 @@ const toggleSidebar = () => {
     padding: .75rem 1rem !important;
     justify-content: flex-start !important;
   }
-  html body.sidebar-open .sidebar-menu .nav-icon {
-    margin-right: .5rem !important;
-  }
+  html body.sidebar-open .sidebar-menu .nav-icon { margin-right: .5rem !important; }
 
   /* Overlay */
   .sidebar-overlay {
@@ -446,14 +451,8 @@ const toggleSidebar = () => {
     width: calc(100% - 70px) !important;
   }
 
-  /* Ẩn hoàn toàn Logo khi thu nhỏ Desktop luôn cho đồng bộ */
   body.sidebar-collapse .sidebar-brand .brand-link { display: none !important; }
-  
-  /* Căn giữa nút toggle */
-  body.sidebar-collapse .sidebar-brand { 
-    justify-content: center !important; 
-    padding: 0 !important; 
-  }
+  body.sidebar-collapse .sidebar-brand { justify-content: center !important; padding: 0 !important; }
   body.sidebar-collapse .sidebar-brand > a:not(.brand-link) {
     display: flex !important;
     justify-content: center !important;
