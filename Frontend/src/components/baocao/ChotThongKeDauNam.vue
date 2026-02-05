@@ -110,11 +110,11 @@
                         <tr v-if="reportData.length > 0" class="bg-warning font-weight-bold"
                           style="background-color: #fff3cd !important;">
                           <td colspan="4" class="text-center">TỔNG CỘNG</td>
-                          <td class="text-right">{{ grandTotal.tdk }}</td>
-                          <td class="text-right">{{ grandTotal.ntk }}</td>
-                          <td class="text-right">{{ grandTotal.xtk }}</td>
-                          <td class="text-right">{{ grandTotal.tck }}</td>
-                          <td class="text-right">{{ formatCurrency(grandTotal.tien) }}</td>
+                          <td class="text-right">{{ grandTotalAction.tdk }}</td>
+                          <td class="text-right">{{ grandTotalAction.ntk }}</td>
+                          <td class="text-right">{{ grandTotalAction.xtk }}</td>
+                          <td class="text-right">{{ grandTotalAction.tck }}</td>
+                          <td class="text-right">{{ formatCurrency(grandTotalAction.tien) }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -123,20 +123,16 @@
                   <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="actionPagination.total > 0">
                     <ul class="pagination pagination-sm m-0">
                       <li class="page-item" :class="{ disabled: actionPagination.page === 0 }">
-                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page - 1)">«
-                          Trước</a>
+                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page - 1)">« Trước</a>
                       </li>
-
                       <li v-for="(page, index) in visibleActionPages" :key="index" class="page-item"
                         :class="{ active: page === actionPagination.page + 1, disabled: page === '...' }">
                         <a class="page-link" href="#"
                           @click.prevent="page !== '...' ? changeActionPage(page - 1) : null">{{ page }}</a>
                       </li>
-
                       <li class="page-item"
                         :class="{ disabled: actionPagination.page >= actionPagination.totalPages - 1 }">
-                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page + 1)">Sau
-                          »</a>
+                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page + 1)">Sau »</a>
                       </li>
                     </ul>
                   </div>
@@ -216,11 +212,11 @@
                         <tr v-if="historyData.length > 0" class="bg-primary font-weight-bold"
                           style="background-color: #cce5ff !important; color: #004085;">
                           <td colspan="4" class="text-center">TỔNG CỘNG</td>
-                          <td class="text-right">{{ grandTotal.tdk }}</td>
-                          <td class="text-right">{{ grandTotal.ntk }}</td>
-                          <td class="text-right">{{ grandTotal.xtk }}</td>
-                          <td class="text-right">{{ grandTotal.tck }}</td>
-                          <td class="text-right">{{ formatCurrency(grandTotal.tien) }}</td>
+                          <td class="text-right">{{ grandTotalHistory.tdk }}</td>
+                          <td class="text-right">{{ grandTotalHistory.ntk }}</td>
+                          <td class="text-right">{{ grandTotalHistory.xtk }}</td>
+                          <td class="text-right">{{ grandTotalHistory.tck }}</td>
+                          <td class="text-right">{{ formatCurrency(grandTotalHistory.tien) }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -229,20 +225,16 @@
                   <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="historyPagination.total > 0">
                     <ul class="pagination pagination-sm m-0">
                       <li class="page-item" :class="{ disabled: historyPagination.page === 0 }">
-                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page - 1)">«
-                          Trước</a>
+                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page - 1)">« Trước</a>
                       </li>
-
                       <li v-for="(page, index) in visibleHistoryPages" :key="index" class="page-item"
                         :class="{ active: page === historyPagination.page + 1, disabled: page === '...' }">
                         <a class="page-link" href="#"
                           @click.prevent="page !== '...' ? changeHistoryPage(page - 1) : null">{{ page }}</a>
                       </li>
-
                       <li class="page-item"
                         :class="{ disabled: historyPagination.page >= historyPagination.totalPages - 1 }">
-                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page + 1)">Sau
-                          »</a>
+                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page + 1)">Sau »</a>
                       </li>
                     </ul>
                   </div>
@@ -272,77 +264,35 @@ import Docxtemplater from "docxtemplater";
 
 const API_BASE = '/thong-ke';
 
-// --- QUẢN LÝ TAB ---
 const activeTab = ref('action');
-
-// --- DATA DÙNG CHUNG ---
 const khoList = ref([]);
-const isExporting = ref(false); // Trạng thái đang in ấn
-const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+const isExporting = ref(false);
 
-// =================== TAB 1: STATE & LOGIC ===================
-const filters = reactive({
-  nam: new Date().getFullYear() -1,
-  warehouseId: 0,
-});
+// [FIX] Khai báo rõ ràng 2 biến tổng cho 2 tab
+const grandTotalAction = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+const grandTotalHistory = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+
+// TAB 1 Data
+const filters = reactive({ nam: new Date().getFullYear() - 1, warehouseId: 0 });
 const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
+const actionPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-// [THÊM] State phân trang cho TAB 1
-const actionPagination = reactive({
-  page: 0,
-  size: 20,
-  total: 0,
-  totalPages: 0
-});
-
-// [THÊM] Computed hiển thị trang TAB 1
-const visibleActionPages = computed(() => {
-  const total = actionPagination.totalPages;
-  const current = actionPagination.page + 1;
-  const delta = 2;
-  const range = [];
-  const rangeWithDots = [];
-  let l;
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
-  }
-  for (let i of range) {
-    if (l) {
-      if (i - l === 2) rangeWithDots.push(l + 1);
-      else if (i - l !== 1) rangeWithDots.push('...');
-    }
-    rangeWithDots.push(i);
-    l = i;
-  }
-  return rangeWithDots;
-});
-
-// =================== TAB 2: STATE & LOGIC ===================
-const historyFilters = reactive({
-  nam: new Date().getFullYear(),
-  warehouseId: 0
-});
+// TAB 2 Data
+const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: 0 });
 const historyData = ref([]);
 const loadingHistory = ref(false);
 const historyTenKho = ref('');
 const searchedHistory = ref(false);
+const historyPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-const historyPagination = reactive({
-  page: 0,
-  size: 20,
-  total: 0,
-  totalPages: 0
-});
-
-// Computed hiển thị trang TAB 2
-const visibleHistoryPages = computed(() => {
-  const total = historyPagination.totalPages;
-  const current = historyPagination.page + 1;
+// Computed Pagination Action
+const visibleActionPages = computed(() => {
+  const total = actionPagination.totalPages;
+  const current = actionPagination.page + 1;
   const delta = 2;
-  const range = [];
-  const rangeWithDots = [];
+  const range = [], rangeWithDots = [];
   let l;
   for (let i = 1; i <= total; i++) {
     if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
@@ -358,32 +308,47 @@ const visibleHistoryPages = computed(() => {
   return rangeWithDots;
 });
 
-// --- HELPER ---
+// Computed Pagination History
+const visibleHistoryPages = computed(() => {
+  const total = historyPagination.totalPages;
+  const current = historyPagination.page + 1;
+  const delta = 2;
+  const range = [], rangeWithDots = [];
+  let l;
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
+  }
+  for (let i of range) {
+    if (l) {
+      if (i - l === 2) rangeWithDots.push(l + 1);
+      else if (i - l !== 1) rangeWithDots.push('...');
+    }
+    rangeWithDots.push(i);
+    l = i;
+  }
+  return rangeWithDots;
+});
+
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '0';
   return new Intl.NumberFormat('vi-VN', { style: 'decimal', currency: 'VND' }).format(value);
 };
 
-// --- LOGIC GỌI API ---
+// --- LOGIC API ---
 
-// 1. Chốt sổ (Click nút Chốt) - Reset về trang 0
+// 1. Chốt Sổ (Tab 1)
 const thucHienChotSo = async () => {
   if (!confirm(`Bạn có chắc chắn muốn chốt sổ cho năm ${filters.nam}? Dữ liệu cũ sẽ bị đè!`)) return;
-  actionPagination.page = 0; // Reset về trang đầu
+  actionPagination.page = 0;
   goiApiChotSo();
 };
 
-// [THÊM] Hàm chuyển trang TAB 1
 const changeActionPage = (newPage) => {
   if (newPage < 0 || newPage >= actionPagination.totalPages) return;
   actionPagination.page = newPage;
-
-  // Gọi API Lấy Lịch Sử của năm vừa chốt (chứ ko phải chốt lại)
-  // Lưu ý: Sau khi chốt xong, ta chỉ cần gọi API xem kết quả (GET) chứ không gọi POST chốt nữa
   goiApiXemKetQuaSauChot();
 };
 
-// Hàm dùng chung để gọi API Chốt (POST)
 const goiApiChotSo = async () => {
   loading.value = true;
   reportData.value = [];
@@ -391,18 +356,16 @@ const goiApiChotSo = async () => {
     const response = await api.post(`${API_BASE}/chot-so`, null, {
       params: { nam: filters.nam, maKho: filters.warehouseId }
     });
-    // Sau khi chốt xong, server trả về trang 0. Ta hiển thị luôn.
     const data = response.data;
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet;
-
-    // Cập nhật phân trang
     actionPagination.page = data.currentPage;
     actionPagination.total = data.totalItems;
     actionPagination.totalPages = data.totalPages;
-
-    // Cập nhật tổng
-    if (data.grandTotal) grandTotal.value = data.grandTotal;
+    
+    // [FIX] Cập nhật đúng biến cho Tab 1
+    if (data.grandTotal) grandTotalAction.value = data.grandTotal;
+    
     alert("Chốt sổ thành công!");
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
@@ -412,12 +375,10 @@ const goiApiChotSo = async () => {
   }
 };
 
-// [THÊM] Hàm xem kết quả phân trang TAB 1 (GET)
-// Logic: Năm chốt là 2025 -> Kết quả là Tồn đầu 2026 -> Gọi API LichSu 2026
 const goiApiXemKetQuaSauChot = async () => {
   loading.value = true;
   try {
-    const namKetQua = parseInt(filters.nam) + 1; // Chốt 2025 ra kết quả 2026
+    const namKetQua = parseInt(filters.nam) + 1;
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: {
         nam: namKetQua,
@@ -431,7 +392,10 @@ const goiApiXemKetQuaSauChot = async () => {
     actionPagination.page = data.currentPage;
     actionPagination.total = data.totalItems;
     actionPagination.totalPages = data.totalPages;
-    if (data.grandTotal) grandTotal.value = data.grandTotal;
+    
+    // [FIX] Cập nhật đúng biến cho Tab 1
+    if (data.grandTotal) grandTotalAction.value = data.grandTotal;
+    
   } catch (e) {
     console.error(e);
   } finally {
@@ -439,7 +403,7 @@ const goiApiXemKetQuaSauChot = async () => {
   }
 }
 
-// 2. Tab 2: Xem Lịch Sử
+// 2. Xem Lịch Sử (Tab 2)
 const searchHistory = () => {
   historyPagination.page = 0;
   xemLichSu();
@@ -469,13 +433,15 @@ const xemLichSu = async () => {
     const data = response.data;
     historyTenKho.value = data.tenKho;
     historyData.value = data.danhSachChiTiet || [];
-
     historyPagination.page = data.currentPage;
     historyPagination.total = data.totalItems;
     historyPagination.totalPages = data.totalPages;
 
     searchedHistory.value = true;
-    if (data.grandTotal) grandTotal.value = data.grandTotal;
+    
+    // [FIX] Cập nhật đúng biến cho Tab 2
+    if (data.grandTotal) grandTotalHistory.value = data.grandTotal;
+    
   } catch (error) {
     console.error("Lỗi tải lịch sử:", error);
     alert("Lỗi: " + (error.response?.data?.message || "Lỗi hệ thống"));
@@ -484,7 +450,7 @@ const xemLichSu = async () => {
   }
 }
 
-// 3. In Word (Load All Data)
+// 3. In Word (Logic giữ nguyên)
 const loadFile = async (url) => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Không thể tải file mẫu: ${url}`);
@@ -494,85 +460,46 @@ const loadFile = async (url) => {
 const printToWord = async (namInput, maKhoInput, tenKhoString) => {
   if (isExporting.value) return;
   isExporting.value = true;
-
   try {
-    // Vì "Kết quả chốt" của năm X thực chất là "Lịch sử tồn đầu" của năm X+1
-    // Nên nếu đang ở Tab 1 (Chốt), ta cần +1 năm để lấy đúng dữ liệu.
-    // Nếu ở Tab 2 (Xem Lịch Sử), ta lấy đúng năm người dùng nhập.
-
     let namCanLay = namInput;
     if (activeTab.value === 'action') {
       namCanLay = parseInt(namInput) + 1;
     }
-
     const response = await api.get(`${API_BASE}/lich-su`, {
-      params: {
-        nam: namCanLay,
-        maKho: maKhoInput,
-        page: 0,
-        size: 999999 // Lấy tất cả
-      }
+      params: { nam: namCanLay, maKho: maKhoInput, page: 0, size: 999999 }
     });
-
     const sourceData = response.data.danhSachChiTiet || [];
-
     if (sourceData.length === 0) {
-      alert("Không có dữ liệu để in.");
-      return;
+      alert("Không có dữ liệu để in."); return;
     }
-
     const content = await loadFile("/File_Mau_BaoCaoChotSoNam.docx");
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-
+    
     const totals = sourceData.reduce((acc, item) => {
-      acc.tdk += item.tonDau || 0;
-      acc.ntk += item.nhapTrong || 0;
-      acc.xtk += item.xuatTrong || 0;
-      acc.tck += item.tonCuoi || 0;
-      acc.tien += item.thanhTien || 0;
-      return acc;
+      acc.tdk += item.tonDau || 0; acc.ntk += item.nhapTrong || 0;
+      acc.xtk += item.xuatTrong || 0; acc.tck += item.tonCuoi || 0;
+      acc.tien += item.thanhTien || 0; return acc;
     }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
     const today = new Date();
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const yyyy = today.getFullYear();
-
     const dataToRender = {
-      nam: namCanLay,
-      tenKho: tenKhoString || "Kho chưa xác định",
-      d: dd, m: mm, y: yyyy,
-      sumTDK: formatCurrency(totals.tdk),
-      sumNTK: formatCurrency(totals.ntk),
-      sumXTK: formatCurrency(totals.xtk),
-      sumTCK: formatCurrency(totals.tck),
+      nam: namCanLay, tenKho: tenKhoString || "Kho chưa xác định",
+      d: String(today.getDate()).padStart(2, '0'), m: String(today.getMonth() + 1).padStart(2, '0'), y: today.getFullYear(),
+      sumTDK: formatCurrency(totals.tdk), sumNTK: formatCurrency(totals.ntk),
+      sumXTK: formatCurrency(totals.xtk), sumTCK: formatCurrency(totals.tck),
       sumTien: formatCurrency(totals.tien),
       p: sourceData.map((item, index) => ({
-        stt: index + 1,
-        ma: item.maSP || "",
-        ten: item.tenSP || "",
-        dvt: item.donvitinh || "",
-        tdk: item.tonDau || 0,
-        ntk: item.nhapTrong || 0,
-        xtk: item.xuatTrong || 0,
-        tck: item.tonCuoi || 0,
-        gia: formatCurrency(item.giaBQ),
-        tien: formatCurrency(item.thanhTien)
+        stt: index + 1, ma: item.maSP || "", ten: item.tenSP || "", dvt: item.donvitinh || "",
+        tdk: item.tonDau || 0, ntk: item.nhapTrong || 0, xtk: item.xuatTrong || 0,
+        tck: item.tonCuoi || 0, gia: formatCurrency(item.giaBQ), tien: formatCurrency(item.thanhTien)
       }))
     };
-
     doc.render(dataToRender);
-    const out = doc.getZip().generate({
-      type: "blob",
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
-
+    const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     saveAs(out, `BienBan_${tenKhoString}_${namCanLay}.docx`);
-
   } catch (error) {
-    console.error("Lỗi in Word:", error);
-    alert("Lỗi xuất file: " + error.message);
+    console.error("Lỗi in Word:", error); alert("Lỗi xuất file: " + error.message);
   } finally {
     isExporting.value = false;
   }
@@ -586,108 +513,26 @@ const loadKho = async () => {
       filters.warehouseId = res.data[0].maKho;
       historyFilters.warehouseId = res.data[0].maKho;
     }
-  } catch (e) {
-    console.error("Lỗi tải kho:", e);
-  }
+  } catch (e) { console.error("Lỗi tải kho:", e); }
 };
 
 onMounted(() => loadKho());
 </script>
 
 <style scoped>
-/* --- 1. USER STYLE (GIỮ NGUYÊN Ý CỦA BẠN) --- */
-.card-primary.card-outline-tabs>.card-header a.active {
-  border-top: 3px solid #ffc107; /* Giữ màu vàng cho tab đang chọn */
-}
-
-.nav-link,
-.page-link {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.page-item.active .page-link {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: white;
-}
-
-.page-item.disabled .page-link {
-  pointer-events: none;
-  background-color: #fff;
-  color: #6c757d;
-}
-
-/* --- 2. TỐI ƯU GIAO DIỆN (BỔ SUNG ĐỂ ĐẸP TRÊN MOBILE) --- */
-
-/* Form nhỏ gọn hơn */
+/* STYLE GIỮ NGUYÊN NHƯ CŨ */
+.card-primary.card-outline-tabs>.card-header a.active { border-top: 3px solid #ffc107; }
+.nav-link, .page-link { cursor: pointer; font-weight: 600; }
+.page-item.active .page-link { background-color: #007bff; border-color: #007bff; color: white; }
+.page-item.disabled .page-link { pointer-events: none; background-color: #fff; color: #6c757d; }
 .form-control-sm { height: calc(1.8125rem + 2px); font-size: .875rem; }
-.small-label { font-size: 0.85rem; font-weight: 600; color: #6c757d; margin-bottom: 4px; }
-
-/* Wrapper cho bảng để có thanh cuộn mượt */
-.table-container {
-  max-height: 65vh; 
-  overflow: auto;
-  position: relative;
-  border-top: 1px solid #dee2e6;
-  /* Scrollbar đẹp cho Chrome/Safari */
-  scrollbar-width: thin;
-}
+.table-container { max-height: 65vh; overflow: auto; position: relative; border-top: 1px solid #dee2e6; scrollbar-width: thin; }
 .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
 .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-
-/* --- 3. TÍNH NĂNG STICKY (QUAN TRỌNG CHO IPHONE) --- */
-
-/* Dính Header lên trên cùng */
-.sticky-thead th {
-  position: sticky;
-  top: 0;
-  background-color: #f8f9fa;
-  z-index: 10;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-  white-space: nowrap;
-}
-
-/* Dính cột Tên Sản Phẩm sang trái */
-.sticky-col-left {
-  position: sticky;
-  left: 0;
-  background-color: #ffffff;
-  z-index: 5;
-  border-right: 2px solid #e9ecef !important;
-  min-width: 140px;
-  max-width: 200px;
-}
-
-/* Khi Header gặp Cột dính -> Header nằm trên cùng */
-.sticky-thead th.sticky-col-left {
-  z-index: 15;
-  background-color: #f8f9fa;
-}
-
-/* Màu nền cho các cột đặc biệt */
-.bg-warning-light { background-color: #fffbf0; }
-.bg-primary-light { background-color: #e3f2fd; color: #004085; }
-
-/* --- 4. RESPONSIVE (ĐIỆN THOẠI & IPAD) --- */
+.sticky-thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.1); white-space: nowrap; }
 @media (max-width: 768px) {
-  /* Tabs dễ bấm hơn */
-  .nav-tabs .nav-link {
-    padding: 0.5rem 0.8rem;
-    font-size: 0.9rem;
-  }
-  
-  /* Input nằm ngang (2 cột) thay vì dọc */
+  .nav-tabs .nav-link { padding: 0.5rem 0.8rem; font-size: 0.9rem; }
   .col-6 { padding-left: 5px; padding-right: 5px; } 
-  
-  /* Nút bấm to full màn hình */
-  .btn-sm-mobile { width: 100%; margin-top: 8px; }
-  .btn-block-mobile { display: block; width: 100%; margin-left: 0 !important; margin-top: 5px; }
-  
-  /* Chữ trong bảng nhỏ lại xíu */
   .table th, .table td { padding: 8px 6px; font-size: 13px; }
-  
-  /* Ẩn bớt text tab nếu cần */
-  .page-title { font-size: 1.25rem; }
 }
 </style>

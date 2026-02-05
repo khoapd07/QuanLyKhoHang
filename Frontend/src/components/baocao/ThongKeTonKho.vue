@@ -260,11 +260,50 @@ const loadKho = async () => {
   }
 };
 
+// --- SỬA LẠI HÀM FETCH REPORT ---
 const fetchInventoryReport = async () => {
+  // 1. Kiểm tra ngày hợp lệ
+  if (!filters.startDate || !filters.endDate) {
+    alert("Vui lòng chọn đầy đủ Từ ngày và Đến ngày");
+    return;
+  }
+
+  const start = new Date(filters.startDate);
+  const end = new Date(filters.endDate);
+
+  if (start > end) {
+    alert("Ngày bắt đầu không được lớn hơn ngày kết thúc");
+    return;
+  }
+
   loading.value = true;
   reportData.value = [];
 
   try {
+    // ============================================================
+    // [MỚI] BƯỚC VALIDATE: KIỂM TRA CHỐT SỔ ĐẦU NĂM
+    // ============================================================
+    const yearToCheck = start.getFullYear(); // Lấy năm của ngày bắt đầu (Ví dụ: 2026)
+    
+    // Gọi API kiểm tra
+    const checkRes = await api.get('/thong-ke/check-chot-so', {
+        params: {
+            nam: yearToCheck,
+            maKho: filters.warehouseId
+        }
+    });
+
+    const isChotSo = checkRes.data; // Backend trả về true/false
+
+    // Nếu chưa chốt sổ -> Báo lỗi và Dừng lại ngay
+    if (!isChotSo) {
+        alert(`CẢNH BÁO: Dữ liệu năm ${yearToCheck} chưa được chốt sổ đầu năm!\n\nHệ thống không thể tính toán Tồn Đầu Kỳ chính xác.\nVui lòng vào menu "Quản Lý Chốt Tồn Kho" để chốt sổ cho năm ${yearToCheck - 1} trước.`);
+        loading.value = false; // Tắt loading
+        return; // <--- DỪNG HÀM TẠI ĐÂY
+    }
+    // ============================================================
+
+    // 2. Nếu đã chốt rồi thì chạy tiếp logic lấy báo cáo như cũ
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
@@ -279,15 +318,23 @@ const fetchInventoryReport = async () => {
     const data = response.data;
     currentTenKho.value = data.tenKho;
     reportData.value = data.danhSachChiTiet || [];
+    
     if (data.grandTotal) {
       grandTotal.value = data.grandTotal;
     }
+    
     pagination.page = data.currentPage;
     pagination.total = data.totalItems;
     pagination.totalPages = data.totalPages;
 
   } catch (error) {
     console.error("Lỗi:", error);
+    // Xử lý lỗi hiển thị đẹp hơn nếu muốn
+    if (error.response && error.response.status === 400) {
+        alert("Lỗi dữ liệu: " + error.response.data);
+    } else {
+        alert("Có lỗi xảy ra khi tải báo cáo.");
+    }
   } finally {
     loading.value = false;
   }

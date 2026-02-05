@@ -1,7 +1,6 @@
 package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.ThongKeDAO;
-import com.poly.quanlykhohang.dto.BaoCaoResponseDTO;
 import com.poly.quanlykhohang.dto.BaoCaoXuatNhapTonDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -42,22 +41,30 @@ public class ThongKeTonKhoController {
                     maKho, tuNgay, denNgay + " 23:59:59", loaiLoc, page, size
             );
 
-            // 2. Lấy TỔNG HỢP TOÀN BỘ (Count, Sum Tồn, Sum Nhập...)
-            // Kết quả trả về là mảng Object[0] chứa các cột: [Count, TonDau, Nhap, Xuat, TonCuoi, Tien]
-            Object[] summaryData = (Object[]) thongKeDAO.getTongHopBaoCao(
+            // [SỬA LỖI] 2. Lấy TỔNG HỢP TOÀN BỘ
+            // DAO trả về List<Object[]> -> Cần lấy phần tử đầu tiên
+            List<Object[]> summaryList = thongKeDAO.getTongHopBaoCao(
                     maKho, tuNgay, denNgay + " 23:59:59", loaiLoc
-            )[0]; // Lấy dòng đầu tiên
+            );
 
-            long totalItems = toNumber(summaryData[0]); // Cột 0 là Count(*)
-            int totalPages = (int) Math.ceil((double) totalItems / size);
-
-            // Tạo Object chứa tổng cộng để gửi xuống Vue
+            // Mặc định giá trị 0 nếu không có kết quả
+            long totalItems = 0;
             Map<String, Object> grandTotal = new HashMap<>();
-            grandTotal.put("tdk", toNumber(summaryData[1]));
-            grandTotal.put("ntk", toNumber(summaryData[2]));
-            grandTotal.put("xtk", toNumber(summaryData[3]));
-            grandTotal.put("tck", toNumber(summaryData[4]));
-            grandTotal.put("tien", toBigDecimal(summaryData[5]));
+            grandTotal.put("tdk", 0); grandTotal.put("ntk", 0); grandTotal.put("xtk", 0); grandTotal.put("tck", 0); grandTotal.put("tien", 0);
+
+            if (summaryList != null && !summaryList.isEmpty()) {
+                Object[] summaryData = summaryList.get(0); // Lấy dòng đầu tiên
+                if (summaryData != null) {
+                    totalItems = toNumber(summaryData[0]); // Cột 0 là Count(*)
+                    grandTotal.put("tdk", toNumber(summaryData[1]));
+                    grandTotal.put("ntk", toNumber(summaryData[2]));
+                    grandTotal.put("xtk", toNumber(summaryData[3]));
+                    grandTotal.put("tck", toNumber(summaryData[4]));
+                    grandTotal.put("tien", toBigDecimal(summaryData[5]));
+                }
+            }
+
+            int totalPages = (size > 0) ? (int) Math.ceil((double) totalItems / size) : 0;
 
             // 3. Convert dữ liệu chi tiết
             List<BaoCaoXuatNhapTonDTO> list = mapToDTOList(rawResults, loaiLoc);
@@ -71,7 +78,7 @@ public class ThongKeTonKhoController {
             response.put("currentPage", page);
             response.put("totalItems", totalItems);
             response.put("totalPages", totalPages);
-            response.put("grandTotal", grandTotal); // [QUAN TRỌNG]: Gửi tổng cộng xuống
+            response.put("grandTotal", grandTotal);
 
             return ResponseEntity.ok(response);
 
@@ -91,36 +98,30 @@ public class ThongKeTonKhoController {
             thongKeDAO.chotSoDauNam(nam, maKho);
             String tenKho = thongKeDAO.getTenKhoById(maKho);
 
-            // 2. Lấy dữ liệu demo của năm sau (kết quả)
+            // 2. Lấy dữ liệu demo của năm sau
             int namSau = nam + 1;
             int page = 0;
             int size = 20;
 
-            // Lấy danh sách phân trang
             List<Object[]> rawResults = thongKeDAO.getLichSuChotSoPhanTrang(namSau, maKho, page, size);
-
-            // Đếm tổng số dòng
             long totalItems = thongKeDAO.countLichSuChotSo(namSau, maKho);
-            int totalPages = (int) Math.ceil((double) totalItems / size);
+            int totalPages = (size > 0) ? (int) Math.ceil((double) totalItems / size) : 0;
 
-            // [MỚI] Lấy Tổng Cộng Toàn Bộ (Grand Total)
             Map<String, Object> grandTotal = getGrandTotalMap(namSau, maKho);
 
-            // Convert DTO & STT
             List<BaoCaoXuatNhapTonDTO> result = mapToDTOList(rawResults, 0);
             int startStt = 1;
             for (BaoCaoXuatNhapTonDTO dto : result) {
                 dto.setStt(startStt++);
             }
 
-            // 3. Đóng gói response
             Map<String, Object> response = new HashMap<>();
             response.put("tenKho", tenKho);
             response.put("danhSachChiTiet", result);
             response.put("currentPage", page);
             response.put("totalItems", totalItems);
             response.put("totalPages", totalPages);
-            response.put("grandTotal", grandTotal); // <--- Gửi tổng xuống Frontend
+            response.put("grandTotal", grandTotal);
 
             return ResponseEntity.ok(response);
 
@@ -131,7 +132,7 @@ public class ThongKeTonKhoController {
     }
 
     // =================================================================
-    // 3. API XEM LỊCH SỬ (PHÂN TRANG) - Đã thêm Grand Total
+    // 3. API XEM LỊCH SỬ (PHÂN TRANG)
     // =================================================================
     @GetMapping("/lich-su")
     public ResponseEntity<?> xemLichSu(
@@ -143,33 +144,25 @@ public class ThongKeTonKhoController {
         try {
             String tenKho = (maKho == 0) ? "Tất cả các kho" : thongKeDAO.getTenKhoById(maKho);
 
-            // 1. Lấy dữ liệu phân trang
             List<Object[]> rawResults = thongKeDAO.getLichSuChotSoPhanTrang(nam, maKho, page, size);
-
-            // 2. Tính tổng số trang
             long totalItems = thongKeDAO.countLichSuChotSo(nam, maKho);
-            int totalPages = (int) Math.ceil((double) totalItems / size);
+            int totalPages = (size > 0) ? (int) Math.ceil((double) totalItems / size) : 0;
 
-            // [MỚI] Lấy Tổng Cộng Toàn Bộ (Grand Total)
             Map<String, Object> grandTotal = getGrandTotalMap(nam, maKho);
 
-            // 3. Convert DTO
             List<BaoCaoXuatNhapTonDTO> listDTO = mapToDTOList(rawResults, 0);
-
-            // 4. Cập nhật STT
             int startStt = (page * size) + 1;
             for (BaoCaoXuatNhapTonDTO dto : listDTO) {
                 dto.setStt(startStt++);
             }
 
-            // 5. Đóng gói kết quả
             Map<String, Object> response = new HashMap<>();
             response.put("tenKho", tenKho);
             response.put("danhSachChiTiet", listDTO);
             response.put("currentPage", page);
             response.put("totalItems", totalItems);
             response.put("totalPages", totalPages);
-            response.put("grandTotal", grandTotal); // <--- Gửi tổng xuống Frontend
+            response.put("grandTotal", grandTotal);
 
             return ResponseEntity.ok(response);
 
@@ -180,38 +173,44 @@ public class ThongKeTonKhoController {
     }
 
     // =================================================================
-    // HELPER: HÀM MAP DỮ LIỆU DÙNG CHUNG
+    // 4. API KIỂM TRA ĐÃ CHỐT SỔ CHƯA (VALIDATE)
+    // =================================================================
+    @GetMapping("/check-chot-so")
+    public ResponseEntity<?> checkDaChotSo(
+            @RequestParam Integer nam,
+            @RequestParam Integer maKho
+    ) {
+        try {
+            // Gọi hàm DAO có sẵn: demSoLuongBanGhiChotSo
+            // Hàm này đếm trong bảng DMTonKho xem có dữ liệu của Nam và MaKho đó không
+            int count = thongKeDAO.demSoLuongBanGhiChotSo(nam, maKho);
+
+            // Trả về true nếu count > 0 (đã chốt), false nếu chưa
+            return ResponseEntity.ok(count > 0);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi kiểm tra chốt sổ: " + e.getMessage());
+        }
+    }
+
+    // =================================================================
+    // HELPER: HÀM MAP DỮ LIỆU
     // =================================================================
     private List<BaoCaoXuatNhapTonDTO> mapToDTOList(List<Object[]> rawResults, Integer loaiLocCanLoc) {
         List<BaoCaoXuatNhapTonDTO> listBaoCao = new ArrayList<>();
+        if (rawResults == null || rawResults.isEmpty()) return listBaoCao;
 
-        if (rawResults == null || rawResults.isEmpty()) {
-            return listBaoCao;
-        }
-
-        // Lưu ý: STT ở đây chỉ là tạm thời, sẽ được set lại ở Controller dựa trên page
         int stt = 1;
-
         for (Object[] row : rawResults) {
             Integer idTrangThai = toInteger(row[2]);
-
-            if (loaiLocCanLoc != 0 && !idTrangThai.equals(loaiLocCanLoc)) {
-                continue;
-            }
+            if (loaiLocCanLoc != 0 && !idTrangThai.equals(loaiLocCanLoc)) continue;
 
             BaoCaoXuatNhapTonDTO dto = new BaoCaoXuatNhapTonDTO();
             dto.setStt(stt++);
-
-            // Mapping dữ liệu
             dto.setMaSP(toStringSafe(row[0]));
+
             String tenGoc = toStringSafe(row[1]);
             String tenTrangThai = toStringSafe(row[3]);
-
-            if (!tenTrangThai.isEmpty()) {
-                dto.setTenSP(tenGoc + " - " + tenTrangThai);
-            } else {
-                dto.setTenSP(tenGoc);
-            }
+            dto.setTenSP(!tenTrangThai.isEmpty() ? tenGoc + " - " + tenTrangThai : tenGoc);
 
             dto.setDonvitinh(toStringSafe(row[4]));
             dto.setTonDau(toNumber(row[5]));
@@ -225,72 +224,50 @@ public class ThongKeTonKhoController {
             dto.setThanhTien(thanhTien);
 
             if (tonCuoi > 0 && thanhTien.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal giaBQ = thanhTien.divide(BigDecimal.valueOf(tonCuoi), 2, RoundingMode.HALF_UP);
-                dto.setGiaBQ(giaBQ);
+                dto.setGiaBQ(thanhTien.divide(BigDecimal.valueOf(tonCuoi), 2, RoundingMode.HALF_UP));
             } else {
                 dto.setGiaBQ(BigDecimal.ZERO);
             }
-
             listBaoCao.add(dto);
         }
-
         return listBaoCao;
     }
 
-    // --- Helper Methods: Safe Conversion ---
+    // --- Helper Methods ---
     private String toStringSafe(Object obj) {
         return (obj == null) ? "" : obj.toString();
     }
-
     private Integer toInteger(Object obj) {
-        if (obj == null) return 1;
-        try { return Integer.valueOf(obj.toString()); } catch (Exception e) { return 1; }
+        try { return obj == null ? 1 : Integer.valueOf(obj.toString()); } catch (Exception e) { return 1; }
     }
-
     private Long toNumber(Object obj) {
-        if (obj == null) return 0L;
-        try { return Long.valueOf(obj.toString()); } catch (Exception e) { return 0L; }
+        try { return obj == null ? 0L : Long.valueOf(obj.toString()); } catch (Exception e) { return 0L; }
     }
-
     private BigDecimal toBigDecimal(Object obj) {
-        if (obj == null) return BigDecimal.ZERO;
-        try { return new BigDecimal(obj.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
+        try { return obj == null ? BigDecimal.ZERO : new BigDecimal(obj.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
     }
 
-
+    // [SỬA LỖI] Helper lấy Grand Total (Map từ List<Object[]> sang Map)
     private Map<String, Object> getGrandTotalMap(Integer nam, Integer maKho) {
         Map<String, Object> grandTotal = new HashMap<>();
+        grandTotal.put("tdk", 0); grandTotal.put("ntk", 0); grandTotal.put("xtk", 0); grandTotal.put("tck", 0); grandTotal.put("tien", 0);
+
         try {
-            // Gọi hàm DAO lấy Object[] (đã khai báo ở bước trước)
-            Object[] rawData = thongKeDAO.getTongHopLichSu(nam, maKho);
+            // DAO trả về List<Object[]>
+            List<Object[]> rawList = thongKeDAO.getTongHopLichSu(nam, maKho);
 
-            // JPA thường trả về List<Object[]> nếu là native query
-            // Nhưng nếu query trả về 1 dòng duy nhất, đôi khi nó trả về Object[] hoặc List tùy cấu hình
-            // Code an toàn nhất: ép kiểu
-            Object[] row = null;
-            if (rawData != null && rawData.length > 0) {
-                // Trường hợp trả về mảng 1 dòng
-                if (rawData[0] instanceof Object[]) {
-                    row = (Object[]) rawData[0];
-                } else {
-                    row = rawData;
+            if (rawList != null && !rawList.isEmpty()) {
+                Object[] row = rawList.get(0); // Lấy dòng đầu tiên
+                if (row != null) {
+                    grandTotal.put("tdk", toNumber(row[0]));
+                    grandTotal.put("ntk", toNumber(row[1]));
+                    grandTotal.put("xtk", toNumber(row[2]));
+                    grandTotal.put("tck", toNumber(row[3]));
+                    grandTotal.put("tien", toBigDecimal(row[4]));
                 }
-            }
-
-            if (row != null) {
-                grandTotal.put("tdk", toNumber(row[0]));
-                grandTotal.put("ntk", toNumber(row[1]));
-                grandTotal.put("xtk", toNumber(row[2]));
-                grandTotal.put("tck", toNumber(row[3]));
-                grandTotal.put("tien", toBigDecimal(row[4]));
-            } else {
-                // Không có dữ liệu thì trả về 0
-                grandTotal.put("tdk", 0); grandTotal.put("ntk", 0); grandTotal.put("xtk", 0); grandTotal.put("tck", 0); grandTotal.put("tien", 0);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            // Fallback về 0 nếu lỗi
-            grandTotal.put("tdk", 0); grandTotal.put("ntk", 0); grandTotal.put("xtk", 0); grandTotal.put("tck", 0); grandTotal.put("tien", 0);
         }
         return grandTotal;
     }

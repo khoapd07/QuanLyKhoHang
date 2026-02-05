@@ -19,7 +19,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     String getTenKhoById(@Param("maKho") Integer maKho);
 
     /**
-     * [LEGACY] Báo cáo cũ (Không phân trang) - Giữ lại để tránh lỗi code cũ
+     * [LEGACY] Báo cáo cũ (Không phân trang)
      */
     @Query(value = "EXEC sp_BaoCaoXuatNhapTon_TheoTrangThai :maKho, :tuNgay, :denNgay, :loaiLoc", nativeQuery = true)
     List<Object[]> baoCaoTheoTrangThai(
@@ -31,6 +31,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
 
     /**
      * [ACTION] Chốt sổ đầu năm
+     * Đã khớp với SP mới (tính cả hàng chuyển kho)
      */
     @Modifying
     @Transactional
@@ -40,7 +41,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     /**
      * [CHECK] Kiểm tra xem năm đã chốt chưa
      */
-    @Query(value = "SELECT COUNT(*) FROM DMTonKho WHERE Nam = :namSau AND MaKho = :maKho", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM DMTonKho WHERE Nam = :namSau AND (:maKho = 0 OR MaKho = :maKho)", nativeQuery = true)
     int demSoLuongBanGhiChotSo(@Param("namSau") int namSau, @Param("maKho") int maKho);
 
     // =================================================================================
@@ -49,6 +50,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
 
     /**
      * 1.1 Lấy danh sách lịch sử (Phân trang)
+     * SP đã sửa LEFT JOIN để hiển thị cả "Sản phẩm Ma"
      */
     @Query(value = "EXEC sp_LayLichSuChotSo_PhanTrang :nam, :maKho, :page, :size", nativeQuery = true)
     List<Object[]> getLichSuChotSoPhanTrang(
@@ -64,13 +66,19 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     @Query(value = "SELECT COUNT(*) FROM DMTonKho WHERE Nam = :nam AND (:maKho = 0 OR MaKho = :maKho)", nativeQuery = true)
     long countLichSuChotSo(@Param("nam") Integer nam, @Param("maKho") Integer maKho);
 
+    /**
+     * [SỬA LẠI RETURN TYPE] 1.3 Lấy tổng cộng cho phần Lịch Sử
+     * Trả về List<Object[]> để tránh lỗi ClassCastException
+     */
+    @Query(value = "EXEC sp_Sum_LichSuChotSo :nam, :maKho", nativeQuery = true)
+    List<Object[]> getTongHopLichSu(@Param("nam") Integer nam, @Param("maKho") Integer maKho);
+
     // =================================================================================
-    // PHẦN 2: CÁC HÀM BÁO CÁO XUẤT NHẬP TỒN (LIVE DATA - TAB 1) [MỚI THÊM]
+    // PHẦN 2: CÁC HÀM BÁO CÁO XUẤT NHẬP TỒN (LIVE DATA - TAB 1)
     // =================================================================================
 
     /**
      * 2.1 Lấy báo cáo Xuất Nhập Tồn (Phân trang)
-     * Gọi SP: sp_BaoCaoXuatNhapTon_PhanTrang
      */
     @Query(value = "EXEC sp_BaoCaoXuatNhapTon_PhanTrang :maKho, :tuNgay, :denNgay, :loaiLoc, :page, :size", nativeQuery = true)
     List<Object[]> baoCaoPhanTrang(
@@ -83,18 +91,14 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     );
 
     /**
-     * 2.2 Đếm tổng số dòng báo cáo Xuất Nhập Tồn
-     * Gọi SP: sp_Count_BaoCaoXuatNhapTon
+     * [SỬA LẠI RETURN TYPE] 2.2 Lấy tổng hợp báo cáo (Grand Total)
+     * Trả về List<Object[]> thay vì Object[]
      */
     @Query(value = "EXEC sp_Count_BaoCaoXuatNhapTon :maKho, :tuNgay, :denNgay, :loaiLoc", nativeQuery = true)
-    Object[] getTongHopBaoCao( // Đổi tên hàm cho rõ nghĩa
-                               @Param("maKho") Integer maKho,
-                               @Param("tuNgay") String tuNgay,
-                               @Param("denNgay") String denNgay,
-                               @Param("loaiLoc") Integer loaiLoc
+    List<Object[]> getTongHopBaoCao(
+            @Param("maKho") Integer maKho,
+            @Param("tuNgay") String tuNgay,
+            @Param("denNgay") String denNgay,
+            @Param("loaiLoc") Integer loaiLoc
     );
-
-    // Lấy tổng cộng cho phần Lịch Sử / Chốt Sổ
-    @Query(value = "EXEC sp_Sum_LichSuChotSo :nam, :maKho", nativeQuery = true)
-    Object[] getTongHopLichSu(@Param("nam") Integer nam, @Param("maKho") Integer maKho);
 }
