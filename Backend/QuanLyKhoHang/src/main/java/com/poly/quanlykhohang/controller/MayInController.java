@@ -35,13 +35,16 @@ public class MayInController {
     public ResponseEntity<Page<MayInResponseDTO>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) Integer maKho
+            @RequestParam(required = false) Integer maKho,     // Lọc theo Kho
+            @RequestParam(required = false) String maSP,       // Lọc theo Sản Phẩm (Mới)
+            @RequestParam(required = false) Integer trangThai  // Lọc theo Trạng Thái (Mới)
     ) {
-        // Tạo đối tượng Pageable (trang, kích thước, sắp xếp theo ngày tạo mới nhất)
-        Pageable pageable = PageRequest.of(page, size, Sort.by("ngayTao").descending());
+        // Xử lý chuỗi rỗng cho maSP nếu frontend gửi lên ""
+        if (maSP != null && maSP.trim().isEmpty()) {
+            maSP = null;
+        }
 
-        // Trả về Page<MayIn> thay vì List<MayIn>
-        return ResponseEntity.ok(mayInService.layDanhSachMayIn(page, size, maKho));
+        return ResponseEntity.ok(mayInService.layDanhSachMayIn(page, size, maKho, maSP, trangThai));
     }
 
     // 2. Cập nhật thông tin máy (API MỚI)

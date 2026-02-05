@@ -78,4 +78,10 @@ public class SanPhamController {
             return ResponseEntity.badRequest().body("Không thể xóa sản phẩm này (đã có phát sinh giao dịch nhập/xuất)!");
         }
     }
+
+    @GetMapping("/list")
+    public ResponseEntity<List<SanPham>> getAllList() {
+        // Lấy tất cả, sắp xếp theo tên cho dễ tìm
+        return ResponseEntity.ok(sanPhamDAO.findAll(Sort.by("tenSP").ascending()));
+    }
 }

@@ -20,5 +20,7 @@ public interface MayInService {
     void capNhatTrangThai(String soSeri, Integer trangThaiMoi);
     void chuyenKho(String soSeri, Integer maKhoMoi);
 
-    Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho);
+//    Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho);
+
+    Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho, String maSP, Integer trangThai);
 }

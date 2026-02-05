@@ -6,19 +6,23 @@ import * as bootstrap from 'bootstrap';
 // --- CẤU HÌNH ---
 const API_URL = '/may-in'; 
 const API_KHO = '/kho'; 
-const API_TRANG_THAI = '/trang-thai'; // [MỚI] API Trạng thái
+const API_TRANG_THAI = '/trang-thai'; 
+const API_SAN_PHAM = '/san-pham/list'; // [MỚI] API lấy danh sách sản phẩm để lọc
 
 // --- STATE ---
 const danhSachMay = ref([]); 
 const danhSachKho = ref([]);
-const danhSachTrangThai = ref([]); // [MỚI] Chứa list trạng thái từ DB
+const danhSachTrangThai = ref([]);
+const danhSachSanPham = ref([]); // [MỚI] List sản phẩm cho dropdown
 const isLoading = ref(false);
 const message = ref({ type: '', text: '' });
 let modalInstance = null;
 
-// State phân quyền
+// State phân quyền & Bộ lọc
 const isAdmin = ref(false);
-const filterMaKho = ref(0); 
+const filterMaKho = ref(0);     // 0 = Tất cả
+const filterMaSP = ref("");     // "" = Tất cả [MỚI]
+const filterTrangThai = ref(0); // 0 = Tất cả [MỚI]
 
 // --- STATE PHÂN TRANG ---
 const currentPage = ref(0);
@@ -26,7 +30,7 @@ const itemsPerPage = ref(20);
 const totalPages = ref(0);
 const totalElements = ref(0);
 
-// --- COMPUTED: TÍNH TOÁN NÚT HIỂN THỊ ---
+// --- COMPUTED: Pagination (Giữ nguyên) ---
 const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value + 1;
@@ -34,7 +38,6 @@ const visiblePages = computed(() => {
     const range = [];
     const rangeWithDots = [];
     let l;
-
     for (let i = 1; i <= total; i++) {
         if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
             range.push(i);
@@ -57,26 +60,24 @@ const paginationInfo = computed(() => ({
     totalPages: totalPages.value
 }));
 
-// --- FORM DATA ---
+// --- FORM DATA & HELPERS ---
 const form = reactive({
   maMay: '', tenSP: '', tenHang: '', tenLoai: '', ngayTao: '', soPhieuNhap: '', 
   soSeri: '', trangThai: 1, tonKho: true, maKho: null      
 });
 
-// [MỚI] Mapping màu sắc cho trạng thái (Database chỉ lưu tên, Frontend tự quy định màu)
 const getBadgeClass = (id) => {
     switch (id) {
-        case 1: return 'bg-success';          // Mới
-        case 2: return 'bg-info text-dark';   // Like New
-        case 3: return 'bg-danger';           // Hỏng
-        case 4: return 'bg-dark';             // Xác
-        case 5: return 'bg-warning text-dark';// Thu hồi
-        case 6: return 'bg-primary';          // Nhập khẩu
-        default: return 'bg-secondary';       // Khác
+        case 1: return 'bg-success';
+        case 2: return 'bg-info text-dark';
+        case 3: return 'bg-danger';
+        case 4: return 'bg-dark';
+        case 5: return 'bg-warning text-dark';
+        case 6: return 'bg-primary';
+        default: return 'bg-secondary';
     }
 };
 
-// [MỚI] Hàm lấy tên trạng thái từ ID (Dùng cho hiển thị bảng)
 const getTenTrangThai = (id) => {
     const tt = danhSachTrangThai.value.find(t => t.maTrangThai === id);
     return tt ? tt.tenTrangThai : 'Không xác định';
@@ -112,20 +113,23 @@ const setupPhanQuyen = async () => {
 
 // --- API METHODS ---
 
-// 1. Load Data
+// 1. Load Data (Cập nhật logic gửi params)
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
     const params = { page: page, size: itemsPerPage.value };
-    if (filterMaKho.value && filterMaKho.value !== 0) {
-        params.maKho = filterMaKho.value;
-    }
+    
+    // [MỚI] Gán các tham số lọc vào request
+    if (filterMaKho.value && filterMaKho.value !== 0) params.maKho = filterMaKho.value;
+    if (filterMaSP.value && filterMaSP.value !== "") params.maSP = filterMaSP.value;
+    if (filterTrangThai.value && filterTrangThai.value !== 0) params.trangThai = filterTrangThai.value;
 
-    // [SỬA] Load song song: Máy In, Kho, Trạng Thái
-    const [resMay, resKho, resTrangThai] = await Promise.all([
+    // Load song song: Máy In + Các danh mục (nếu chưa có)
+    const [resMay, resKho, resTrangThai, resSP] = await Promise.all([
       api.get(API_URL, { params }),
       danhSachKho.value.length === 0 ? api.get(API_KHO) : { data: danhSachKho.value },
-      danhSachTrangThai.value.length === 0 ? api.get(API_TRANG_THAI) : { data: danhSachTrangThai.value }
+      danhSachTrangThai.value.length === 0 ? api.get(API_TRANG_THAI) : { data: danhSachTrangThai.value },
+      danhSachSanPham.value.length === 0 ? api.get(API_SAN_PHAM) : { data: danhSachSanPham.value } // [MỚI]
     ]);
 
     if (resMay.data) {
@@ -137,6 +141,7 @@ const loadData = async (page = 0) => {
     
     if(resKho.data) danhSachKho.value = resKho.data;
     if(resTrangThai.data) danhSachTrangThai.value = resTrangThai.data;
+    if(resSP.data) danhSachSanPham.value = resSP.data; // [MỚI]
 
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
@@ -152,12 +157,19 @@ const changePage = (page) => {
     }
 };
 
+// [MỚI] Hàm reset bộ lọc
+const resetFilters = () => {
+    if(isAdmin.value) filterMaKho.value = 0;
+    filterMaSP.value = "";
+    filterTrangThai.value = 0;
+    loadData(0);
+};
+
 const openEditModal = (may) => {
   form.maMay = may.maMay;
   form.tenSP = may.tenSP || '---';
   form.tenHang = may.tenHang || '---';
   form.tenLoai = may.tenLoai || '---';
-  
   form.ngayTao = formatDate(may.ngayTao);
   form.soPhieuNhap = may.soPhieuNhap || 'Không có';
   form.soSeri = may.soSeri || '';
@@ -212,17 +224,35 @@ onMounted(async () => {
 
 <template>
   <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3 class="text-primary"><i class="bi bi-qr-code"></i> Quản Lý Danh Mục Máy</h3>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+      <h3 class="text-primary mb-0"><i class="bi bi-qr-code"></i> Quản Lý Danh Mục Máy</h3>
       
-      <div class="d-flex gap-2">
-          <select v-if="isAdmin" class="form-select form-select-sm" style="width: 200px;" v-model="filterMaKho" @change="loadData(0)">
+      <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-2 rounded border shadow-sm">
+          <span class="fw-bold text-secondary small me-1"><i class="bi bi-funnel-fill"></i> Bộ lọc:</span>
+          
+          <select v-if="isAdmin" class="form-select form-select-sm" style="width: 160px;" v-model="filterMaKho" @change="loadData(0)">
               <option :value="0">-- Tất cả kho --</option>
               <option v-for="k in danhSachKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
           </select>
 
+          <select class="form-select form-select-sm" style="width: 160px;" v-model="filterMaSP" @change="loadData(0)">
+              <option value="">-- Tất cả SP --</option>
+              <option v-for="sp in danhSachSanPham" :key="sp.maSP" :value="sp.maSP">{{ sp.tenSP }}</option>
+          </select>
+
+          <select class="form-select form-select-sm" style="width: 150px;" v-model="filterTrangThai" @change="loadData(0)">
+              <option :value="0">-- Tất cả T.Thái --</option>
+              <option v-for="tt in danhSachTrangThai" :key="tt.maTrangThai" :value="tt.maTrangThai">
+                  {{ tt.tenTrangThai }}
+              </option>
+          </select>
+
+          <button class="btn btn-sm btn-outline-danger" @click="resetFilters" title="Xóa bộ lọc">
+            <i class="bi bi-x-lg"></i>
+          </button>
+
           <button class="btn btn-sm btn-outline-secondary" @click="loadData(currentPage)">
-            <i class="bi bi-arrow-clockwise"></i> Tải lại
+            <i class="bi bi-arrow-clockwise"></i>
           </button>
       </div>
     </div>

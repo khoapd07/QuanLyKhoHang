@@ -1,9 +1,14 @@
 package com.poly.quanlykhohang.dto;
 
 import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
 import lombok.Data; // Nếu dùng Lombok, không thì tự tạo Getter/Setter
+import lombok.NoArgsConstructor;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class MayInResponseDTO {
     private String maMay;
     private String soSeri;

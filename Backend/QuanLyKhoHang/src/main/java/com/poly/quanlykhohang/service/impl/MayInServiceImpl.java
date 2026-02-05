@@ -119,22 +119,22 @@ public class MayInServiceImpl implements MayInService {
         mayInDAO.save(mayIn);
     }
 
-    @Override
-    public Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "ngayTao"));
-
-        // 1. Lấy dữ liệu Entity từ DB
-        Page<MayIn> pageEntity;
-        if (maKho != null && maKho > 0) {
-            pageEntity = mayInDAO.findByKhoMaKho(maKho, pageable);
-        } else {
-            pageEntity = mayInDAO.findAll(pageable);
-        }
-
-        // 2. Chuyển đổi (Map) từ Entity sang DTO
-        // Hàm .map() của Page sẽ tự động duyệt qua từng phần tử
-        return pageEntity.map(this::convertToDTO);
-    }
+//    @Override
+//    public Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho) {
+//        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "ngayTao"));
+//
+//        // 1. Lấy dữ liệu Entity từ DB
+//        Page<MayIn> pageEntity;
+//        if (maKho != null && maKho > 0) {
+//            pageEntity = mayInDAO.findByKhoMaKho(maKho, pageable);
+//        } else {
+//            pageEntity = mayInDAO.findAll(pageable);
+//        }
+//
+//        // 2. Chuyển đổi (Map) từ Entity sang DTO
+//        // Hàm .map() của Page sẽ tự động duyệt qua từng phần tử
+//        return pageEntity.map(this::convertToDTO);
+//    }
 
     private MayInResponseDTO convertToDTO(MayIn entity) {
         MayInResponseDTO dto = new MayInResponseDTO();
@@ -171,5 +171,39 @@ public class MayInServiceImpl implements MayInService {
         }
 
         return dto;
+    }
+
+    @Override
+    public Page<MayInResponseDTO> layDanhSachMayIn(int page, int size, Integer maKho, String maSP, Integer trangThai) {
+        // 1. Tạo Pageable
+        Pageable pageable = PageRequest.of(page, size, Sort.by("ngayTao").descending());
+
+        // 2. Gọi DAO lấy dữ liệu thô (Entity)
+        Page<MayIn> pageResult = mayInDAO.findByFilter(maKho, maSP, trangThai, pageable);
+
+        // 3. Convert Entity -> DTO
+        // [QUAN TRỌNG]: Thứ tự tham số phải khớp y hệt thứ tự khai báo trong file DTO
+        return pageResult.map(may -> new MayInResponseDTO(
+                may.getMaMay(),                                         // 1. maMay
+                may.getSoSeri(),                                        // 2. soSeri
+                may.getTrangThai(),                                     // 3. trangThai
+                may.getTonKho(),                                        // 4. tonKho
+                may.getNgayTao(),                                       // 5. ngayTao
+                may.getSoPhieuNhap(),                                   // 6. soPhieuNhap
+
+                // --- Nhóm Sản Phẩm ---
+                may.getSanPham() != null ? may.getSanPham().getMaSP() : null, // 7. maSP
+                may.getSanPham() != null ? may.getSanPham().getTenSP() : "---", // 8. tenSP
+
+                (may.getSanPham() != null && may.getSanPham().getHangSanXuat() != null)
+                        ? may.getSanPham().getHangSanXuat().getTenHang() : "---", // 9. tenHang
+
+                (may.getSanPham() != null && may.getSanPham().getLoaiSanPham() != null)
+                        ? may.getSanPham().getLoaiSanPham().getTenLoai() : "---", // 10. tenLoai
+
+                // --- Nhóm Kho ---
+                may.getKho() != null ? may.getKho().getMaKho() : null,  // 11. maKho
+                may.getKho() != null ? may.getKho().getTenKho() : "Chưa nhập kho" // 12. tenKho
+        ));
     }
 }
