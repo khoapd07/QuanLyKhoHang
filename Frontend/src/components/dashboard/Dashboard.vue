@@ -1,71 +1,71 @@
 <template>
   <div class="dashboard-wrapper">
-    <header class="dashboard-header">
-      <h1>Tổng Quan Kho Hàng</h1>
-      <p class="subtitle">Thống kê hoạt động xuất nhập tồn theo thời gian thực (Năm {{ currentYear }})</p>
-    </header>
+    <div class="container-limit">
+      <header class="dashboard-header">
+        <h1>Tổng Quan Kho Hàng</h1>
+        <p class="subtitle">Thống kê hoạt động xuất nhập tồn theo thời gian thực (Năm {{ currentYear }})</p>
+      </header>
 
-    <div class="stats-grid">
-      <div class="stat-card total-stock">
-        <div class="card-icon"><i class="fas fa-boxes"></i> 📦</div>
-        <div class="card-info">
-          <h3>Tổng Tồn Kho</h3>
-          <p class="stat-value">{{ formatNumber(stats.totalStock) }}</p>
-          <span class="stat-trend positive">Sản phẩm đang có trong kho</span>
+      <div class="stats-grid">
+        <div class="stat-card total-stock">
+          <div class="card-icon"><i class="fas fa-boxes"></i> 📦</div>
+          <div class="card-info">
+            <h3>Tổng Tồn Kho</h3>
+            <p class="stat-value">{{ formatNumber(stats.totalStock) }}</p>
+            <span class="stat-trend positive">Sản phẩm đang có trong kho</span>
+          </div>
+        </div>
+
+        <div class="stat-card import-stock">
+          <div class="card-icon">📥</div>
+          <div class="card-info">
+            <h3>Tổng Nhập Trong Tháng</h3>
+            <p class="stat-value">{{ formatNumber(stats.importMonth) }}</p>
+            <span class="sub-text">Gồm nhập trong tháng {{ currentMonth }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card export-stock">
+          <div class="card-icon">📤</div>
+          <div class="card-info">
+            <h3>Tổng Xuất Trong Tháng</h3>
+            <p class="stat-value">{{ formatNumber(stats.exportMonth) }}</p>
+            <span class="sub-text">Gồm xuất trong tháng {{ currentMonth }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="stat-card import-stock">
-        <div class="card-icon">📥</div>
-        <div class="card-info">
-          <h3>Tổng Nhận (Tháng)</h3>
-          <p class="stat-value">{{ formatNumber(stats.importMonth) }}</p>
-          <span class="sub-text">Gồm nhập mới & chuyển đến</span>
-        </div>
-      </div>
-
-      <div class="stat-card export-stock">
-        <div class="card-icon">📤</div>
-        <div class="card-info">
-          <h3>Tổng Đi (Tháng)</h3>
-          <p class="stat-value">{{ formatNumber(stats.exportMonth) }}</p>
-          <span class="sub-text">Gồm xuất bán & chuyển đi</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="chart-section">
-      <div class="chart-header">
-        <h2>Biểu Đồ Xuất Nhập Tổng Quát</h2>
-        <select v-model="selectedKho" @change="handleFilterChange" class="chart-filter" :disabled="!isAdmin">
-            <option :value="0" v-if="isAdmin">Tất cả kho</option>
-            <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
-        </select>
-      </div>
-      
-      <div class="chart-container">
-        <Bar v-if="loaded" :data="chartData" :options="chartOptions" />
-        <div v-else class="loading-chart">Đang tải dữ liệu biểu đồ...</div>
-      </div>
-    </div>
-    
-    <div class="chart-section" style="margin-top: 24px;">
+      <div class="chart-section">
         <div class="chart-header">
-          <h2>🚚 Biểu Đồ Luân Chuyển Nội Bộ (Transfer)</h2>
-          
-          <select v-model="selectedKhoTransfer" @change="fetchTransferData" class="chart-filter" :disabled="!isAdmin">
-            <option :value="0" v-if="isAdmin">Tất cả kho</option>
-            <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
-        </select>
+          <h2>Biểu Đồ Xuất Nhập Tổng Quát</h2>
+          <select v-model="selectedKho" @change="handleFilterChange" class="chart-filter" :disabled="!isAdmin">
+              <option :value="0" v-if="isAdmin">Tất cả kho</option>
+              <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
+          </select>
         </div>
         
         <div class="chart-container">
-          <Bar v-if="loadedTransfer" :data="chartDataTransfer" :options="chartOptions" />
-          <div v-else class="loading-chart">Đang tải dữ liệu chuyển kho...</div>
+          <Bar v-if="loaded" :data="chartData" :options="chartOptions" />
+          <div v-else class="loading-chart">Đang tải dữ liệu biểu đồ...</div>
         </div>
+      </div>
+      
+      <div class="chart-section" style="margin-top: 24px;">
+          <div class="chart-header">
+            <h2>🚚 Luân Chuyển Nội Bộ</h2> <select v-model="selectedKhoTransfer" @change="fetchTransferData" class="chart-filter" :disabled="!isAdmin">
+              <option :value="0" v-if="isAdmin">Tất cả kho</option>
+              <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
+          </select>
+          </div>
+          
+          <div class="chart-container">
+            <Bar v-if="loadedTransfer" :data="chartDataTransfer" :options="chartOptions" />
+            <div v-else class="loading-chart">Đang tải dữ liệu chuyển kho...</div>
+          </div>
+      </div>
     </div>
-
-  </div> </template>
+  </div> 
+</template>
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
@@ -247,34 +247,118 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Code Style giữ nguyên */
+/* --- BASE STYLES (Mặc định cho Desktop) --- */
 .dashboard-wrapper {
   font-family: 'Inter', sans-serif;
   color: #1f2937;
   padding: 24px;
   background-color: #f9fafb; 
   min-height: 100vh;
+  box-sizing: border-box; /* Quan trọng để padding không làm vỡ width */
 }
+
+/* Giới hạn chiều rộng trên màn hình máy tính siêu lớn (Ultrawide) */
+.container-limit {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
 .dashboard-header { margin-bottom: 32px; }
 .dashboard-header h1 { font-size: 24px; font-weight: 700; margin: 0 0 8px 0; color: #111827; }
 .subtitle { font-size: 14px; color: #6b7280; margin: 0; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px; }
-.stat-card { background: #ffffff; border-radius: 12px; padding: 24px; display: flex; align-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; transition: transform 0.2s; }
+
+/* Grid tự động: Giảm minmax xuống 250px để linh hoạt hơn trên iPad mode dọc */
+.stats-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); 
+  gap: 24px; 
+  margin-bottom: 32px; 
+}
+
+.stat-card { 
+  background: #ffffff; 
+  border-radius: 12px; 
+  padding: 24px; 
+  display: flex; 
+  align-items: center; 
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); 
+  border: 1px solid #e5e7eb; 
+  transition: transform 0.2s; 
+}
+
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-.card-icon { width: 48px; height: 48px; border-radius: 10px; background-color: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 16px; }
+.card-icon { width: 48px; height: 48px; border-radius: 10px; background-color: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 16px; flex-shrink: 0; }
 .card-info h3 { font-size: 14px; color: #6b7280; margin: 0 0 4px 0; font-weight: 600; text-transform: uppercase; }
 .stat-value { font-size: 24px; font-weight: 700; color: #111827; margin: 0; }
 .stat-trend { font-size: 12px; color: #10b981; margin-top: 4px; display: block; font-weight: 500; }
 .sub-text { font-size: 12px; color: #9ca3af; }
+
 .chart-section { background: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
-.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 .chart-header h2 { font-size: 18px; font-weight: 600; color: #111827; margin: 0; }
-.chart-filter { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; font-size: 14px; }
+.chart-filter { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; font-size: 14px; background: white; cursor: pointer; }
+
 .chart-container { position: relative; height: 400px; width: 100%; }
 .loading-chart { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; }
-@media (max-width: 640px) {
+
+/* --- RESPONSIVE BREAKPOINTS --- */
+
+/* 1. iPad / Tablet (Portrait & Landscape) - Width < 1024px */
+@media (max-width: 1024px) {
+  .stats-grid {
+    gap: 16px; /* Giảm khoảng cách thẻ cho gọn */
+  }
+  .chart-container {
+    height: 350px; /* Giảm chiều cao biểu đồ một chút */
+  }
+}
+
+/* 2. Mobile Lớn (iPhone 14 Pro Max, Plus) & Tablet nhỏ - Width < 768px */
+@media (max-width: 768px) {
   .dashboard-wrapper { padding: 16px; }
-  .stats-grid { grid-template-columns: 1fr; }
-  .chart-container { height: 300px; }
+  
+  /* Chuyển header của chart thành dạng dọc để nút select không bị chèn */
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .chart-header h2 {
+    font-size: 16px;
+    width: 100%;
+  }
+
+  .chart-filter {
+    width: 100%; /* Select box kéo dài full chiều ngang để dễ bấm cảm ứng */
+    padding: 10px; /* Tăng vùng chạm */
+  }
+}
+
+/* 3. Mobile Tiêu Chuẩn (iPhone 14 Pro, 13, 12...) - Width < 480px */
+@media (max-width: 480px) {
+  .dashboard-wrapper { padding: 12px; background-color: #f3f4f6; }
+  
+  .dashboard-header h1 { font-size: 20px; }
+  
+  /* Thẻ thống kê xếp chồng lên nhau (1 cột) */
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    padding: 16px; /* Tiết kiệm diện tích */
+  }
+  
+  .card-icon {
+    width: 40px; height: 40px; font-size: 20px; /* Thu nhỏ icon */
+  }
+  
+  .chart-section {
+    padding: 16px;
+  }
+  
+  .chart-container {
+    height: 280px; /* Biểu đồ thấp hơn để người dùng đỡ phải scroll quá nhiều */
+  }
 }
 </style>
