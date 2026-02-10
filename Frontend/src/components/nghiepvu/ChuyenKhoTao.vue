@@ -52,14 +52,14 @@
                         
                         <div class="col-12 col-md-6">
                             <label class="form-label small mb-0 fw-bold d-flex justify-content-between small-label">
-                                <span>2. MÃ MÁY <span class="badge bg-secondary">{{ availableSerials.length }}</span></span>
+                                <span>2. MÃ MÁY <span class="badge bg-secondary">{{ selectableSerials.length }}</span></span>
                                 <small class="text-primary" v-if="selectedSerials.length > 0">Chọn: {{ selectedSerials.length }}</small>
                             </label>
                             
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center bg-white text-truncate" 
                                         type="button" data-bs-toggle="dropdown" 
-                                        :disabled="!currentItem.maSP || availableSerials.length === 0"
+                                        :disabled="!currentItem.maSP || selectableSerials.length === 0"
                                         style="height: 31px;">
                                     <span class="text-truncate">
                                         {{ selectedSerials.length > 0 ? `Đã chọn ${selectedSerials.length} máy` : (currentItem.maSP ? '-- Chọn các máy --' : '-- Chọn SP trước --') }}
@@ -85,7 +85,7 @@
                                             <label class="form-check-label w-100 small cursor-pointer text-break" :for="s">{{ s }}</label>
                                         </div>
                                     </div>
-                                    <div v-else class="text-center text-muted py-2 small">Không có máy.</div>
+                                    <div v-else class="text-center text-muted py-2 small">Không có máy khả dụng.</div>
                                 </div>
                             </div>
                         </div>
@@ -116,7 +116,7 @@
                             <th>Sản Phẩm</th>
                             <th width="80px">SL</th>
                             <th>Danh Sách Serial</th>
-                            <th width="50px">Xóa</th>
+                            <th width="80px">Xóa</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -129,9 +129,9 @@
                                     <span class="badge bg-secondary" style="font-size: 10px;" v-for="s in item.danhSachSeri" :key="s">{{ s }}</span>
                                 </div>
                             </td>
-                            <td class="text-center p-0">
-                                <button class="btn btn-link btn-sm text-danger" @click="listHienThi.splice(index, 1)">
-                                    <i class="fas fa-trash-alt"></i>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-danger" @click="listHienThi.splice(index, 1)">
+                                    <i class="fas fa-trash-alt"></i> Xóa
                                 </button>
                             </td>
                         </tr>
@@ -147,8 +147,8 @@
                                 <span class="badge bg-info me-1">{{ index + 1 }}</span>
                                 <span class="fw-bold text-primary small">{{ getTenSP(item.maSP) }}</span>
                             </div>
-                            <button class="btn btn-sm btn-outline-danger border-0 py-0" @click="listHienThi.splice(index, 1)">
-                                <i class="fas fa-trash-alt"></i>
+                            <button class="btn btn-sm btn-outline-danger py-0 px-2" @click="listHienThi.splice(index, 1)">
+                                <i class="fas fa-trash-alt"></i> Xóa
                             </button>
                         </div>
                         
@@ -201,9 +201,20 @@ const getDataSafe = (res) => {
     return [];
 }
 
+// [LOGIC FIX BUG] 1. Lấy danh sách tất cả serial đã được thêm vào bảng tạm
+const usedSerials = computed(() => {
+    return listHienThi.value.flatMap(item => item.danhSachSeri);
+});
+
+// [LOGIC FIX BUG] 2. Danh sách máy khả dụng (Tồn kho - Đã chọn)
+const selectableSerials = computed(() => {
+    return availableSerials.value.filter(s => !usedSerials.value.includes(s));
+});
+
+// [LOGIC FIX BUG] 3. Lọc danh sách khả dụng theo ô tìm kiếm
 const filteredSerials = computed(() => {
-    if (!searchText.value) return availableSerials.value;
-    return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
+    if (!searchText.value) return selectableSerials.value;
+    return selectableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
 });
 
 const isAllSelected = computed(() => {
@@ -253,8 +264,15 @@ const onChonSanPham = async () => {
 const themVaoDanhSach = () => {
     if (!currentItem.maSP) return alert("Chưa chọn sản phẩm!");
     if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào!");
+    
+    // Thêm vào bảng
     listHienThi.value.push({ maSP: currentItem.maSP, danhSachSeri: [...selectedSerials.value] });
-    currentItem.maSP = ""; selectedSerials.value = []; availableSerials.value = []; searchText.value = ""; lastCheckedIndex = -1;
+    
+    // [FIX BUG] Reset input nhưng KHÔNG reset availableSerials (vì computed sẽ tự lọc)
+    selectedSerials.value = []; 
+    searchText.value = "";
+    lastCheckedIndex = -1;
+    // Giữ nguyên currentItem.maSP để user có thể chọn tiếp các máy khác cùng loại nếu muốn
 };
 
 const luuPhieu = async () => {

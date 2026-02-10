@@ -54,14 +54,14 @@
 
                         <div class="col-md-4">
                             <label class="form-label fw-bold d-flex justify-content-between">
-                                <span>2. Danh Sách Mã Máy <span class="badge bg-secondary">Tồn: {{ availableSerials.length }}</span></span>
+                                <span>2. Danh Sách Mã Máy <span class="badge bg-secondary">Tồn: {{ selectableSerials.length }}</span></span>
                                 <small class="text-primary" v-if="selectedSerials.length > 0">Đang chọn: {{ selectedSerials.length }}</small>
                             </label>
                             
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center bg-white" 
                                         type="button" data-bs-toggle="dropdown" 
-                                        :disabled="!currentItem.maSP || !phieuXuat.maKho">
+                                        :disabled="!currentItem.maSP || !phieuXuat.maKho || selectableSerials.length === 0">
                                     <span class="text-truncate">
                                         {{ selectedSerials.length > 0 ? `Đã chọn ${selectedSerials.length} máy` : (currentItem.maSP ? '-- Chọn các máy cần xuất --' : '-- Vui lòng chọn SP trước --') }}
                                     </span>
@@ -141,7 +141,7 @@
                         <td class="text-end fw-bold">{{ formatCurrency(item.donGia * item.soLuong) }}</td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-outline-danger" @click="listHienThi.splice(index, 1)">
-                                <i class="fas fa-trash-alt"></i>
+                                <i class="fas fa-trash-alt"></i> Xóa
                             </button>
                         </td>
                     </tr>
@@ -175,180 +175,183 @@ const availableSerials = ref([]);
 const selectedSerials = ref([]);  
 const searchText = ref("");       
 const isAdmin = ref(false);
-
-// [BIẾN MỚI] Dùng cho Shift Click
 let lastCheckedIndex = -1;
 
+// [FIX LOGIC 1] Lấy danh sách serial đã được thêm vào bảng
+const usedSerials = computed(() => {
+    return listHienThi.value.flatMap(item => item.danhSachSeri);
+});
+
+// [FIX LOGIC 2] Lọc danh sách máy khả dụng (Tồn kho - Đã dùng)
+const selectableSerials = computed(() => {
+    return availableSerials.value.filter(s => !usedSerials.value.includes(s));
+});
+
+// [FIX LOGIC 3] Lọc theo từ khóa tìm kiếm dựa trên danh sách khả dụng
 const filteredSerials = computed(() => {
-    if (!searchText.value) return availableSerials.value;
-    return availableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
+    if (!searchText.value) return selectableSerials.value;
+    return selectableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
 });
 
-// [LOGIC MỚI] 1. Kiểm tra chọn tất cả
 const isAllSelected = computed(() => {
-    if (filteredSerials.value.length === 0) return false;
-    return filteredSerials.value.every(s => selectedSerials.value.includes(s));
+    if (filteredSerials.value.length === 0) return false;
+    return filteredSerials.value.every(s => selectedSerials.value.includes(s));
 });
 
-// [LOGIC MỚI] 2. Hàm Toggle Chọn Tất Cả
 const toggleSelectAll = (e) => {
-    const isChecked = e.target.checked;
-    if (isChecked) {
-        filteredSerials.value.forEach(s => {
-            if (!selectedSerials.value.includes(s)) {
-                selectedSerials.value.push(s);
-            }
-        });
-    } else {
-        selectedSerials.value = selectedSerials.value.filter(s => !filteredSerials.value.includes(s));
-    }
+    const isChecked = e.target.checked;
+    if (isChecked) {
+        filteredSerials.value.forEach(s => {
+            if (!selectedSerials.value.includes(s)) {
+                selectedSerials.value.push(s);
+            }
+        });
+    } else {
+        selectedSerials.value = selectedSerials.value.filter(s => !filteredSerials.value.includes(s));
+    }
 };
 
-// [LOGIC MỚI] 3. Hàm Xử lý Shift + Click
 const handleShiftClick = (event, index) => {
-    if (event.shiftKey && lastCheckedIndex !== -1) {
-        const start = Math.min(lastCheckedIndex, index);
-        const end = Math.max(lastCheckedIndex, index);
-        
-        const subList = filteredSerials.value.slice(start, end + 1);
-        const isChecking = event.target.checked;
+    if (event.shiftKey && lastCheckedIndex !== -1) {
+        const start = Math.min(lastCheckedIndex, index);
+        const end = Math.max(lastCheckedIndex, index);
+        const subList = filteredSerials.value.slice(start, end + 1);
+        const isChecking = event.target.checked;
 
-        subList.forEach(serial => {
-            if (isChecking) {
-                if (!selectedSerials.value.includes(serial)) selectedSerials.value.push(serial);
-            } else {
-                selectedSerials.value = selectedSerials.value.filter(s => s !== serial);
-            }
-        });
-    }
-    lastCheckedIndex = index;
+        subList.forEach(serial => {
+            if (isChecking) {
+                if (!selectedSerials.value.includes(serial)) selectedSerials.value.push(serial);
+            } else {
+                selectedSerials.value = selectedSerials.value.filter(s => s !== serial);
+            }
+        });
+    }
+    lastCheckedIndex = index;
 };
 
-// Helper an toàn dữ liệu
 const getDataSafe = (response) => {
-    if (!response || !response.data) return [];
-    if (response.data.content && Array.isArray(response.data.content)) return response.data.content;
-    if (Array.isArray(response.data)) return response.data;
-    return [];
+    if (!response || !response.data) return [];
+    if (response.data.content && Array.isArray(response.data.content)) return response.data.content;
+    if (Array.isArray(response.data)) return response.data;
+    return [];
 };
 
 const onChonSanPham = async () => {
-    selectedSerials.value = [];
-    availableSerials.value = [];
-    searchText.value = "";
-    lastCheckedIndex = -1; // Reset shift index
-    
-    if (!phieuXuat.value.maKho) {
-        alert("Vui lòng chọn Kho Xuất trước!");
-        currentItem.value.maSP = ""; 
-        return;
-    }
+    selectedSerials.value = [];
+    availableSerials.value = [];
+    searchText.value = "";
+    lastCheckedIndex = -1;
+    
+    if (!phieuXuat.value.maKho) {
+        alert("Vui lòng chọn Kho Xuất trước!");
+        currentItem.value.maSP = ""; 
+        return;
+    }
 
-    try {
-        const res = await api.get('/kho/may-in/kha-dung', {
-            params: {
-                maSP: currentItem.value.maSP,
-                maKho: phieuXuat.value.maKho
-            }
-        });
-        availableSerials.value = res.data;
-    } catch (e) {
-        console.error(e);
-        alert("Không tải được danh sách máy tồn kho!");
-    }
+    try {
+        const res = await api.get('/kho/may-in/kha-dung', {
+            params: {
+                maSP: currentItem.value.maSP,
+                maKho: phieuXuat.value.maKho
+            }
+        });
+        availableSerials.value = res.data;
+    } catch (e) {
+        console.error(e);
+        alert("Không tải được danh sách máy tồn kho!");
+    }
 };
 
 const resetSelection = () => {
-    currentItem.value.maSP = "";
-    availableSerials.value = [];
-    selectedSerials.value = [];
-    listHienThi.value = []; 
-    lastCheckedIndex = -1;
+    currentItem.value.maSP = "";
+    availableSerials.value = [];
+    selectedSerials.value = [];
+    listHienThi.value = []; 
+    lastCheckedIndex = -1;
 };
 
 const removeSerial = (s) => {
-    selectedSerials.value = selectedSerials.value.filter(item => item !== s);
+    selectedSerials.value = selectedSerials.value.filter(item => item !== s);
 };
 
 const listKhachHang = computed(() => {
-    if (!Array.isArray(listDonVi.value)) return [];
-    return listDonVi.value.filter(dv => {
-        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
-        return loai === 2;
-    });
+    if (!Array.isArray(listDonVi.value)) return [];
+    return listDonVi.value.filter(dv => {
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
+        return loai === 2;
+    });
 });
 
 const loadMasterData = async () => {
-    try {
-        const [k, d, s] = await Promise.all([
-             api.get('/kho'),      
-             api.get('/don-vi'),   
-             api.get('/san-pham')  
-        ]);
-        
-        listKho.value = getDataSafe(k);
-        listDonVi.value = getDataSafe(d);
-        listSanPham.value = getDataSafe(s);
+    try {
+        const [k, d, s] = await Promise.all([
+             api.get('/kho'),      
+             api.get('/don-vi'),   
+             api.get('/san-pham')  
+        ]);
+        
+        listKho.value = getDataSafe(k);
+        listDonVi.value = getDataSafe(d);
+        listSanPham.value = getDataSafe(s);
 
-        const role = localStorage.getItem('userRole');
-        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
-        
-        if (!userMaKho) {
-             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-             userMaKho = userInfo.maKho;
-        }
+        const role = localStorage.getItem('userRole');
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        
+        if (!userMaKho) {
+             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+             userMaKho = userInfo.maKho;
+        }
 
-        if (role === 'ADMIN') {
-             isAdmin.value = true;
-        } else {
-             isAdmin.value = false;
-             if (userMaKho) {
-                 phieuXuat.value.maKho = parseInt(userMaKho);
-             } else {
-                 if (listKho.value.length > 0) phieuXuat.value.maKho = listKho.value[0].maKho;
-             }
-        }
+        if (role === 'ADMIN') {
+             isAdmin.value = true;
+        } else {
+             isAdmin.value = false;
+             if (userMaKho) {
+                 phieuXuat.value.maKho = parseInt(userMaKho);
+             } else {
+                 if (listKho.value.length > 0) phieuXuat.value.maKho = listKho.value[0].maKho;
+             }
+        }
 
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); }
 };
 
 const themDongChiTiet = () => {
-    if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
-    if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
+    if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
+    if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
 
-    listHienThi.value.push({
-        maSP: currentItem.value.maSP,
-        donGia: currentItem.value.donGia,
-        soLuong: selectedSerials.value.length, 
-        danhSachSeri: [...selectedSerials.value] 
-    });
+    listHienThi.value.push({
+        maSP: currentItem.value.maSP,
+        donGia: currentItem.value.donGia,
+        soLuong: selectedSerials.value.length, 
+        danhSachSeri: [...selectedSerials.value] 
+    });
 
-    currentItem.value.maSP = "";
-    currentItem.value.donGia = 0;
-    selectedSerials.value = [];
-    availableSerials.value = [];
-    searchText.value = "";
-    lastCheckedIndex = -1;
+    // Reset lại ô chọn máy, nhưng giữ nguyên SP để user chọn tiếp
+    // [FIX LOGIC] computed 'selectableSerials' sẽ tự động trừ các máy vừa thêm ra khỏi list
+    selectedSerials.value = [];
+    searchText.value = "";
+    lastCheckedIndex = -1;
 };
 
 const luuPhieuXuat = async () => {
-    if (!phieuXuat.value.maKho || !phieuXuat.value.maDonVi) return alert("Vui lòng chọn Kho và Khách hàng");
-    
-    const payload = {
-        maKho: phieuXuat.value.maKho,
-        maDonVi: phieuXuat.value.maDonVi,
-        ghiChu: phieuXuat.value.ghiChu,
-        chiTietPhieuXuat: listHienThi.value
-    };
+    if (!phieuXuat.value.maKho || !phieuXuat.value.maDonVi) return alert("Vui lòng chọn Kho và Khách hàng");
+    
+    const payload = {
+        maKho: phieuXuat.value.maKho,
+        maDonVi: phieuXuat.value.maDonVi,
+        ghiChu: phieuXuat.value.ghiChu,
+        chiTietPhieuXuat: listHienThi.value
+    };
 
-    try {
-        await api.post('/kho/xuat', payload);
-        alert("Xuất kho thành công!");
-        router.push('/xuat-kho');
-    } catch (error) {
-        const msg = error.response?.data?.message || error.response?.data || error.message;
-        alert("Lỗi: " + msg);
-    }
+    try {
+        await api.post('/kho/xuat', payload);
+        alert("Xuất kho thành công!");
+        router.push('/xuat-kho');
+    } catch (error) {
+        const msg = error.response?.data?.message || error.response?.data || error.message;
+        alert("Lỗi: " + msg);
+    }
 };
 
 const getTenSP = (maSP) => listSanPham.value.find(s => s.maSP === maSP)?.tenSP || maSP;
