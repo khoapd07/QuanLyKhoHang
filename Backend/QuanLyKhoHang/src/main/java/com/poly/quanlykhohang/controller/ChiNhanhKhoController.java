@@ -15,7 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/chi-nhanh") // Đổi đường dẫn khác với /api/kho để tránh xung đột
-@CrossOrigin(origins = "http://localhost:5173")
+//@CrossOrigin(origins = "*")
 public class ChiNhanhKhoController {
 
     @Autowired

@@ -15,7 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/thong-ke")
-@CrossOrigin(originPatterns = "*", allowCredentials = "true")
+//@CrossOrigin(originPatterns = "*", allowCredentials = "true")
 public class ThongKeTonKhoController {
 
     @Autowired

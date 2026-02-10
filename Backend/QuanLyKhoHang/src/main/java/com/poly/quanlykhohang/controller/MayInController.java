@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/may-in")
-@CrossOrigin(origins = "http://localhost:5173")
+//@CrossOrigin(origins = "*")
 public class MayInController {
 
     @Autowired
