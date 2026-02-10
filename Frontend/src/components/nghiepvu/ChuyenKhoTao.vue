@@ -70,21 +70,19 @@
                                 <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 350px; overflow-y: auto;">
                                     <input type="text" class="form-control form-control-sm mb-2" v-model="searchText" placeholder="🔍 Tìm serial (Shift để chọn nhiều)...">
                                     
-                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 mb-1 bg-light rounded border" v-if="filteredSerials.length > 0">
-                                        <div class="form-check mb-0">
-                                            <input class="form-check-input" type="checkbox" id="selectAll" 
-                                                   :checked="isAllSelected" @change="toggleSelectAll">
-                                            <label class="form-check-label small fw-bold cursor-pointer" for="selectAll">
-                                                Chọn tất cả ({{ filteredSerials.length }})
-                                            </label>
-                                        </div>
+                                    <div class="d-flex align-items-center px-2 py-1 mb-1 bg-light rounded border" v-if="filteredSerials.length > 0">
+                                        <input class="form-check-input m-0 me-2" type="checkbox" id="selectAll" 
+                                               :checked="isAllSelected" @change="toggleSelectAll" style="cursor: pointer;">
+                                        <label class="form-check-label small fw-bold cursor-pointer w-100" for="selectAll">
+                                            Chọn tất cả ({{ filteredSerials.length }})
+                                        </label>
                                     </div>
 
                                     <div v-if="filteredSerials.length > 0">
-                                        <div class="form-check py-1 px-2 hover-bg" v-for="(s, index) in filteredSerials" :key="s">
-                                            <input class="form-check-input" type="checkbox" :value="s" :id="s" 
-                                                   v-model="selectedSerials" @click="handleShiftClick($event, index)">
-                                            <label class="form-check-label w-100 small cursor-pointer" :for="s">{{ s }}</label>
+                                        <div class="d-flex align-items-center py-1 px-2 hover-bg rounded" v-for="(s, index) in filteredSerials" :key="s">
+                                            <input class="form-check-input m-0 me-2" type="checkbox" :value="s" :id="s" 
+                                                   v-model="selectedSerials" @click="handleShiftClick($event, index)" style="cursor: pointer;">
+                                            <label class="form-check-label w-100 small cursor-pointer text-break" :for="s">{{ s }}</label>
                                         </div>
                                     </div>
                                     <div v-else class="text-center text-muted py-2 small">Không có máy.</div>
