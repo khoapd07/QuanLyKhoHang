@@ -126,7 +126,7 @@ const saveData = async () => {
 
   const payload = {
     maVaitro: form.maVaitro,
-    maKho: form.maKho ? { maKho: form.maKho } : null 
+    maKho: form.maKho
   };
 
   if (!isEditMode.value) {

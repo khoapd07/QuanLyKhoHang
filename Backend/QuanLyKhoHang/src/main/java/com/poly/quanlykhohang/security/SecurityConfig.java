@@ -39,6 +39,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt CORS
 
                 .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers(HttpMethod.POST, "/api/admin/tai-khoan").permitAll()
                         // 1. PUBLIC: Không cần đăng nhập
                         .requestMatchers("/api/auth/**", "/api/upload/**", "/error").permitAll()
 
