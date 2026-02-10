@@ -3,6 +3,7 @@ package com.poly.quanlykhohang.service;
 import com.poly.quanlykhohang.dao.TaiKhoanDAO;
 import com.poly.quanlykhohang.entity.TaiKhoan;
 import com.poly.quanlykhohang.security.JwtUtils;
+import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class AuthService {
 
     @Autowired
+    @Lazy
     private AuthenticationManager authenticationManager;
     @Autowired
     private TaiKhoanDAO taiKhoanDAO;
