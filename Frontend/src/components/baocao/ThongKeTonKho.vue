@@ -34,8 +34,8 @@
               <div class="col-lg-3 col-md-6 col-6">
                 <div class="form-group">
                   <label>Kho/Chi nhánh</label>
-                  <select class="form-control" v-model="filters.warehouseId">
-                    <option :value="0">Tất cả kho</option>
+                  <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin">
+                    <option :value="0" v-if="isAdmin">Tất cả kho</option>
                     <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                   </select>
                 </div>
@@ -172,23 +172,22 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
 // --- CẤU HÌNH API ---
-// Sửa đường dẫn thành tương đối (vì base URL đã có /api)
 const API_URL = '/thong-ke/xuat-nhap-ton';
 
 // --- STATE ---
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 const isExporting = ref(false);
+const isAdmin = ref(false); // [MỚI] State lưu quyền
 
 // ---PHÂN TRANG ---
 const pagination = reactive({
   page: 0,
-  size: 20, // Mặc định 20 dòng/trang
+  size: 20, 
   total: 0,
   totalPages: 0
 });
 
-// --- LOGIC TÍNH TOÁN HIỂN THỊ SỐ TRANG (1 ... 4 5 6 ... 10) ---
 const visiblePages = computed(() => {
   const total = pagination.totalPages;
   const current = pagination.page + 1;
@@ -214,7 +213,6 @@ const visiblePages = computed(() => {
   return rangeWithDots;
 });
 
-//  HÀM CHUYỂN TRANG 
 const changePage = (newPage) => {
   if (newPage < 0 || newPage >= pagination.totalPages) return;
   pagination.page = newPage;
@@ -246,13 +244,34 @@ const reportTitle = computed(() => {
   return `Báo cáo: ${currentTenKho.value} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
 });
 
-
 const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+
+// --- LOGIC PHÂN QUYỀN [MỚI] ---
+const setupPhanQuyen = () => {
+    const role = localStorage.getItem('userRole');
+    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+
+    if (!userMaKho) {
+        try {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            userMaKho = userInfo.maKho;
+        } catch (e) {}
+    }
+
+    if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
+        isAdmin.value = true;
+        // Admin giữ nguyên filters.warehouseId = 0 (Tất cả kho)
+    } else {
+        isAdmin.value = false;
+        // Nếu là Staff, ép cứng mã kho và không cho chọn "Tất cả"
+        const myKho = userMaKho ? parseInt(userMaKho) : 0;
+        filters.warehouseId = myKho;
+    }
+};
 
 // --- LOAD DATA ---
 const loadKho = async () => {
   try {
-    // Sử dụng api.get thay vì axios.get
     const res = await api.get('/kho');
     khoList.value = res.data;
   } catch (e) {
@@ -262,7 +281,6 @@ const loadKho = async () => {
 
 // --- SỬA LẠI HÀM FETCH REPORT ---
 const fetchInventoryReport = async () => {
-  // 1. Kiểm tra ngày hợp lệ
   if (!filters.startDate || !filters.endDate) {
     alert("Vui lòng chọn đầy đủ Từ ngày và Đến ngày");
     return;
@@ -280,12 +298,8 @@ const fetchInventoryReport = async () => {
   reportData.value = [];
 
   try {
-    // ============================================================
-    // [MỚI] BƯỚC VALIDATE: KIỂM TRA CHỐT SỔ ĐẦU NĂM
-    // ============================================================
-    const yearToCheck = start.getFullYear(); // Lấy năm của ngày bắt đầu (Ví dụ: 2026)
+    const yearToCheck = start.getFullYear(); 
     
-    // Gọi API kiểm tra
     const checkRes = await api.get('/thong-ke/check-chot-so', {
         params: {
             nam: yearToCheck,
@@ -293,17 +307,14 @@ const fetchInventoryReport = async () => {
         }
     });
 
-    const isChotSo = checkRes.data; // Backend trả về true/false
+    const isChotSo = checkRes.data; 
 
-    // Nếu chưa chốt sổ -> Báo lỗi và Dừng lại ngay
     if (!isChotSo) {
         alert(`CẢNH BÁO: Dữ liệu năm ${yearToCheck} chưa được chốt sổ đầu năm!\n\nHệ thống không thể tính toán Tồn Đầu Kỳ chính xác.\nVui lòng vào menu "Quản Lý Chốt Tồn Kho" để chốt sổ cho năm ${yearToCheck - 1} trước.`);
-        loading.value = false; // Tắt loading
-        return; // <--- DỪNG HÀM TẠI ĐÂY
+        loading.value = false; 
+        return; 
     }
-    // ============================================================
 
-    // 2. Nếu đã chốt rồi thì chạy tiếp logic lấy báo cáo như cũ
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
@@ -329,7 +340,6 @@ const fetchInventoryReport = async () => {
 
   } catch (error) {
     console.error("Lỗi:", error);
-    // Xử lý lỗi hiển thị đẹp hơn nếu muốn
     if (error.response && error.response.status === 400) {
         alert("Lỗi dữ liệu: " + error.response.data);
     } else {
@@ -348,22 +358,18 @@ const loadFile = async (url) => {
 };
 
 const printToWord = async () => {
-
   if (isExporting.value) return;
-
   isExporting.value = true;
 
-
   try {
-
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
         tuNgay: filters.startDate,
         denNgay: filters.endDate,
         loaiLoc: filters.statusId,
-        page: 0,          // Luôn lấy từ trang đầu
-        size: 999999      // Lấy số lượng cực lớn để bao gồm tất cả
+        page: 0,          
+        size: 999999      
       }
     });
 
@@ -381,8 +387,6 @@ const printToWord = async () => {
       acc.tien += item.thanhTien || 0;
       return acc;
     }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-
-
 
     const content = await loadFile("/File_Mau_BaoCaoTonKho.docx");
     const zip = new PizZip(content);
@@ -402,9 +406,8 @@ const printToWord = async () => {
       ngayKetThuc: formatDateString(filters.endDate),
       tenKho: currentTenKho.value,
 
-      // Dùng dataToExport (Tất cả) thay vì reportData (Trang hiện tại)
       p: dataToExport.map((item, index) => ({
-        stt: index + 1, // Đánh lại số thứ tự từ 1 đến hết
+        stt: index + 1, 
         ma: item.maSP,
         ten: item.tenSP,
         dvt: item.donvitinh,
@@ -451,19 +454,16 @@ const formatDateString = (dateStr) => {
 }
 
 onMounted(async () => {
-  const token = localStorage.getItem('token'); // Hoặc tên key bạn dùng lưu token
+  const token = localStorage.getItem('token'); 
 
   if (!token) {
     console.warn("Chưa có token, chuyển hướng về login...");
-    // router.push('/login'); // Nếu dùng vue-router
     return;
   }
 
-
+  setupPhanQuyen(); // Chạy hàm kiểm tra role đầu tiên
   await loadKho();
   fetchInventoryReport();
-
-
 });
 </script>
 
@@ -490,53 +490,38 @@ onMounted(async () => {
 
 /* --- CSS TỐI ƯU CHO MOBILE & IPAD (Không sửa HTML) --- */
 
-/* 1. Card Table Responsive */
-/* Giới hạn chiều cao bảng để scroll dọc được trên đt, tránh bảng dài vô tận */
 .card-body.table-responsive {
   max-height: 75vh;
-  /* Chiếm 75% chiều cao màn hình */
   overflow-y: auto;
   border-bottom: 1px solid #dee2e6;
   -webkit-overflow-scrolling: touch;
-  /* Cuộn mượt trên iPhone */
 }
 
-/* 2. Sticky Header (Dính tiêu đề khi cuộn dọc) */
 .table thead th {
   position: sticky;
   top: 0;
   background-color: #f4f6f9;
-  /* Màu nền trùng bg-light để che nội dung khi cuộn */
   z-index: 10;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  /* Bóng nhẹ để tách biệt */
 }
 
-/* 3. Tối ưu Bộ Lọc trên màn hình nhỏ (Mobile < 768px) */
 @media (max-width: 768px) {
-
-  /* Ép các cột col-12 thành 2 cột (50%) để 2 ô ngày tháng nằm ngang nhau */
-  /* Chỉ tác động vào div bên trong card-body để an toàn */
   .card-body .row>.col-12 {
     flex: 0 0 50%;
     max-width: 50%;
   }
 
-  /* Thu nhỏ chữ trong ô input để vừa vặn */
   .form-control {
     font-size: 13px;
     padding: 0.25rem 0.5rem;
     height: calc(1.8125rem + 2px);
-    /* Chiều cao compact */
   }
 
-  /* Label nhỏ lại */
   .form-group label {
     font-size: 12px;
     margin-bottom: 2px;
   }
 
-  /* Nút bấm full màn hình cho dễ ấn */
   .card-footer {
     display: flex;
     flex-direction: column;
@@ -546,10 +531,8 @@ onMounted(async () => {
   .card-footer .btn {
     width: 100%;
     margin-left: 0 !important;
-    /* Bỏ margin left của nút thứ 2 */
   }
 
-  /* Font bảng nhỏ lại xíu để hiển thị nhiều dữ liệu hơn */
   .table {
     font-size: 13px;
   }
@@ -557,21 +540,17 @@ onMounted(async () => {
   .table th,
   .table td {
     padding: 8px 6px;
-    /* Giảm padding */
   }
 
-  /* Ẩn bớt phân trang rườm rà, chỉ giữ lại nút Trước/Sau nếu cần (CSS mặc định bootstrap tự lo việc wrap) */
   .pagination .page-link {
     padding: 0.25rem 0.5rem;
     font-size: 12px;
   }
 }
 
-/* 4. Tối ưu cho iPad / Tablet (768px - 1024px) */
 @media (min-width: 768px) and (max-width: 1024px) {
   .table {
     font-size: 13px;
-    /* Font vừa phải */
   }
 }
 </style>

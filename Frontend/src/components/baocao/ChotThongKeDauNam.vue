@@ -51,7 +51,7 @@
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Kho/Chi nhánh áp dụng</label>
-                      <select class="form-control" v-model="filters.warehouseId">
+                      <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin">
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
@@ -153,7 +153,7 @@
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Chọn Kho</label>
-                      <select class="form-control" v-model="historyFilters.warehouseId">
+                      <select class="form-control" v-model="historyFilters.warehouseId" :disabled="!isAdmin">
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
@@ -270,25 +270,50 @@ const API_BASE = '/thong-ke';
 const activeTab = ref('action');
 const khoList = ref([]);
 const isExporting = ref(false);
+const isAdmin = ref(false); // [MỚI] State kiểm tra quyền
 
-// [FIX] Khai báo rõ ràng 2 biến tổng cho 2 tab
+// Khai báo rõ ràng 2 biến tổng cho 2 tab
 const grandTotalAction = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 const grandTotalHistory = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-// TAB 1 Data
-const filters = reactive({ nam: new Date().getFullYear() - 1, warehouseId: 0 });
+// TAB 1 Data (Ban đầu gán id = 1 làm mặc định tĩnh, sẽ bị ghi đè bởi logic phân quyền)
+const filters = reactive({ nam: new Date().getFullYear() - 1, warehouseId: 1 });
 const reportData = ref([]);
 const loading = ref(false);
 const currentTenKho = ref('');
 const actionPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
 // TAB 2 Data
-const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: 0 });
+const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: 1 });
 const historyData = ref([]);
 const loadingHistory = ref(false);
 const historyTenKho = ref('');
 const searchedHistory = ref(false);
 const historyPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
+
+// --- LOGIC PHÂN QUYỀN [MỚI] ---
+const setupPhanQuyen = () => {
+    const role = localStorage.getItem('userRole');
+    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+
+    if (!userMaKho) {
+        try {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            userMaKho = userInfo.maKho;
+        } catch (e) {}
+    }
+
+    if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
+        isAdmin.value = true;
+        // Nếu là admin, giữ nguyên không ghi đè, việc gán default = 1 sẽ do hàm loadKho lo
+    } else {
+        isAdmin.value = false;
+        // Nếu là Staff, bắt buộc gán ID kho của họ và khóa luôn UI dropdown
+        const myKho = userMaKho ? parseInt(userMaKho) : 0;
+        filters.warehouseId = myKho;
+        historyFilters.warehouseId = myKho;
+    }
+};
 
 // Computed Pagination Action
 const visibleActionPages = computed(() => {
@@ -355,15 +380,11 @@ const changeActionPage = (newPage) => {
 const goiApiChotSo = async () => {
   loading.value = true;
   try {
-    // 1. Gọi API để thực hiện lệnh chốt sổ dưới Database
     await api.post(`${API_BASE}/chot-so`, null, {
       params: { nam: filters.nam, maKho: filters.warehouseId }
     });
     
-    // Báo thành công
     alert("Chốt sổ thành công!");
-
-    // 2. BÀI NGỬA: Tái sử dụng lại hàm Xem Kết Quả để nó tự load bảng và TỰ TÍNH TỔNG bằng JS
     await goiApiXemKetQuaSauChot();
 
   } catch (error) {
@@ -380,8 +401,9 @@ const goiApiChotSo = async () => {
 
 const goiApiXemKetQuaSauChot = async () => {
   loading.value = true;
+  
   try {
-    const namKetQua = filters.nam; 
+    const namKetQua = parseInt(filters.nam) + 1;
     
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: {
@@ -398,15 +420,12 @@ const goiApiXemKetQuaSauChot = async () => {
     actionPagination.total = data.totalItems;
     actionPagination.totalPages = data.totalPages;
 
-    // --- BẮT ĐẦU: TỰ TÍNH TỔNG CỘNG CHO TAB 1 ---
     try {
-      // Gọi thêm 1 request ngầm để kéo toàn bộ dữ liệu (size lớn)
       const resTotal = await api.get(`${API_BASE}/lich-su`, {
         params: { nam: namKetQua, maKho: filters.warehouseId, page: 0, size: 999999 }
       });
       const allData = resTotal.data.danhSachChiTiet || [];
       
-      // Dùng hàm reduce để tự cộng dồn (Y hệt như in Word)
       grandTotalAction.value = allData.reduce((acc, item) => {
         acc.tdk += Number(item.tonDau || 0);
         acc.ntk += Number(item.nhapTrong || 0);
@@ -419,7 +438,6 @@ const goiApiXemKetQuaSauChot = async () => {
     } catch (errTotal) {
         console.error("Lỗi tự tính tổng:", errTotal);
     }
-    // --- KẾT THÚC ---
 
   } catch (e) {
     console.error(e);
@@ -464,7 +482,6 @@ const xemLichSu = async () => {
 
     searchedHistory.value = true;
 
-    // --- BẮT ĐẦU: TỰ TÍNH TỔNG CỘNG CHO TAB 2 ---
     try {
       const resTotal = await api.get(`${API_BASE}/lich-su`, {
         params: { nam: historyFilters.nam, maKho: historyFilters.warehouseId, page: 0, size: 999999 }
@@ -483,7 +500,6 @@ const xemLichSu = async () => {
     } catch (errTotal) {
         console.error("Lỗi tự tính tổng:", errTotal);
     }
-    // --- KẾT THÚC ---
 
   } catch (error) {
     console.error("Lỗi tải lịch sử:", error);
@@ -493,7 +509,7 @@ const xemLichSu = async () => {
   }
 };
 
-// 3. In Word (Logic giữ nguyên)
+// 3. In Word
 const loadFile = async (url) => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Không thể tải file mẫu: ${url}`);
@@ -517,9 +533,7 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
       return;
     }
 
-    // --- [SỬA Ở ĐÂY]: Lấy tên kho trực tiếp từ API trả về cho chuẩn xác 100% ---
     const tenKhoChinhXac = response.data.tenKho || tenKhoString || "Kho hệ thống";
-    // --------------------------------------------------------------------------
 
     const content = await loadFile("/File_Mau_BaoCaoChotSoNam.docx");
     const zip = new PizZip(content);
@@ -547,16 +561,8 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
 
     const dataToRender = {
       nam: namCanLay,
-      
-      // --- [SỬA Ở ĐÂY]: Gán biến tên kho mới vào đây ---
       tenKho: tenKhoChinhXac,
-      
-      d: dd,
-      m: mm,
-      y: yyyy,
-      h: String(hours).padStart(2, '0'),
-      ph: minutes,
-      ampm: ampm,
+      d: dd, m: mm, y: yyyy, h: String(hours).padStart(2, '0'), ph: minutes, ampm: ampm,
       
       sumTDK: formatCurrency(totals.tdk),
       sumNTK: formatCurrency(totals.ntk),
@@ -584,7 +590,6 @@ const printToWord = async (namInput, maKhoInput, tenKhoString) => {
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
-    // --- [SỬA Ở ĐÂY]: Đổi tên file xuất ra để chứa tên kho chính xác ---
     saveAs(out, `BienBanChotSo_${tenKhoChinhXac.replace(/\s+/g, '_')}_Nam_${namCanLay}.docx`);
 
   } catch (error) {
@@ -600,16 +605,13 @@ const loadKho = async () => {
     const res = await api.get('/kho');
     khoList.value = res.data;
     
-    // NẾU CÓ DỮ LIỆU KHO, TỰ ĐỘNG CHỌN KHO ĐẦU TIÊN (HOẶC KHO SỐ 1)
-    if (res.data.length > 0) {
-        // Tìm xem có kho nào ID = 1 không
+    // NẾU CÓ DỮ LIỆU KHO VÀ LÀ ADMIN, TỰ ĐỘNG CHỌN KHO ĐẦU TIÊN (HOẶC KHO SỐ 1)
+    if (isAdmin.value && res.data.length > 0) {
         const khoSo1 = res.data.find(k => k.maKho === 1);
-        
         if (khoSo1) {
             filters.warehouseId = 1;
             historyFilters.warehouseId = 1;
         } else {
-            // Nếu không có kho 1, lấy đại kho đầu tiên trong mảng
             filters.warehouseId = res.data[0].maKho;
             historyFilters.warehouseId = res.data[0].maKho;
         }
@@ -619,7 +621,10 @@ const loadKho = async () => {
   }
 };
 
-onMounted(() => loadKho());
+onMounted(async () => {
+  setupPhanQuyen(); // Chạy phân quyền trước
+  await loadKho();  // Sau đó tải danh sách kho
+});
 </script>
 
 <style scoped>
