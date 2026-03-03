@@ -44,14 +44,14 @@
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Năm Cần Chốt</label>
-                      <input type="number" class="form-control" v-model="filters.nam" placeholder="--- Chọn năm cần chốt sổ ---">
+                      <input type="number" class="form-control" v-model="filters.nam"
+                        placeholder="--- Chọn năm cần chốt sổ ---">
                     </div>
                   </div>
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
                       <label>Kho/Chi nhánh áp dụng</label>
                       <select class="form-control" v-model="filters.warehouseId">
-                        <option :value="0">Tất cả các kho</option>
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
@@ -123,7 +123,8 @@
                   <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="actionPagination.total > 0">
                     <ul class="pagination pagination-sm m-0">
                       <li class="page-item" :class="{ disabled: actionPagination.page === 0 }">
-                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page - 1)">« Trước</a>
+                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page - 1)">«
+                          Trước</a>
                       </li>
                       <li v-for="(page, index) in visibleActionPages" :key="index" class="page-item"
                         :class="{ active: page === actionPagination.page + 1, disabled: page === '...' }">
@@ -132,7 +133,8 @@
                       </li>
                       <li class="page-item"
                         :class="{ disabled: actionPagination.page >= actionPagination.totalPages - 1 }">
-                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page + 1)">Sau »</a>
+                        <a class="page-link" href="#" @click.prevent="changeActionPage(actionPagination.page + 1)">Sau
+                          »</a>
                       </li>
                     </ul>
                   </div>
@@ -152,7 +154,6 @@
                     <div class="form-group">
                       <label>Chọn Kho</label>
                       <select class="form-control" v-model="historyFilters.warehouseId">
-                        <option :value="0">Tất cả các kho</option>
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
@@ -225,7 +226,8 @@
                   <div class="d-flex justify-content-center mt-3 px-3 pb-3" v-if="historyPagination.total > 0">
                     <ul class="pagination pagination-sm m-0">
                       <li class="page-item" :class="{ disabled: historyPagination.page === 0 }">
-                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page - 1)">« Trước</a>
+                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page - 1)">«
+                          Trước</a>
                       </li>
                       <li v-for="(page, index) in visibleHistoryPages" :key="index" class="page-item"
                         :class="{ active: page === historyPagination.page + 1, disabled: page === '...' }">
@@ -234,7 +236,8 @@
                       </li>
                       <li class="page-item"
                         :class="{ disabled: historyPagination.page >= historyPagination.totalPages - 1 }">
-                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page + 1)">Sau »</a>
+                        <a class="page-link" href="#" @click.prevent="changeHistoryPage(historyPagination.page + 1)">Sau
+                          »</a>
                       </li>
                     </ul>
                   </div>
@@ -351,25 +354,25 @@ const changeActionPage = (newPage) => {
 
 const goiApiChotSo = async () => {
   loading.value = true;
-  reportData.value = [];
   try {
-    const response = await api.post(`${API_BASE}/chot-so`, null, {
+    // 1. Gọi API để thực hiện lệnh chốt sổ dưới Database
+    await api.post(`${API_BASE}/chot-so`, null, {
       params: { nam: filters.nam, maKho: filters.warehouseId }
     });
-    const data = response.data;
-    currentTenKho.value = data.tenKho;
-    reportData.value = data.danhSachChiTiet;
-    actionPagination.page = data.currentPage;
-    actionPagination.total = data.totalItems;
-    actionPagination.totalPages = data.totalPages;
     
-    // [FIX] Cập nhật đúng biến cho Tab 1
-    if (data.grandTotal) grandTotalAction.value = data.grandTotal;
-    
+    // Báo thành công
     alert("Chốt sổ thành công!");
+
+    // 2. BÀI NGỬA: Tái sử dụng lại hàm Xem Kết Quả để nó tự load bảng và TỰ TÍNH TỔNG bằng JS
+    await goiApiXemKetQuaSauChot();
+
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
-    alert("Lỗi khi chốt sổ: " + msg);
+    if (error.response && error.response.data && typeof error.response.data === 'string') {
+        alert("Lỗi khi chốt sổ: " + error.response.data);
+    } else {
+        alert("Lỗi khi chốt sổ: " + msg);
+    }
   } finally {
     loading.value = false;
   }
@@ -378,7 +381,8 @@ const goiApiChotSo = async () => {
 const goiApiXemKetQuaSauChot = async () => {
   loading.value = true;
   try {
-    const namKetQua = parseInt(filters.nam) + 1;
+    const namKetQua = filters.nam; 
+    
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: {
         nam: namKetQua,
@@ -387,21 +391,42 @@ const goiApiXemKetQuaSauChot = async () => {
         size: actionPagination.size
       }
     });
+    
     const data = response.data;
     reportData.value = data.danhSachChiTiet || [];
     actionPagination.page = data.currentPage;
     actionPagination.total = data.totalItems;
     actionPagination.totalPages = data.totalPages;
-    
-    // [FIX] Cập nhật đúng biến cho Tab 1
-    if (data.grandTotal) grandTotalAction.value = data.grandTotal;
-    
+
+    // --- BẮT ĐẦU: TỰ TÍNH TỔNG CỘNG CHO TAB 1 ---
+    try {
+      // Gọi thêm 1 request ngầm để kéo toàn bộ dữ liệu (size lớn)
+      const resTotal = await api.get(`${API_BASE}/lich-su`, {
+        params: { nam: namKetQua, maKho: filters.warehouseId, page: 0, size: 999999 }
+      });
+      const allData = resTotal.data.danhSachChiTiet || [];
+      
+      // Dùng hàm reduce để tự cộng dồn (Y hệt như in Word)
+      grandTotalAction.value = allData.reduce((acc, item) => {
+        acc.tdk += Number(item.tonDau || 0);
+        acc.ntk += Number(item.nhapTrong || 0);
+        acc.xtk += Number(item.xuatTrong || 0);
+        acc.tck += Number(item.tonCuoi || 0);
+        acc.tien += Number(item.thanhTien || 0);
+        return acc;
+      }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+      
+    } catch (errTotal) {
+        console.error("Lỗi tự tính tổng:", errTotal);
+    }
+    // --- KẾT THÚC ---
+
   } catch (e) {
     console.error(e);
   } finally {
     loading.value = false;
   }
-}
+};
 
 // 2. Xem Lịch Sử (Tab 2)
 const searchHistory = () => {
@@ -438,17 +463,35 @@ const xemLichSu = async () => {
     historyPagination.totalPages = data.totalPages;
 
     searchedHistory.value = true;
-    
-    // [FIX] Cập nhật đúng biến cho Tab 2
-    if (data.grandTotal) grandTotalHistory.value = data.grandTotal;
-    
+
+    // --- BẮT ĐẦU: TỰ TÍNH TỔNG CỘNG CHO TAB 2 ---
+    try {
+      const resTotal = await api.get(`${API_BASE}/lich-su`, {
+        params: { nam: historyFilters.nam, maKho: historyFilters.warehouseId, page: 0, size: 999999 }
+      });
+      const allData = resTotal.data.danhSachChiTiet || [];
+      
+      grandTotalHistory.value = allData.reduce((acc, item) => {
+        acc.tdk += Number(item.tonDau || 0);
+        acc.ntk += Number(item.nhapTrong || 0);
+        acc.xtk += Number(item.xuatTrong || 0);
+        acc.tck += Number(item.tonCuoi || 0);
+        acc.tien += Number(item.thanhTien || 0);
+        return acc;
+      }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+      
+    } catch (errTotal) {
+        console.error("Lỗi tự tính tổng:", errTotal);
+    }
+    // --- KẾT THÚC ---
+
   } catch (error) {
     console.error("Lỗi tải lịch sử:", error);
     alert("Lỗi: " + (error.response?.data?.message || "Lỗi hệ thống"));
   } finally {
     loadingHistory.value = false;
   }
-}
+};
 
 // 3. In Word (Logic giữ nguyên)
 const loadFile = async (url) => {
@@ -460,46 +503,93 @@ const loadFile = async (url) => {
 const printToWord = async (namInput, maKhoInput, tenKhoString) => {
   if (isExporting.value) return;
   isExporting.value = true;
+
   try {
-    let namCanLay = namInput;
-    if (activeTab.value === 'action') {
-      namCanLay = parseInt(namInput) + 1;
-    }
+    let namCanLay = activeTab.value === 'action' ? parseInt(namInput) + 1 : namInput;
+
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: { nam: namCanLay, maKho: maKhoInput, page: 0, size: 999999 }
     });
+
     const sourceData = response.data.danhSachChiTiet || [];
     if (sourceData.length === 0) {
-      alert("Không có dữ liệu để in."); return;
+      alert("Không có dữ liệu chốt sổ để in.");
+      return;
     }
+
+    // --- [SỬA Ở ĐÂY]: Lấy tên kho trực tiếp từ API trả về cho chuẩn xác 100% ---
+    const tenKhoChinhXac = response.data.tenKho || tenKhoString || "Kho hệ thống";
+    // --------------------------------------------------------------------------
+
     const content = await loadFile("/File_Mau_BaoCaoChotSoNam.docx");
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-    
+
     const totals = sourceData.reduce((acc, item) => {
-      acc.tdk += item.tonDau || 0; acc.ntk += item.nhapTrong || 0;
-      acc.xtk += item.xuatTrong || 0; acc.tck += item.tonCuoi || 0;
-      acc.tien += item.thanhTien || 0; return acc;
+      acc.tdk += Number(item.tonDau || 0);
+      acc.ntk += Number(item.nhapTrong || 0);
+      acc.xtk += Number(item.xuatTrong || 0);
+      acc.tck += Number(item.tonCuoi || 0);
+      acc.tien += Number(item.thanhTien || 0);
+      return acc;
     }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
     const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    
+    let hours = today.getHours();
+    const minutes = String(today.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12; 
+    hours = hours ? hours : 12; 
+
     const dataToRender = {
-      nam: namCanLay, tenKho: tenKhoString || "Kho chưa xác định",
-      d: String(today.getDate()).padStart(2, '0'), m: String(today.getMonth() + 1).padStart(2, '0'), y: today.getFullYear(),
-      sumTDK: formatCurrency(totals.tdk), sumNTK: formatCurrency(totals.ntk),
-      sumXTK: formatCurrency(totals.xtk), sumTCK: formatCurrency(totals.tck),
+      nam: namCanLay,
+      
+      // --- [SỬA Ở ĐÂY]: Gán biến tên kho mới vào đây ---
+      tenKho: tenKhoChinhXac,
+      
+      d: dd,
+      m: mm,
+      y: yyyy,
+      h: String(hours).padStart(2, '0'),
+      ph: minutes,
+      ampm: ampm,
+      
+      sumTDK: formatCurrency(totals.tdk),
+      sumNTK: formatCurrency(totals.ntk),
+      sumXTK: formatCurrency(totals.xtk),
+      sumTCK: formatCurrency(totals.tck),
       sumTien: formatCurrency(totals.tien),
+
       p: sourceData.map((item, index) => ({
-        stt: index + 1, ma: item.maSP || "", ten: item.tenSP || "", dvt: item.donvitinh || "",
-        tdk: item.tonDau || 0, ntk: item.nhapTrong || 0, xtk: item.xuatTrong || 0,
-        tck: item.tonCuoi || 0, gia: formatCurrency(item.giaBQ), tien: formatCurrency(item.thanhTien)
+        stt: index + 1,
+        ma: item.maSP || "",
+        ten: item.tenSP || "",
+        dvt: item.donvitinh || "",
+        tdk: formatCurrency(item.tonDau),
+        ntk: formatCurrency(item.nhapTrong),
+        xtk: formatCurrency(item.xuatTrong),
+        tck: formatCurrency(item.tonCuoi),
+        gia: formatCurrency(item.giaBQ || 0),
+        tien: formatCurrency(item.thanhTien || 0)
       }))
     };
+
     doc.render(dataToRender);
-    const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-    saveAs(out, `BienBan_${tenKhoString}_${namCanLay}.docx`);
+    const out = doc.getZip().generate({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    // --- [SỬA Ở ĐÂY]: Đổi tên file xuất ra để chứa tên kho chính xác ---
+    saveAs(out, `BienBanChotSo_${tenKhoChinhXac.replace(/\s+/g, '_')}_Nam_${namCanLay}.docx`);
+
   } catch (error) {
-    console.error("Lỗi in Word:", error); alert("Lỗi xuất file: " + error.message);
+    console.error("Lỗi in Word:", error);
+    alert("Có lỗi xảy ra khi xuất file Word: " + error.message);
   } finally {
     isExporting.value = false;
   }
@@ -509,11 +599,24 @@ const loadKho = async () => {
   try {
     const res = await api.get('/kho');
     khoList.value = res.data;
+    
+    // NẾU CÓ DỮ LIỆU KHO, TỰ ĐỘNG CHỌN KHO ĐẦU TIÊN (HOẶC KHO SỐ 1)
     if (res.data.length > 0) {
-      filters.warehouseId = res.data[0].maKho;
-      historyFilters.warehouseId = res.data[0].maKho;
+        // Tìm xem có kho nào ID = 1 không
+        const khoSo1 = res.data.find(k => k.maKho === 1);
+        
+        if (khoSo1) {
+            filters.warehouseId = 1;
+            historyFilters.warehouseId = 1;
+        } else {
+            // Nếu không có kho 1, lấy đại kho đầu tiên trong mảng
+            filters.warehouseId = res.data[0].maKho;
+            historyFilters.warehouseId = res.data[0].maKho;
+        }
     }
-  } catch (e) { console.error("Lỗi tải kho:", e); }
+  } catch (e) {
+    console.error("Lỗi tải kho:", e);
+  }
 };
 
 onMounted(() => loadKho());
@@ -521,18 +624,75 @@ onMounted(() => loadKho());
 
 <style scoped>
 /* STYLE GIỮ NGUYÊN NHƯ CŨ */
-.card-primary.card-outline-tabs>.card-header a.active { border-top: 3px solid #ffc107; }
-.nav-link, .page-link { cursor: pointer; font-weight: 600; }
-.page-item.active .page-link { background-color: #007bff; border-color: #007bff; color: white; }
-.page-item.disabled .page-link { pointer-events: none; background-color: #fff; color: #6c757d; }
-.form-control-sm { height: calc(1.8125rem + 2px); font-size: .875rem; }
-.table-container { max-height: 65vh; overflow: auto; position: relative; border-top: 1px solid #dee2e6; scrollbar-width: thin; }
-.table-container::-webkit-scrollbar { width: 6px; height: 6px; }
-.table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-.sticky-thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.1); white-space: nowrap; }
+.card-primary.card-outline-tabs>.card-header a.active {
+  border-top: 3px solid #ffc107;
+}
+
+.nav-link,
+.page-link {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.page-item.active .page-link {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.page-item.disabled .page-link {
+  pointer-events: none;
+  background-color: #fff;
+  color: #6c757d;
+}
+
+.form-control-sm {
+  height: calc(1.8125rem + 2px);
+  font-size: .875rem;
+}
+
+.table-container {
+  max-height: 65vh;
+  overflow: auto;
+  position: relative;
+  border-top: 1px solid #dee2e6;
+  scrollbar-width: thin;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.sticky-thead th {
+  position: sticky;
+  top: 0;
+  background-color: #f8f9fa;
+  z-index: 10;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
-  .nav-tabs .nav-link { padding: 0.5rem 0.8rem; font-size: 0.9rem; }
-  .col-6 { padding-left: 5px; padding-right: 5px; } 
-  .table th, .table td { padding: 8px 6px; font-size: 13px; }
+  .nav-tabs .nav-link {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .col-6 {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
 }
 </style>

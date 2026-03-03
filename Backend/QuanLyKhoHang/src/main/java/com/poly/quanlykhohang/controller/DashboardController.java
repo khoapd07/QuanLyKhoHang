@@ -17,22 +17,12 @@ public class DashboardController {
     @GetMapping("/stats")
     public ResponseEntity<?> getDashboardStats(
             @RequestParam(required = false, defaultValue = "0") Integer maKho
-            // Xóa @RequestParam Integer nam
     ) {
         try {
-            // Chỉ truyền maKho
             DashboardResponse data = dashboardService.getDashboardData(maKho);
             return ResponseEntity.ok(data);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lỗi tải dữ liệu: " + e.getMessage());
         }
-    }
-
-    @GetMapping("/transfer-chart")
-    public ResponseEntity<?> getTransferChart(
-            @RequestParam(defaultValue = "0") Integer maKho,
-            @RequestParam(required = false) Integer nam
-    ) {
-        return ResponseEntity.ok(dashboardService.getTransferChartData(maKho, nam));
     }
 }
