@@ -124,12 +124,12 @@
                     <p>Xuất kho</p>
                   </router-link>
                 </li>
-                <li class="nav-item">
+                <!-- <li class="nav-item">
                   <router-link to="/chuyen-kho" class="nav-link" active-class="active">
                     <i class="nav-icon bi bi-arrow-left-right"></i>
                     <p>Chuyển kho</p>
                   </router-link>
-                </li>
+                </li> -->
               </ul>
             </li>
 

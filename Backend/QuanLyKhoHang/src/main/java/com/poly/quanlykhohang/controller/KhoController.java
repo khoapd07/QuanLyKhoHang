@@ -3,7 +3,6 @@ package com.poly.quanlykhohang.controller;
 import com.poly.quanlykhohang.dao.MayInDAO;
 import com.poly.quanlykhohang.dto.*;
 import com.poly.quanlykhohang.entity.Kho;
-import com.poly.quanlykhohang.entity.PhieuChuyen;
 import com.poly.quanlykhohang.service.GiaoDichKhoService;
 import com.poly.quanlykhohang.service.KhoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -152,31 +151,9 @@ public class KhoController {
         return ResponseEntity.ok(listSerials);
     }
 
-    // ==================================================
-    // 4. QUẢN LÝ CHUYỂN KHO
-    // ==================================================
 
-    @GetMapping("/chuyen")
-    public ResponseEntity<List<PhieuChuyenResponseDTO>> layDanhSachChuyen() {
-        // [SỬA LỖI] Dùng đúng tên biến 'giaoDichService' đã khai báo ở trên
-        return ResponseEntity.ok(giaoDichService.layDanhSachPhieuChuyen());
-    }
 
-    @GetMapping("/chuyen/{soPhieu}")
-    public ResponseEntity<PhieuChuyen> layChiTietChuyen(@PathVariable String soPhieu) {
-        return ResponseEntity.ok(giaoDichService.layChiTietPhieuChuyen(soPhieu));
-    }
 
-    @PostMapping("/chuyen")
-    public ResponseEntity<?> taoPhieuChuyen(@RequestBody ChuyenKhoDTO dto) {
-        try {
-            PhieuChuyen phieu = giaoDichService.thucHienChuyenKho(dto);
-            return ResponseEntity.ok(phieu);
-        } catch (Exception e) {
-            // [SỬA LỖI] Thay ErrorResponse bằng Map đơn giản
-            return ResponseEntity.badRequest().body(createError(e.getMessage()));
-        }
-    }
 
     // Helper method để tạo JSON lỗi trả về frontend
     private Map<String, String> createError(String message) {
@@ -185,13 +162,5 @@ public class KhoController {
         return error;
     }
 
-    @DeleteMapping("/chuyen/{soPhieu}")
-    public ResponseEntity<?> xoaPhieuChuyen(@PathVariable String soPhieu) {
-        try {
-            giaoDichService.xoaPhieuChuyen(soPhieu);
-            return ResponseEntity.ok(createError("Đã hủy phiếu chuyển và hoàn trả máy về kho cũ."));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createError(e.getMessage()));
-        }
-    }
+
 }

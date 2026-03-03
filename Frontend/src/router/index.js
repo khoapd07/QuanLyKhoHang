@@ -19,9 +19,6 @@ import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
 import XuatKho from '../components/nghiepvu/XuatKho.vue'
 import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' 
 
-// Nghiệp vụ CHUYỂN KHO (Mới thêm)
-import ChuyenKho from '../components/nghiepvu/ChuyenKho.vue'
-import ChuyenKhoTao from '../components/nghiepvu/ChuyenKhoTao.vue'
 
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
 
@@ -55,10 +52,6 @@ const routes = [
       // Xuất kho
       { path: 'xuat-kho', name: 'XuatKho', component: XuatKho },
       { path: 'xuat-kho/tao-moi', name: 'TaoPhieuXuat', component: XuatKhoTao }, 
-
-      // Chuyển kho (Mới thêm)
-      { path: 'chuyen-kho', name: 'ChuyenKho', component: ChuyenKho },
-      { path: 'chuyen-kho/tao-moi', name: 'ChuyenKhoTao', component: ChuyenKhoTao },
 
       // Báo cáo & Hệ thống
       { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },

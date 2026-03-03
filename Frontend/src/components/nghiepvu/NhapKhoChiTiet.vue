@@ -40,9 +40,6 @@
                                     <td>{{ item.mayIn?.soSeri }}</td>
                                     <td>
                                         <span v-if="item.mayIn?.tonKho === false" class="badge bg-secondary">Đã Xuất Bán</span>
-                                        <span v-else-if="item.mayIn?.kho?.maKho !== chiTiet.khoNhap?.maKho" class="badge bg-warning text-dark">
-                                            <i class="fas fa-shipping-fast"></i> Đã chuyển: {{ item.mayIn?.kho?.tenKho }}
-                                        </span>
                                         <span v-else class="badge bg-success">Tồn Tại Kho</span>
                                     </td>
                                     <td>
@@ -85,9 +82,6 @@
 
                                 <div>
                                     <span v-if="item.mayIn?.tonKho === false" class="badge bg-secondary w-100">Đã Xuất Bán</span>
-                                    <span v-else-if="item.mayIn?.kho?.maKho !== chiTiet.khoNhap?.maKho" class="badge bg-warning text-dark w-100 text-wrap text-start">
-                                        <i class="fas fa-shipping-fast"></i> Chuyển: {{ item.mayIn?.kho?.tenKho }}
-                                    </span>
                                     <span v-else class="badge bg-success w-100">Tồn Tại Kho</span>
                                 </div>
                             </div>
@@ -153,7 +147,6 @@ const chiTiet = ref(null);
 const listSanPham = ref([]);
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
-// Hàm load chi tiết phiếu
 const loadChiTiet = async () => {
     try {
         const res = await api.get(`/kho/nhap/${props.soPhieu}`);
@@ -164,7 +157,6 @@ const loadChiTiet = async () => {
     }
 };
 
-// Hàm load sản phẩm (Có xử lý an toàn dữ liệu Page/List)
 const loadSanPham = async () => {
     try {
         const res = await api.get('/san-pham');
@@ -177,7 +169,8 @@ const loadSanPham = async () => {
 };
 
 const xoaDong = async (maCTPN) => {
-    if(!confirm("CẢNH BÁO: Xóa dòng này sẽ xóa máy khỏi hệ thống.\nNếu máy đã chuyển kho, lịch sử chuyển cũng bị xóa.\nTiếp tục?")) return;
+    // Đã xóa câu cảnh báo liên quan đến chuyển kho
+    if(!confirm("CẢNH BÁO: Xóa dòng này sẽ xóa máy khỏi hệ thống.\nTiếp tục?")) return;
     try {
         await api.delete(`/kho/nhap/chi-tiet/${maCTPN}`);
         alert("Đã xóa thành công!");
