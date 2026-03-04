@@ -3,8 +3,15 @@
     <div class="content-header">
       <div class="container-fluid">
         <div class="row mb-2">
-          <div class="col-sm-6">
+          <div class="col-sm-6 d-flex align-items-center">
             <h1 class="m-0">Báo Cáo Xuất Nhập Tồn</h1>
+            <span v-if="isChotSoState === false || isChotSoState === 'false'" 
+                  class="text-danger ml-2" 
+                  style="cursor: pointer; font-size: 2rem;"
+                  title="Cảnh báo: Chưa chốt sổ đầu kỳ!"
+                  @click="showFirstYearWarning">
+              <i class="fas fa-exclamation-circle">!</i>
+            </span>
           </div>
         </div>
       </div>
@@ -178,7 +185,8 @@ const API_URL = '/thong-ke/xuat-nhap-ton';
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 const isExporting = ref(false);
-const isAdmin = ref(false); // [MỚI] State lưu quyền
+const isAdmin = ref(false);
+const isChotSoState = ref(true); // State để theo dõi trạng thái hiện Icon
 
 // ---PHÂN TRANG ---
 const pagination = reactive({
@@ -246,7 +254,7 @@ const reportTitle = computed(() => {
 
 const grandTotal = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-// --- LOGIC PHÂN QUYỀN [MỚI] ---
+// --- LOGIC PHÂN QUYỀN ---
 const setupPhanQuyen = () => {
     const role = localStorage.getItem('userRole');
     let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -260,10 +268,8 @@ const setupPhanQuyen = () => {
 
     if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
         isAdmin.value = true;
-        // Admin giữ nguyên filters.warehouseId = 0 (Tất cả kho)
     } else {
         isAdmin.value = false;
-        // Nếu là Staff, ép cứng mã kho và không cho chọn "Tất cả"
         const myKho = userMaKho ? parseInt(userMaKho) : 0;
         filters.warehouseId = myKho;
     }
@@ -279,7 +285,12 @@ const loadKho = async () => {
   }
 };
 
-// --- SỬA LẠI HÀM FETCH REPORT ---
+// --- HÀM THÔNG BÁO KHI CLICK ICON ---
+const showFirstYearWarning = () => {
+  alert("LƯU Ý:\nĐây là năm đầu tiên sử dụng phần mềm, hệ thống chưa có dữ liệu chốt sổ của năm trước.\n\nDo đó, Tồn Đầu Kỳ sẽ được mặc định là 0.");
+};
+
+// --- HÀM FETCH REPORT ---
 const fetchInventoryReport = async () => {
   if (!filters.startDate || !filters.endDate) {
     alert("Vui lòng chọn đầy đủ Từ ngày và Đến ngày");
@@ -298,6 +309,7 @@ const fetchInventoryReport = async () => {
   reportData.value = [];
 
   try {
+    // 1. Kiểm tra trạng thái chốt sổ để ẩn/hiện icon (!)
     const yearToCheck = start.getFullYear(); 
     
     const checkRes = await api.get('/thong-ke/check-chot-so', {
@@ -307,14 +319,9 @@ const fetchInventoryReport = async () => {
         }
     });
 
-    const isChotSo = checkRes.data; 
+    isChotSoState.value = checkRes.data; 
 
-    if (!isChotSo) {
-        alert(`CẢNH BÁO: Dữ liệu năm ${yearToCheck} chưa được chốt sổ đầu năm!\n\nHệ thống không thể tính toán Tồn Đầu Kỳ chính xác.\nVui lòng vào menu "Quản Lý Chốt Tồn Kho" để chốt sổ cho năm ${yearToCheck - 1} trước.`);
-        loading.value = false; 
-        return; 
-    }
-
+    // 2. Tiếp tục lấy dữ liệu
     const response = await api.get(API_URL, {
       params: {
         maKho: filters.warehouseId,
@@ -461,14 +468,14 @@ onMounted(async () => {
     return;
   }
 
-  setupPhanQuyen(); // Chạy hàm kiểm tra role đầu tiên
+  setupPhanQuyen(); 
   await loadKho();
   fetchInventoryReport();
 });
 </script>
 
 <style scoped>
-/* --- HIỆU ỨNG SKELETON (Giữ nguyên của bạn) --- */
+/* --- HIỆU ỨNG SKELETON --- */
 .skeleton-loader {
   width: 100%;
   height: 1.2em;
@@ -488,7 +495,7 @@ onMounted(async () => {
   }
 }
 
-/* --- CSS TỐI ƯU CHO MOBILE & IPAD (Không sửa HTML) --- */
+/* --- CSS TỐI ƯU CHO MOBILE & IPAD --- */
 
 .card-body.table-responsive {
   max-height: 75vh;
