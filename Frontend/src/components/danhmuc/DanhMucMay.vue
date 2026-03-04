@@ -133,7 +133,7 @@ const loadData = async (page = 0) => {
     ]);
 
     if (resMay.data) {
-        console.log("Dữ liệu API trả về:", resMay.data);
+        // console.log("Dữ liệu API trả về:", resMay.data);
         const data = resMay.data;
 
         // Gán content (danh sách máy)
@@ -410,8 +410,8 @@ onMounted(async () => {
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Tình Trạng (Từ DB)</label>
-                  <select v-model="form.trangThai" class="form-select">
+                  <label class="form-label">Tình Trạng</label>
+                  <select v-model="form.trangThai" class="form-select" >
                     <option v-for="tt in danhSachTrangThai" :key="tt.maTrangThai" :value="tt.maTrangThai">
                       {{ tt.tenTrangThai }}
                     </option>
@@ -432,17 +432,22 @@ onMounted(async () => {
                 </div>
 
                 <div class="col-12 mt-3">
-                    <div class="form-check form-switch p-3 border rounded bg-white">
-                        <input class="form-check-input" type="checkbox" id="switchTonKho" v-model="form.tonKho">
+                <div class="p-3 border rounded bg-light">
+                    
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" id="switchTonKho" v-model="form.tonKho" disabled>
                         <label class="form-check-label fw-bold ms-2" for="switchTonKho">
                             <span v-if="form.tonKho" class="text-success">Trạng thái: ĐANG CÓ TRONG KHO</span>
                             <span v-else class="text-secondary">Trạng thái: ĐÃ XUẤT / KHÔNG CÓ TRONG KHO</span>
                         </label>
-                        <div class="form-text text-muted fst-italic ms-1">
-                            <i class="bi bi-info-circle"></i> Chỉ chỉnh sửa mục này khi cần điều chỉnh số liệu kho thủ công.
-                        </div>
                     </div>
+
+                    <div class="form-text text-muted fst-italic">
+                        <i class="bi bi-info-circle"></i> Trạng thái tồn kho được cập nhật tự động thông qua Phiếu Nhập / Phiếu Xuất.
+                    </div>
+                    
                 </div>
+            </div>
               </div>
 
               <div class="text-end border-top pt-3 mt-4">
