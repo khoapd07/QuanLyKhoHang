@@ -47,7 +47,7 @@
                                                 class="btn btn-sm btn-outline-danger" 
                                                 @click="xoaDong(item.maCTPN)" 
                                                 title="Xóa máy này">
-                                            <i class="fas fa-trash-alt"></i>
+                                            <i>Xóa</i>
                                         </button>
                                         <span v-else class="text-muted small"><i class="fas fa-lock"></i> Đã khóa</span>
                                     </td>
