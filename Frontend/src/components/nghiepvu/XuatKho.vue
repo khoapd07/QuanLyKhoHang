@@ -51,9 +51,13 @@
                                 <td>{{ item.tenKho }}</td>
                                 <td class="fw-bold text-truncate" style="max-width: 150px;">{{ item.tenKhachHang || '---' }}</td>
                                 <td>
-                                    <span v-for="(part, idx) in splitSummary(item.tomTatSanPham)" :key="idx" 
-                                          class="badge bg-warning text-dark me-1 border border-warning mb-1 text-wrap text-start">
+                                    <span v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx" 
+                                        class="badge bg-warning text-dark me-1 border border-warning mb-1 text-wrap text-start">
                                         {{ part }}
+                                    </span>
+                                    <span v-if="splitSummary(item.tomTatSanPham).length > 4" 
+                                        class="badge bg-secondary text-white me-1 mb-1">
+                                        +{{ splitSummary(item.tomTatSanPham).length - 4 }} nữa...
                                     </span>
                                     <div v-if="item.ghiChu" class="text-muted fst-italic text-truncate" style="max-width: 150px;">
                                         ({{ item.ghiChu }})
@@ -103,8 +107,11 @@
                             </div>
 
                             <div class="bg-light rounded p-2 mb-2 product-summary">
-                                <div v-for="(part, idx) in splitSummary(item.tomTatSanPham)" :key="idx" class="fw-bold text-dark mb-1">
+                                <div v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx" class="fw-bold text-dark mb-1">
                                     • {{ part }}
+                                </div>
+                                <div v-if="splitSummary(item.tomTatSanPham).length > 4" class="fw-bold text-secondary mb-1" style="font-size: 11px;">
+                                    • ... và {{ splitSummary(item.tomTatSanPham).length - 4 }} sản phẩm khác
                                 </div>
                                 <div v-if="item.ghiChu" class="text-muted fst-italic mt-1" style="font-size: 11px;">
                                     📝 {{ item.ghiChu }}
