@@ -3,8 +3,9 @@
     <div class="card shadow-lg border-0" style="width: 400px; border-radius: 12px;">
       <div class="card-body p-5">
         <div class="text-center mb-4">
-          <h3 class="text-primary fw-bold text-uppercase">Kho Máy In</h3>
-          <p class="text-muted small">Đăng nhập hệ thống quản lý</p>
+          <img src="@/assets/logo-ntt-2024-290x85-1.png" alt="Nhật Tiến Thành" class="img-fluid mb-3" style="max-height: 85px;">
+          
+          <h3 class="text-primary fw-bold text-uppercase">QUẢN LÝ KHO</h3>
         </div>
 
         <form @submit.prevent="handleLogin">

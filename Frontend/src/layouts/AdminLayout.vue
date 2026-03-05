@@ -15,6 +15,9 @@
           </li>
         </ul>
 
+        <div class="text-center position-absolute start-50 translate-middle-x d-none d-md-block">
+          <img src="@/assets/logo-ntt-2024-290x85-1.png" alt="Nhật Tiến Thành" style="max-height: 45px;">
+        </div>
         <ul class="navbar-nav ms-auto">
           <li class="nav-item dropdown user-menu">
             <a href="#" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
