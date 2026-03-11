@@ -9,21 +9,25 @@
         <div class="card-body p-2">
             <div class="bg-light border rounded p-2 mb-3">
                 <div class="row g-2">
-                    <div class="col-12 col-md-4 custom-col">
+                    <div class="col-12 col-md-3 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">KHO NHẬP (*)</label>
                         <select class="form-select form-select-sm shadow-none" v-model="phieuNhap.maKho" :disabled="!isAdmin">
                             <option :value="null" disabled>-- Chọn Kho --</option>
                             <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-4 custom-col">
+                    <div class="col-12 col-md-3 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">NHÀ CUNG CẤP (*)</label>
                         <select class="form-select form-select-sm shadow-none" v-model="phieuNhap.maDonVi">
                             <option value="" disabled>-- Chọn NCC --</option>
                             <option v-for="ncc in listNhaCungCap" :key="ncc.maDonVi" :value="ncc.maDonVi">{{ ncc.tenDonVi }}</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-4 custom-col">
+                    <div class="col-12 col-md-3 custom-col">
+                        <label class="form-label small mb-0 fw-bold text-muted small-label">NGÀY NHẬP (Tùy chỉnh)</label>
+                        <input type="datetime-local" class="form-control form-control-sm shadow-none" v-model="phieuNhap.ngayTaoPhieu">
+                    </div>
+                    <div class="col-12 col-md-3 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">GHI CHÚ</label>
                         <input type="text" class="form-control form-control-sm shadow-none" v-model="phieuNhap.ghiChu" placeholder="...">
                     </div>
@@ -92,8 +96,8 @@
                             <td class="text-center fw-bold">{{ item.soLuong }}</td>
                             <td class="text-end text-primary">{{ formatCurrency(item.donGia * item.soLuong) }}</td>
                             <td class="text-center p-0">
-                                <button class="btn btn-link btn-sm text-danger" @click="listHienThi.splice(index, 1)">
-                                    <i class="fas fa-trash-alt"></i>
+                                <button class="btn btn-link btn-sm text-danger text-decoration-none fw-bold" @click="listHienThi.splice(index, 1)">
+                                    <i class="fas fa-trash-alt me-1"></i> Xóa
                                 </button>
                             </td>
                         </tr>
@@ -119,10 +123,11 @@ const router = useRouter();
 const listKho = ref([]);
 const listSanPham = ref([]);
 const listDonVi = ref([]); 
-const listTrangThai = ref([]); // [MỚI] List trạng thái từ API
+const listTrangThai = ref([]); 
 
-const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '' });
-const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 }); // Mặc định ID 1 (Mới)
+// KHAI BÁO THÊM ngayTaoPhieu
+const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '', ngayTaoPhieu: '' });
+const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 }); 
 const listHienThi = ref([]);
 const isAdmin = ref(false);
 
@@ -138,7 +143,6 @@ const listNhaCungCap = computed(() => {
 
 const loadData = async () => {
     try {
-        // [CẬP NHẬT] Gọi thêm API /trang-thai
         const [k, s, d, tt] = await Promise.all([
             api.get('/kho'), 
             api.get('/san-pham'), 
@@ -149,7 +153,7 @@ const loadData = async () => {
         listKho.value = getDataSafe(k);
         listSanPham.value = getDataSafe(s);
         listDonVi.value = getDataSafe(d);
-        listTrangThai.value = getDataSafe(tt); // Lưu list trạng thái
+        listTrangThai.value = getDataSafe(tt); 
 
         const role = localStorage.getItem('userRole');
         let userMaKho = localStorage.getItem('maKho') || (JSON.parse(localStorage.getItem('userInfo') || '{}').maKho);
@@ -161,6 +165,12 @@ const loadData = async () => {
 const themDong = () => {
     if(!currentItem.value.maSP) return alert("Chọn sản phẩm!");
     if(currentItem.value.soLuong <= 0) return alert("SL > 0");
+
+    if(currentItem.value.donGia < 0) {
+        alert("Đơn giá phải lớn hơn hoặc bằng 0");
+        return; 
+    }
+
     listHienThi.value.push({...currentItem.value});
     currentItem.value.soLuong = 1;
 };
@@ -169,14 +179,19 @@ const luuPhieu = async () => {
     if(!phieuNhap.value.maKho || !phieuNhap.value.maDonVi) return alert("Chọn Kho & NCC!");
     if(listHienThi.value.length === 0) return alert("Chưa có SP!");
     try {
-        await api.post('/kho/nhap', { maKho: phieuNhap.value.maKho, maDonVi: phieuNhap.value.maDonVi, ghiChu: phieuNhap.value.ghiChu, chiTietPhieuNhap: listHienThi.value });
+        await api.post('/kho/nhap', { 
+            maKho: phieuNhap.value.maKho, 
+            maDonVi: phieuNhap.value.maDonVi, 
+            ghiChu: phieuNhap.value.ghiChu, 
+            ngayTaoPhieu: phieuNhap.value.ngayTaoPhieu || null, // TRUYỀN NGÀY VÀO PAYLOAD
+            chiTietPhieuNhap: listHienThi.value 
+        });
         alert("Thành công!"); router.push('/nhap-kho');
     } catch (e) { alert("Lỗi: " + (e.response?.data?.message || e.message)); }
 };
 
 const getTenSP = (ma) => listSanPham.value.find(s => s.maSP === ma)?.tenSP || ma;
 
-// [MỚI] Hàm lấy tên trạng thái từ ID
 const getTenTrangThai = (id) => {
     const tt = listTrangThai.value.find(t => t.maTrangThai === id);
     return tt ? tt.tenTrangThai : id;

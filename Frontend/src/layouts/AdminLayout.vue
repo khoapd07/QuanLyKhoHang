@@ -127,12 +127,14 @@
                     <p>Xuất kho</p>
                   </router-link>
                 </li>
-                <!-- <li class="nav-item">
-                  <router-link to="/chuyen-kho" class="nav-link" active-class="active">
-                    <i class="nav-icon bi bi-arrow-left-right"></i>
-                    <p>Chuyển kho</p>
+
+                <li class="nav-item">
+                  <router-link to="/nhap-excel" class="nav-link" active-class="active">
+                    <i class="nav-icon bi bi-file-earmark-excel"></i>
+                    <p>Import Excel</p>
                   </router-link>
-                </li> -->
+                </li>
+
               </ul>
             </li>
 

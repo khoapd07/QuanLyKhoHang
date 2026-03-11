@@ -8,22 +8,26 @@
         </div>
         <div class="card-body">
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Kho Xuất (*)</label>
                     <select class="form-select" v-model="phieuXuat.maKho" @change="resetSelection" :disabled="!isAdmin">
                         <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Khách Hàng (*)</label>
                     <select class="form-select" v-model="phieuXuat.maDonVi">
                          <option :value="null" disabled>-- Chọn Khách Hàng --</option>
                          <option v-for="kh in listKhachHang" :key="kh.maDonVi" :value="kh.maDonVi">{{ kh.tenDonVi }}</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Ghi Chú</label>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Ngày Xuất (Tùy chỉnh)</label>
+                    <input type="datetime-local" class="form-control" v-model="phieuXuat.ngayTaoPhieu">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Ghi Chú</label>
                     <input type="text" class="form-control" v-model="phieuXuat.ghiChu" placeholder="Lý do xuất...">
                 </div>
             </div>
@@ -167,27 +171,25 @@ const listKho = ref([]);
 const listDonVi = ref([]);
 const listSanPham = ref([]);
 
-const phieuXuat = ref({ maKho: null, maDonVi: null, ghiChu: '', chiTietPhieuXuat: [] });
+// KHAI BÁO THÊM ngayTaoPhieu
+const phieuXuat = ref({ maKho: null, maDonVi: null, ghiChu: '', ngayTaoPhieu: '', chiTietPhieuXuat: [] });
 const currentItem = ref({ maSP: '', donGia: 0 });
 const listHienThi = ref([]);
 
 const availableSerials = ref([]); 
-const selectedSerials = ref([]);  
-const searchText = ref("");       
+const selectedSerials = ref([]);  
+const searchText = ref("");       
 const isAdmin = ref(false);
 let lastCheckedIndex = -1;
 
-// [FIX LOGIC 1] Lấy danh sách serial đã được thêm vào bảng
 const usedSerials = computed(() => {
     return listHienThi.value.flatMap(item => item.danhSachSeri);
 });
 
-// [FIX LOGIC 2] Lọc danh sách máy khả dụng (Tồn kho - Đã dùng)
 const selectableSerials = computed(() => {
     return availableSerials.value.filter(s => !usedSerials.value.includes(s));
 });
 
-// [FIX LOGIC 3] Lọc theo từ khóa tìm kiếm dựa trên danh sách khả dụng
 const filteredSerials = computed(() => {
     if (!searchText.value) return selectableSerials.value;
     return selectableSerials.value.filter(s => s.toLowerCase().includes(searchText.value.toLowerCase()));
@@ -320,6 +322,11 @@ const themDongChiTiet = () => {
     if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
     if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
 
+    if (currentItem.value.donGia < 0) {
+        alert("Đơn giá phải lớn hơn hoặc bằng 0");
+        return;
+    }
+
     listHienThi.value.push({
         maSP: currentItem.value.maSP,
         donGia: currentItem.value.donGia,
@@ -327,8 +334,6 @@ const themDongChiTiet = () => {
         danhSachSeri: [...selectedSerials.value] 
     });
 
-    // Reset lại ô chọn máy, nhưng giữ nguyên SP để user chọn tiếp
-    // [FIX LOGIC] computed 'selectableSerials' sẽ tự động trừ các máy vừa thêm ra khỏi list
     selectedSerials.value = [];
     searchText.value = "";
     lastCheckedIndex = -1;
@@ -341,6 +346,7 @@ const luuPhieuXuat = async () => {
         maKho: phieuXuat.value.maKho,
         maDonVi: phieuXuat.value.maDonVi,
         ghiChu: phieuXuat.value.ghiChu,
+        ngayTaoPhieu: phieuXuat.value.ngayTaoPhieu || null, // TRUYỀN NGÀY VÀO PAYLOAD
         chiTietPhieuXuat: listHienThi.value
     };
 
