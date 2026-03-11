@@ -2,7 +2,6 @@ package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.SanPhamDAO;
 import com.poly.quanlykhohang.entity.SanPham;
-import com.poly.quanlykhohang.service.SanPhamService; // Nếu bạn đã có Service thì dùng, không thì dùng DAO tạm
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,17 +17,22 @@ import java.util.List;
 public class SanPhamController {
 
     @Autowired
-    private SanPhamDAO sanPhamDAO; // Hoặc SanPhamService
+    private SanPhamDAO sanPhamDAO;
 
-    // 1. Lấy danh sách sản phẩm (Ai cũng dùng được: Để hiển thị lên combobox nhập/xuất)
+    // 1. Lấy danh sách sản phẩm (ĐÃ THÊM LOGIC LỌC)
     @GetMapping
     public ResponseEntity<Page<SanPham>> getAll(
+            @RequestParam(required = false) Integer maHang,
+            @RequestParam(required = false) Integer maLoai,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // Sắp xếp theo MaSP (hoặc TenSP tùy bạn)
         Pageable pageable = PageRequest.of(page, size, Sort.by("maSP").ascending());
-        return ResponseEntity.ok(sanPhamDAO.findAll(pageable));
+
+        // Gọi hàm filter, nếu maHang hoặc maLoai là null thì DB sẽ tự động lấy tất cả
+        Page<SanPham> result = sanPhamDAO.filterSanPham(maHang, maLoai, pageable);
+
+        return ResponseEntity.ok(result);
     }
 
     // 2. Lấy chi tiết 1 sản phẩm
@@ -38,10 +42,6 @@ public class SanPhamController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
-    // ============================================================
-    // CÁC HÀM DƯỚI ĐÂY SẼ BỊ CHẶN NẾU KHÔNG PHẢI ADMIN (Cấu hình ở SecurityConfig)
-    // ============================================================
 
     // 3. Thêm sản phẩm mới
     @PostMapping
@@ -59,8 +59,8 @@ public class SanPhamController {
             spCu.setTenSP(spMoi.getTenSP());
             spCu.setDonViTinh(spMoi.getDonViTinh());
             spCu.setMoTa(spMoi.getMoTa());
-            spCu.setHangSanXuat(spMoi.getHangSanXuat()); // Cập nhật hãng
-            // Không cập nhật số lượng ở đây (Số lượng do nhập/xuất quyết định)
+            spCu.setHangSanXuat(spMoi.getHangSanXuat());
+            spCu.setLoaiSanPham(spMoi.getLoaiSanPham()); // Đừng quên cập nhật cả Loại Sản Phẩm nhé
             return ResponseEntity.ok(sanPhamDAO.save(spCu));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -81,7 +81,6 @@ public class SanPhamController {
 
     @GetMapping("/list")
     public ResponseEntity<List<SanPham>> getAllList() {
-        // Lấy tất cả, sắp xếp theo tên cho dễ tìm
         return ResponseEntity.ok(sanPhamDAO.findAll(Sort.by("tenSP").ascending()));
     }
 }

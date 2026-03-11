@@ -87,6 +87,12 @@
               </router-link>
             </li>
             <li class="nav-item">
+              <router-link to="/trang-thai" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-activity"></i>
+                <p>Trạng thái máy</p>
+              </router-link>
+            </li>
+            <li class="nav-item">
               <router-link to="/danh-muc-may" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-upc-scan"></i>
                 <p>Danh mục máy</p>

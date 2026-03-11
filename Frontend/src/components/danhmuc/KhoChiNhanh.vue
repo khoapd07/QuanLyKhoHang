@@ -4,7 +4,6 @@ import api from '@/utils/axios';
 import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH ---
-// Đảm bảo URL này khớp với Controller (@RequestMapping("/api/chi-nhanh"))
 const API_URL = '/chi-nhanh'; 
 
 // --- STATE ---
@@ -58,7 +57,7 @@ const form = reactive({
 
 // --- API METHODS ---
 
-// 1. Lấy danh sách (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
+// 1. Lấy danh sách 
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
@@ -68,17 +67,13 @@ const loadData = async (page = 0) => {
     
     const data = response.data;
     if (data) {
-        // 1. Lấy content (Dữ liệu bảng)
         danhSach.value = data.content || [];
 
-        // 2. Lấy thông tin phân trang (Xử lý cả 2 trường hợp cấu trúc)
         if (data.page) {
-            // Trường hợp dữ liệu bị lồng trong object 'page' (như bên Máy In)
             totalPages.value = data.page.totalPages || 0;
             totalElements.value = data.page.totalElements || 0;
             currentPage.value = data.page.number || 0;
         } else {
-            // Trường hợp dữ liệu phẳng (Spring Page chuẩn)
             totalPages.value = data.totalPages || 0;
             totalElements.value = data.totalElements || 0;
             currentPage.value = (typeof data.number === 'number') ? data.number : 0;
@@ -96,19 +91,34 @@ const loadData = async (page = 0) => {
   }
 };
 
-// Chuyển trang
 const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) {
         loadData(page);
     }
 };
 
-// 2. Lưu dữ liệu
+// 2. Lưu dữ liệu (Bổ sung kiểm tra trùng lặp)
 const saveData = async () => {
-  if (!form.tenKho) {
+  const tenKhoInput = form.tenKho?.trim() || '';
+
+  if (!tenKhoInput) {
     showMessage('warning', 'Vui lòng nhập tên chi nhánh!');
     return;
   }
+
+  // Kiểm tra trùng lặp tên kho (Bỏ qua chính nó nếu đang sửa)
+  const isExist = danhSach.value.some(
+      item => item.tenKho.toLowerCase().trim() === tenKhoInput.toLowerCase() 
+              && item.maKho !== form.maKho
+  );
+
+  if (isExist) {
+      showMessage('warning', `Tên chi nhánh "${tenKhoInput}" đã tồn tại. Vui lòng nhập tên khác!`);
+      return;
+  }
+
+  // Cập nhật lại form với dữ liệu đã cắt khoảng trắng thừa
+  form.tenKho = tenKhoInput;
 
   try {
     if (isEditMode.value) {
@@ -180,7 +190,7 @@ onMounted(() => {
 
 <template>
   <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
       <h3 class="text-primary"><i class="bi bi-shop"></i> Quản Lý Chi Nhánh Kho</h3>
       <div>
            <button class="btn btn-outline-secondary me-2" @click="loadData(currentPage)">
@@ -203,7 +213,7 @@ onMounted(() => {
             <table class="table table-hover table-striped mb-0 align-middle">
             <thead class="table-dark">
                 <tr>
-                <th class="text-center" width="80px">STT</th> <th class="text-center" width="10%">Mã Kho</th>
+                <th class="text-center" width="80px">STT</th>
                 <th width="35%">Tên Chi Nhánh</th>
                 <th>Địa Chỉ</th>
                 <th class="text-center" width="15%">Thao Tác</th>
@@ -211,16 +221,14 @@ onMounted(() => {
             </thead>
             <tbody>
                 <tr v-if="isLoading">
-                <td colspan="5" class="text-center py-4">
-                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                <td colspan="4" class="text-center py-4"> <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
                     <span class="ms-2">Đang tải dữ liệu...</span>
                 </td>
                 </tr>
                 <tr v-else v-for="(kho, index) in danhSach" :key="kho.maKho">
-                <td class="text-center">
+                <td class="text-center text-muted fw-bold">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-                <td class="text-center fw-bold text-muted">#{{ kho.maKho }}</td>
                 <td class="fw-medium text-primary">{{ kho.tenKho }}</td>
                 <td>{{ kho.diaChi }}</td>
                 <td class="text-center">
@@ -233,8 +241,7 @@ onMounted(() => {
                 </td>
                 </tr>
                 <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
-                <td colspan="5" class="text-center text-muted py-3">Chưa có dữ liệu.</td>
-                </tr>
+                <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu.</td> </tr>
             </tbody>
             </table>
         </div>
@@ -271,30 +278,33 @@ onMounted(() => {
     <div class="modal fade" id="modalChiNhanh" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              {{ isEditMode ? 'Cập Nhật Chi Nhánh' : 'Thêm Chi Nhánh Mới' }}
+          <div class="modal-header bg-light">
+            <h5 class="modal-title text-primary">
+              <i class="bi bi-pencil-square"></i> {{ isEditMode ? 'Cập Nhật Chi Nhánh' : 'Thêm Chi Nhánh Mới' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              <div class="mb-3" v-if="isEditMode">
-                 <label class="form-label text-muted">Mã Kho</label>
-                 <input type="text" class="form-control" :value="form.maKho" disabled readonly>
+              <div class="mb-3" v-if="isEditMode && false">
+                 <label class="form-label text-muted small">Mã Kho</label>
+                 <input type="text" class="form-control bg-light" :value="form.maKho" disabled readonly>
               </div>
+              
               <div class="mb-3">
-                <label class="form-label">Tên Chi Nhánh <span class="text-danger">*</span></label>
-                <input v-model="form.tenKho" type="text" class="form-control" required placeholder="Ví dụ: Chi Nhánh Cầu Giấy" autofocus>
+                <label class="form-label fw-bold">Tên Chi Nhánh <span class="text-danger">*</span></label>
+                <input v-model="form.tenKho" type="text" class="form-control border-primary" required placeholder="Ví dụ: Chi Nhánh Cầu Giấy" autofocus>
               </div>
+              
               <div class="mb-3">
-                <label class="form-label">Địa Chỉ</label>
+                <label class="form-label fw-bold">Địa Chỉ</label>
                 <textarea v-model="form.diaChi" class="form-control" rows="3" placeholder="Nhập địa chỉ cụ thể..."></textarea>
               </div>
-              <div class="text-end mt-4">
+              
+              <div class="text-end mt-4 border-top pt-3">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-primary">
-                  {{ isEditMode ? 'Lưu Thay Đổi' : 'Thêm Mới' }}
+                <button type="submit" class="btn btn-primary px-4">
+                  <i class="bi bi-save"></i> {{ isEditMode ? 'Lưu Thay Đổi' : 'Thêm Mới' }}
                 </button>
               </div>
             </form>

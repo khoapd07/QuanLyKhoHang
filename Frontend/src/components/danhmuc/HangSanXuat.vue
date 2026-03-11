@@ -55,7 +55,7 @@ const form = reactive({ maHang: null, tenHang: '' });
 
 // --- CÁC HÀM XỬ LÝ API ---
 
-// 1. Lấy danh sách (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
+// 1. Lấy danh sách 
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
@@ -63,20 +63,15 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [LOGIC MỚI] Kiểm tra cấu trúc dữ liệu trả về
     const data = response.data;
     if(data) {
-        // Luôn lấy content trước
         danhSach.value = data.content || [];
 
-        // Kiểm tra xem thông tin phân trang nằm ở đâu (trực tiếp hay trong object 'page')
         if (data.page) {
-            // Trường hợp bị lồng nhau (như bên Máy In)
             totalPages.value = data.page.totalPages || 0;
             totalElements.value = data.page.totalElements || 0;
             currentPage.value = data.page.number || 0;
         } else {
-            // Trường hợp chuẩn Spring Boot (phẳng)
             totalPages.value = data.totalPages || 0;
             totalElements.value = data.totalElements || 0;
             currentPage.value = (typeof data.number === 'number') ? data.number : 0;
@@ -100,12 +95,27 @@ const changePage = (page) => {
     }
 };
 
-// 2. Lưu 
+// 2. Lưu (Đã thêm kiểm tra trùng lặp)
 const saveData = async () => {
-  if (!form.tenHang.trim()) {
+  const tenHangInput = form.tenHang.trim();
+  
+  if (!tenHangInput) {
     showMessage('warning', 'Vui lòng nhập tên hãng sản xuất!');
     return;
   }
+
+  // Logic kiểm tra xem tên hãng đã tồn tại chưa (không phân biệt hoa thường)
+  // Bỏ qua chính nó (form.maHang) nếu đang ở chế độ sửa
+  const isExist = danhSach.value.some(
+      item => item.tenHang.toLowerCase().trim() === tenHangInput.toLowerCase() 
+              && item.maHang !== form.maHang
+  );
+
+  if (isExist) {
+      showMessage('warning', 'Tên hãng sản xuất này đã tồn tại trong danh sách!');
+      return;
+  }
+
   try {
     if (isEditMode.value) {
       await api.put(`${API_URL}/${form.maHang}`, form);
@@ -194,23 +204,20 @@ onMounted(() => {
             <thead class="table-dark">
                 <tr>
                 <th class="text-center" width="80px">STT</th>
-                <th class="text-center" width="10%">ID</th>
                 <th>Tên Hãng Sản Xuất</th>
                 <th class="text-center" width="20%">Thao Tác</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="isLoading">
-                <td colspan="4" class="text-center py-4">
-                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
+                <td colspan="3" class="text-center py-4"> <div class="spinner-border text-primary spinner-border-sm" role="status"></div> Đang tải dữ liệu...
                 </td>
                 </tr>
                 
                 <tr v-else v-for="(item, index) in danhSach" :key="item.maHang">
-                <td class="text-center">
+                <td class="text-center fw-bold text-muted">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-                <td class="text-center fw-bold text-muted">{{ item.maHang }}</td>
                 <td class="fw-medium text-primary">{{ item.tenHang }}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
@@ -223,7 +230,7 @@ onMounted(() => {
                 </tr>
 
                 <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
-                <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu hãng sản xuất.</td>
+                <td colspan="3" class="text-center text-muted py-3">Chưa có dữ liệu hãng sản xuất.</td>
                 </tr>
             </tbody>
             </table>
@@ -269,10 +276,10 @@ onMounted(() => {
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              <div class="mb-3" v-if="isEditMode">
-                <label class="form-label text-muted small">Mã Hãng</label>
+              <div class="mb-3" v-if="isEditMode && false"> <label class="form-label text-muted small">Mã Hãng</label>
                 <input type="text" class="form-control bg-light" :value="form.maHang" disabled readonly>
               </div>
+              
               <div class="mb-3">
                 <label class="form-label fw-bold">Tên Hãng <span class="text-danger">*</span></label>
                 <input v-model="form.tenHang" type="text" class="form-control border-primary" required placeholder="Ví dụ: Canon, HP...">
