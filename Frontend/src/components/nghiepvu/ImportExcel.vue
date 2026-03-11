@@ -188,4 +188,4 @@ onMounted(async () => {
   await setupPhanQuyen();
   await loadKho();
 });
-</script>
+</script>//
