@@ -2,6 +2,7 @@ package com.poly.quanlykhohang.controller;
 
 import com.poly.quanlykhohang.dao.SanPhamDAO;
 import com.poly.quanlykhohang.entity.SanPham;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -54,17 +55,58 @@ public class SanPhamController {
 
     // 4. Cập nhật sản phẩm
     @PutMapping("/{id}")
+    @Transactional // Đảm bảo an toàn dữ liệu, lỗi sẽ rollback
     public ResponseEntity<?> update(@PathVariable String id, @RequestBody SanPham spMoi) {
-        return sanPhamDAO.findById(id).map(spCu -> {
-            spCu.setTenSP(spMoi.getTenSP());
-            spCu.setDonViTinh(spMoi.getDonViTinh());
-            spCu.setMoTa(spMoi.getMoTa());
-            spCu.setHangSanXuat(spMoi.getHangSanXuat());
-            spCu.setLoaiSanPham(spMoi.getLoaiSanPham()); // Đừng quên cập nhật cả Loại Sản Phẩm nhé
-            return ResponseEntity.ok(sanPhamDAO.save(spCu));
-        }).orElse(ResponseEntity.notFound().build());
-    }
+        try {
+            SanPham spCu = sanPhamDAO.findById(id).orElse(null);
+            if (spCu == null) {
+                return ResponseEntity.notFound().build();
+            }
 
+            // Trường hợp 1: NGƯỜI DÙNG THAY ĐỔI MÃ SẢN PHẨM
+            if (!id.equals(spMoi.getMaSP())) {
+                // 1.1 Kiểm tra mã mới đã bị trùng với SP khác chưa?
+                if (sanPhamDAO.existsById(spMoi.getMaSP())) {
+                    return ResponseEntity.badRequest().body("Mã sản phẩm mới (" + spMoi.getMaSP() + ") đã tồn tại!");
+                }
+
+                // 1.2 Tạo bản ghi mới với Mã Mới
+                SanPham spMoiMoi = new SanPham();
+                spMoiMoi.setMaSP(spMoi.getMaSP());
+                spMoiMoi.setTenSP(spMoi.getTenSP());
+                spMoiMoi.setDonViTinh(spMoi.getDonViTinh());
+                spMoiMoi.setMoTa(spMoi.getMoTa());
+                spMoiMoi.setHangSanXuat(spMoi.getHangSanXuat());
+                spMoiMoi.setLoaiSanPham(spMoi.getLoaiSanPham());
+                spMoiMoi.setSoLuong(spCu.getSoLuong()); // Giữ nguyên số lượng cũ
+
+                sanPhamDAO.save(spMoiMoi); // Lưu mã mới vào DB
+
+                // 1.3 [QUAN TRỌNG] Chuyển đổi toàn bộ dữ liệu lịch sử sang mã mới TRƯỚC KHI xóa mã cũ
+                sanPhamDAO.updateMaSpInDMMay(id, spMoi.getMaSP());
+                sanPhamDAO.updateMaSpInCTPhieuNhap(id, spMoi.getMaSP());
+                sanPhamDAO.updateMaSpInCTPhieuXuat(id, spMoi.getMaSP());
+                sanPhamDAO.updateMaSpInDMTonKho(id, spMoi.getMaSP());
+
+                // 1.4 Xóa mã cũ an toàn (vì không còn máy in hay phiếu nào bị dính với mã cũ nữa)
+                sanPhamDAO.deleteById(id);
+                return ResponseEntity.ok(spMoiMoi);
+            }
+
+            // Trường hợp 2: CHỈ SỬA THÔNG TIN, KHÔNG SỬA MÃ
+            else {
+                spCu.setTenSP(spMoi.getTenSP());
+                spCu.setDonViTinh(spMoi.getDonViTinh());
+                spCu.setMoTa(spMoi.getMoTa());
+                spCu.setHangSanXuat(spMoi.getHangSanXuat());
+                spCu.setLoaiSanPham(spMoi.getLoaiSanPham());
+                return ResponseEntity.ok(sanPhamDAO.save(spCu));
+            }
+        } catch (Exception e) {
+            // Nếu vẫn còn sót bảng nào đó giữ khóa ngoại chưa được xử lý, nó sẽ nhảy vào đây để chặn sập Server
+            return ResponseEntity.badRequest().body("Lỗi hệ thống: Không thể chuyển đổi mã sản phẩm vì ràng buộc dữ liệu!");
+        }
+    }
     // 5. Xóa sản phẩm
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable String id) {

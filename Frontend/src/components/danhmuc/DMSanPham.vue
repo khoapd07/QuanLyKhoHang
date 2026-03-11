@@ -58,9 +58,9 @@ const paginationInfo = computed(() => ({
     totalPages: totalPages.value
 }));
 
-// Form Data
+// Form Data - [MỚI] Thêm oldMaSP để giữ mã cũ khi update
 const form = reactive({
-  maSP: '', tenSP: '', donViTinh: '', maHang: null, maLoai: null, moTa: ''
+  oldMaSP: '', maSP: '', tenSP: '', donViTinh: '', maHang: null, maLoai: null, moTa: ''
 });
 
 // --- METHODS ---
@@ -69,7 +69,6 @@ const form = reactive({
 const loadData = async (page = 0) => {
   isLoading.value = true;
   
-  // Nạp tham số lọc vào params gửi xuống Backend
   const queryParams = { 
       page: page, 
       size: itemsPerPage.value 
@@ -121,23 +120,33 @@ const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) loadData(page);
 };
 
-// Xóa bộ lọc và tải lại
 const resetFilter = () => {
     filterHang.value = null;
     filterLoai.value = null;
     loadData(0);
 };
 
-// 2. Lưu
+// 2. Lưu & Validation
 const saveData = async () => {
-  if (!form.maSP || !form.tenSP) {
-    showAlert('Vui lòng nhập Mã và Tên sản phẩm!', 'warning');
+  // Ràng buộc dữ liệu
+  const maSP = form.maSP ? form.maSP.trim() : '';
+  const tenSP = form.tenSP ? form.tenSP.trim() : '';
+
+  if (!maSP || !tenSP) {
+    showAlert('Vui lòng nhập đầy đủ Mã và Tên sản phẩm!', 'warning');
     return;
   }
 
+  // Kiểm tra Regex mã SP (Tránh khoảng trắng và ký tự có dấu)
+  const regexMaSP = /^[a-zA-Z0-9-_]+$/;
+  if (!regexMaSP.test(maSP)) {
+      showAlert('Mã sản phẩm không hợp lệ! (Không chứa khoảng trắng hoặc ký tự đặc biệt)', 'warning');
+      return;
+  }
+
   const payload = {
-      maSP: form.maSP,
-      tenSP: form.tenSP,
+      maSP: maSP,
+      tenSP: tenSP,
       donViTinh: form.donViTinh,
       moTa: form.moTa,
       hangSanXuat: form.maHang ? { maHang: form.maHang } : null,
@@ -146,7 +155,8 @@ const saveData = async () => {
 
   try {
     if (isEditMode.value) {
-      await api.put(`${API_URL}/${form.maSP}`, payload);
+      // Gọi PUT API theo mã cũ (oldMaSP)
+      await api.put(`${API_URL}/${form.oldMaSP}`, payload);
       showAlert('Cập nhật thành công!', 'success');
     } else {
       await api.post(API_URL, payload);
@@ -155,7 +165,16 @@ const saveData = async () => {
     closeModal();
     loadData(currentPage.value); 
   } catch (error) {
-    const msg = error.response?.data || error.message; 
+    // Xử lý đọc lỗi trả về từ Backend (kể cả dạng text lẫn JSON object của Spring Boot)
+    const errorData = error.response?.data;
+    let msg = 'Không thể lưu dữ liệu (Lỗi hệ thống)';
+    
+    if (typeof errorData === 'string') {
+        msg = errorData; // Đọc được đoạn String badRequest trả về từ Controller
+    } else if (errorData && errorData.message) {
+        msg = errorData.message;
+    }
+
     showAlert('Lỗi: ' + msg, 'danger');
   }
 };
@@ -169,7 +188,7 @@ const deleteData = async (id) => {
     loadData(0); 
   } catch (error) {
     const msg = error.response?.data || error.message;
-    showAlert('Không thể xóa: ' + msg, 'danger');
+    showAlert('Không thể xóa: ' + (typeof msg === 'string' ? msg : 'Lỗi hệ thống'), 'danger');
   }
 };
 
@@ -183,6 +202,7 @@ const openAddModal = () => {
 
 const openEditModal = (item) => {
   isEditMode.value = true;
+  form.oldMaSP = item.maSP; // [MỚI] Lưu lại mã cũ
   form.maSP = item.maSP;
   form.tenSP = item.tenSP;
   form.donViTinh = item.donViTinh;
@@ -208,7 +228,7 @@ const closeModal = () => {
 };
 
 const resetForm = () => {
-  form.maSP = ''; form.tenSP = ''; form.donViTinh = ''; 
+  form.oldMaSP = ''; form.maSP = ''; form.tenSP = ''; form.donViTinh = ''; 
   form.maHang = null; form.maLoai = null; 
   form.moTa = '';
 };
@@ -216,7 +236,7 @@ const resetForm = () => {
 const showAlert = (msg, type) => {
   alertMsg.value = msg;
   alertType.value = type;
-  setTimeout(() => alertMsg.value = '', 3000);
+  setTimeout(() => alertMsg.value = '', 4000);
 };
 
 onMounted(() => {
@@ -375,9 +395,10 @@ onMounted(() => {
               <div class="mb-3">
                 <label class="form-label fw-bold">Mã Sản Phẩm <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" v-model="form.maSP" required 
-                       :disabled="isEditMode" 
                        placeholder="VD: IP15, SS-S24...">
-                <div class="form-text text-danger" v-if="isEditMode">Không thể sửa mã sản phẩm.</div>
+                <div class="form-text text-muted" v-if="isEditMode">
+                   <i class="fas fa-info-circle"></i> Đang sửa mã sản phẩm. Cần cẩn thận nếu mã đã phát sinh giao dịch.
+                </div>
               </div>
 
               <div class="mb-3">
