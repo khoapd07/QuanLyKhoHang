@@ -66,7 +66,7 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [SỬA] Logic xử lý dữ liệu chuẩn Page (giống HangSanXuat.vue đã sửa)
+    // Logic xử lý dữ liệu chuẩn Page
     const data = response.data;
     if(data) {
         // 1. Lấy content
@@ -102,11 +102,24 @@ const changePage = (page) => {
     }
 };
 
-// 2. Lưu dữ liệu (POST / PUT)
+// 2. Lưu dữ liệu (POST / PUT) - Có kiểm tra trùng lặp
 const saveData = async () => {
-  if (!form.tenLoai.trim()) {
+  const tenLoaiInput = form.tenLoai.trim();
+
+  if (!tenLoaiInput) {
     showMessage('warning', 'Vui lòng nhập tên loại sản phẩm!');
     return;
+  }
+
+  // Logic kiểm tra xem tên loại đã tồn tại chưa (không phân biệt hoa thường)
+  const isExist = danhSach.value.some(
+      item => item.tenLoai.toLowerCase().trim() === tenLoaiInput.toLowerCase() 
+              && item.maLoai !== form.maLoai
+  );
+
+  if (isExist) {
+      showMessage('warning', 'Tên loại sản phẩm này đã tồn tại trong danh sách!');
+      return;
   }
 
   try {
@@ -127,7 +140,7 @@ const saveData = async () => {
 
 // 3. Xóa dữ liệu (DELETE)
 const deleteData = async (id) => {
-  if (!confirm(`Bạn có chắc chắn muốn xóa loại sản phẩm #${id} không?`)) return;
+  if (!confirm(`Bạn có chắc chắn muốn xóa loại sản phẩm này không?`)) return;
 
   try {
     await api.delete(`${API_URL}/${id}`);
@@ -199,31 +212,29 @@ onMounted(() => {
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
-        <div class="table-responsive"> <table class="table table-striped table-hover mb-0 align-middle">
+        <div class="table-responsive"> 
+            <table class="table table-striped table-hover mb-0 align-middle">
             <thead class="table-dark">
                 <tr>
                 <th class="text-center" style="width: 80px;">STT</th>
-                <th class="text-center" style="width: 150px;">Mã Loại</th>
                 <th>Tên Loại Sản Phẩm</th>
                 <th class="text-center" style="width: 200px;">Thao Tác</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="isLoading">
-                <td colspan="4" class="text-center py-4">
-                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                <td colspan="3" class="text-center py-4"> <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
                     <span class="ms-2">Đang tải dữ liệu...</span>
                 </td>
                 </tr>
                 
                 <tr v-else v-for="(item, index) in danhSach" :key="item.maLoai">
                 
-                <td class="text-center">
+                <td class="text-center fw-bold text-muted">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
 
-                <td class="text-center fw-bold">{{ item.maLoai }}</td>
-                <td class="fw-medium">{{ item.tenLoai }}</td>
+                <td class="fw-medium text-primary">{{ item.tenLoai }}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(item)">
                     <i class="bi bi-pencil-square"></i> Sửa
@@ -235,7 +246,7 @@ onMounted(() => {
                 </tr>
 
                 <tr v-if="!isLoading && danhSach.length === 0">
-                <td colspan="4" class="text-center text-muted py-3">Chưa có dữ liệu nào.</td>
+                <td colspan="3" class="text-center text-muted py-3">Chưa có dữ liệu nào.</td>
                 </tr>
             </tbody>
             </table>
@@ -273,15 +284,15 @@ onMounted(() => {
     <div class="modal fade" id="modalLoaiSP" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              {{ isEditMode ? 'Cập Nhật Loại Sản Phẩm' : 'Thêm Loại Sản Phẩm Mới' }}
+          <div class="modal-header bg-light">
+            <h5 class="modal-title text-primary">
+              <i class="bi bi-pencil-square"></i> {{ isEditMode ? 'Cập Nhật Loại Sản Phẩm' : 'Thêm Loại Sản Phẩm Mới' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveData">
-              <div class="mb-3" v-if="isEditMode">
+              <div class="mb-3" v-if="isEditMode && false">
                 <label class="form-label text-muted">Mã Loại</label>
                 <input type="text" class="form-control" :value="form.maLoai" disabled readonly>
               </div>
@@ -290,16 +301,16 @@ onMounted(() => {
                 <input 
                   v-model="form.tenLoai" 
                   type="text" 
-                  class="form-control" 
+                  class="form-control border-primary" 
                   required 
-                  placeholder="Ví dụ: Điện thoại, Laptop..."
+                  placeholder="Ví dụ: Máy in laser, Máy in phun..."
                   autofocus
                 >
               </div>
-              <div class="text-end mt-4">
+              <div class="text-end mt-4 border-top pt-3">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Đóng</button>
-                <button type="submit" class="btn btn-primary">
-                  {{ isEditMode ? 'Lưu Thay Đổi' : 'Tạo Mới' }}
+                <button type="submit" class="btn btn-primary px-4">
+                  <i class="bi bi-save"></i> {{ isEditMode ? 'Lưu Thay Đổi' : 'Tạo Mới' }}
                 </button>
               </div>
             </form>

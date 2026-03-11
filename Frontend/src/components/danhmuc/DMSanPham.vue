@@ -5,7 +5,6 @@ import * as bootstrap from 'bootstrap';
 
 // --- CẤU HÌNH API ---
 const API_URL = '/san-pham';
-// Sử dụng API list mới cho dropdown (để không bị phân trang)
 const API_HANG_SX = '/hang-san-xuat'; 
 const API_LOAI_SP = '/loai-san-pham'; 
 
@@ -17,6 +16,10 @@ const isLoading = ref(false);
 const isEditMode = ref(false);
 const alertMsg = ref('');
 const alertType = ref('success'); 
+
+// --- STATE LỌC (FILTER) ---
+const filterHang = ref(null);
+const filterLoai = ref(null);
 
 let modalInstance = null;
 
@@ -62,30 +65,33 @@ const form = reactive({
 
 // --- METHODS ---
 
-// 1. Load Data (SỬA ĐỔI ĐỂ NHẬN DIỆN ĐÚNG TOTAL ELEMENTS)
+// 1. Load Data
 const loadData = async (page = 0) => {
   isLoading.value = true;
+  
+  // Nạp tham số lọc vào params gửi xuống Backend
+  const queryParams = { 
+      page: page, 
+      size: itemsPerPage.value 
+  };
+  if (filterHang.value) queryParams.maHang = filterHang.value;
+  if (filterLoai.value) queryParams.maLoai = filterLoai.value;
+
   try {
     const [resSP, resHang, resLoai] = await Promise.all([
-        api.get(API_URL, { params: { page: page, size: itemsPerPage.value } }),
+        api.get(API_URL, { params: queryParams }),
         listHangSanXuat.value.length === 0 ? api.get(API_HANG_SX) : { data: listHangSanXuat.value },
         listLoaiSanPham.value.length === 0 ? api.get(API_LOAI_SP) : { data: listLoaiSanPham.value }
     ]);
 
-    // [LOGIC MỚI] Xử lý dữ liệu sản phẩm
     const data = resSP.data;
     if (data) {
-        // Luôn lấy content trước
         danhSach.value = data.content || [];
-
-        // Kiểm tra xem thông tin phân trang nằm ở đâu
         if (data.page) {
-            // Trường hợp bị lồng nhau
             totalPages.value = data.page.totalPages || 0;
             totalElements.value = data.page.totalElements || 0;
             currentPage.value = data.page.number || 0;
         } else {
-            // Trường hợp chuẩn Spring Boot (phẳng)
             totalPages.value = data.totalPages || 0;
             totalElements.value = data.totalElements || 0;
             currentPage.value = (typeof data.number === 'number') ? data.number : 0;
@@ -95,12 +101,10 @@ const loadData = async (page = 0) => {
         totalElements.value = 0;
     }
 
-    // Update danh sách hãng (Xử lý fallback nếu API trả về Page thay vì List)
     const rawHang = resHang.data;
     if (Array.isArray(rawHang)) listHangSanXuat.value = rawHang;
     else if (rawHang?.content) listHangSanXuat.value = rawHang.content;
 
-    // Update danh sách loại
     const rawLoai = resLoai.data;
     if (Array.isArray(rawLoai)) listLoaiSanPham.value = rawLoai;
     else if (rawLoai?.content) listLoaiSanPham.value = rawLoai.content;
@@ -115,6 +119,13 @@ const loadData = async (page = 0) => {
 
 const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) loadData(page);
+};
+
+// Xóa bộ lọc và tải lại
+const resetFilter = () => {
+    filterHang.value = null;
+    filterLoai.value = null;
+    loadData(0);
 };
 
 // 2. Lưu
@@ -215,16 +226,45 @@ onMounted(() => {
 
 <template>
   <div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
       <h3 class="text-primary"><i class="fas fa-box-open"></i> Quản Lý Danh Mục Sản Phẩm</h3>
       <div>
-           <button class="btn btn-outline-secondary me-2 fw-bold" @click="loadData(currentPage)">
-                <i class="fas fa-sync-alt"></i> Tải lại
-            </button>
           <button class="btn btn-primary fw-bold" @click="openAddModal">
             <i class="fas fa-plus"></i> Thêm Sản Phẩm Mới
           </button>
       </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body bg-light rounded py-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-auto fw-bold text-muted">Lọc theo:</div>
+                <div class="col-md-3">
+                    <select v-model="filterHang" class="form-select form-select-sm" @change="loadData(0)">
+                        <option :value="null">-- Tất cả hãng sản xuất --</option>
+                        <option v-for="h in listHangSanXuat" :key="h.maHang" :value="h.maHang">
+                            {{ h.tenHang }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select v-model="filterLoai" class="form-select form-select-sm" @change="loadData(0)">
+                        <option :value="null">-- Tất cả loại sản phẩm --</option>
+                        <option v-for="l in listLoaiSanPham" :key="l.maLoai" :value="l.maLoai">
+                            {{ l.tenLoai }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-sm btn-outline-secondary me-2" @click="resetFilter" v-if="filterHang || filterLoai">
+                        <i class="fas fa-times"></i> Xóa lọc
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @click="loadData(0)">
+                        <i class="fas fa-sync-alt"></i> Tải lại
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div v-if="alertMsg" :class="`alert alert-${alertType} alert-dismissible fade show`" role="alert">
@@ -238,7 +278,8 @@ onMounted(() => {
             <table class="table table-hover table-striped mb-0 align-middle">
             <thead class="table-dark text-center">
                 <tr>
-                <th width="50px">STT</th> <th>Mã SP</th>
+                <th width="50px">STT</th> 
+                <th>Mã SP</th>
                 <th>Tên Sản Phẩm</th>
                 <th>ĐVT</th>
                 <th>Hãng SX</th>
@@ -257,7 +298,7 @@ onMounted(() => {
                 
                 <tr v-else v-for="(sp, index) in danhSach" :key="sp.maSP">
                 
-                <td class="text-center">
+                <td class="text-center text-muted fw-bold">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
 
@@ -276,15 +317,15 @@ onMounted(() => {
                 <td class="small text-muted">{{ sp.moTa }}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-outline-warning me-2" @click="openEditModal(sp)" title="Sửa">
-                    Sửa
+                        <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-outline-danger" @click="deleteData(sp.maSP)" title="Xóa">
-                    Xóa
+                        <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
                 </tr>
                  <tr v-if="!isLoading && (!danhSach || danhSach.length === 0)">
-                    <td colspan="8" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
+                    <td colspan="8" class="text-center py-4 text-muted">Chưa có sản phẩm nào phù hợp.</td>
                 </tr>
             </tbody>
             </table>
@@ -324,7 +365,7 @@ onMounted(() => {
         <div class="modal-content">
           <div class="modal-header" :class="isEditMode ? 'bg-warning' : 'bg-primary text-white'">
             <h5 class="modal-title">
-              {{ isEditMode ? 'Cập Nhật Sản Phẩm' : 'Thêm Sản Phẩm Mới' }}
+              <i class="fas fa-box-open"></i> {{ isEditMode ? 'Cập Nhật Sản Phẩm' : 'Thêm Sản Phẩm Mới' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -332,7 +373,7 @@ onMounted(() => {
           <div class="modal-body">
             <form @submit.prevent="saveData">
               <div class="mb-3">
-                <label class="form-label">Mã Sản Phẩm <span class="text-danger">*</span></label>
+                <label class="form-label fw-bold">Mã Sản Phẩm <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" v-model="form.maSP" required 
                        :disabled="isEditMode" 
                        placeholder="VD: IP15, SS-S24...">
@@ -340,13 +381,13 @@ onMounted(() => {
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Tên Sản Phẩm <span class="text-danger">*</span></label>
+                <label class="form-label fw-bold">Tên Sản Phẩm <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" v-model="form.tenSP" required placeholder="Nhập tên sản phẩm">
               </div>
 
               <div class="row">
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Hãng Sản Xuất</label>
+                  <label class="form-label fw-bold">Hãng Sản Xuất</label>
                   <select class="form-select" v-model="form.maHang">
                       <option :value="null" disabled>-- Chọn Hãng --</option>
                       <option v-for="h in listHangSanXuat" :key="h.maHang" :value="h.maHang">
@@ -356,7 +397,7 @@ onMounted(() => {
                 </div>
                 
                 <div class="col-md-6 mb-3"> 
-                  <label class="form-label">Loại Sản Phẩm</label>
+                  <label class="form-label fw-bold">Loại Sản Phẩm</label>
                   <select class="form-select" v-model="form.maLoai">
                       <option :value="null" disabled>-- Chọn Loại --</option>
                       <option v-for="l in listLoaiSanPham" :key="l.maLoai" :value="l.maLoai">
@@ -367,16 +408,16 @@ onMounted(() => {
               </div>
 
               <div class="mb-3">
-                  <label class="form-label">Đơn Vị Tính</label>
+                  <label class="form-label fw-bold">Đơn Vị Tính</label>
                   <input type="text" class="form-control" v-model="form.donViTinh" placeholder="Cái, Chiếc, Bộ...">
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Mô Tả</label>
-                <textarea class="form-control" v-model="form.moTa" rows="3" placeholder="Ghi chú thêm về sản phẩm"></textarea>
+                <label class="form-label fw-bold">Mô Tả</label>
+                <textarea class="form-control" v-model="form.moTa" rows="3" placeholder="Ghi chú thêm về sản phẩm..."></textarea>
               </div>
 
-              <div class="text-end">
+              <div class="text-end border-top pt-3">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
                 <button type="submit" class="btn" :class="isEditMode ? 'btn-warning' : 'btn-primary'">
                   <i class="fas fa-save"></i> Lưu Dữ Liệu
@@ -387,6 +428,5 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TrangThaiDAO extends JpaRepository<TrangThai, Integer> {
+    boolean existsByTenTrangThaiIgnoreCase(String tenTrangThai);
 }

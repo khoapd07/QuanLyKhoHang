@@ -72,7 +72,7 @@ const loadData = async (page = 0) => {
         params: { page: page, size: itemsPerPage.value }
     });
     
-    // [SỬA LẠI] Logic gán dữ liệu chuẩn Page
+    // Logic gán dữ liệu chuẩn Page
     const data = response.data;
     if(data) {
         // 1. Lấy content
@@ -109,13 +109,44 @@ const changePage = (page) => {
     }
 };
 
-// 2. Lưu
+// 2. Lưu - ĐÃ BỔ SUNG VALIDATE RÕ RÀNG
 const saveData = async () => {
-  if (!form.maDonVi || !form.tenDonVi) {
-    showMessage('warning', 'Vui lòng nhập Mã đơn vị và Tên đơn vị!');
+  const maDonViInput = form.maDonVi?.trim() || '';
+  const tenDonViInput = form.tenDonVi?.trim() || '';
+
+  // 1. Validate rỗng
+  if (!maDonViInput || !tenDonViInput) {
+    showMessage('warning', 'Vui lòng nhập đầy đủ Mã đơn vị và Tên đơn vị!');
     return;
   }
-  const payload = { ...form };
+
+  // 2. Validate trùng Mã Đơn Vị (chỉ kiểm tra khi Thêm mới)
+  if (!isEditMode.value) {
+      const isDuplicateMa = danhSach.value.some(
+          item => item.maDonVi.toLowerCase() === maDonViInput.toLowerCase()
+      );
+      if (isDuplicateMa) {
+          showMessage('warning', `Mã đơn vị "${maDonViInput}" đã tồn tại. Vui lòng nhập mã khác!`);
+          return;
+      }
+  }
+
+  // 3. Validate trùng Tên Đơn Vị (Bỏ qua chính nó nếu đang sửa)
+  const isDuplicateTen = danhSach.value.some(
+      item => item.tenDonVi.toLowerCase().trim() === tenDonViInput.toLowerCase() 
+              && item.maDonVi !== form.maDonVi
+  );
+  if (isDuplicateTen) {
+      showMessage('warning', `Tên đơn vị "${tenDonViInput}" đã tồn tại. Vui lòng đặt tên khác!`);
+      return;
+  }
+
+  // Gán lại data đã trim spaces
+  const payload = { 
+      ...form, 
+      maDonVi: maDonViInput, 
+      tenDonVi: tenDonViInput 
+  };
 
   try {
     if (isEditMode.value) {
@@ -312,8 +343,8 @@ onMounted(() => {
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">
-              {{ isEditMode ? 'Cập Nhật Thông Tin' : 'Thêm Đơn Vị Mới' }}
+            <h5 class="modal-title text-primary">
+              <i class="bi bi-buildings"></i> {{ isEditMode ? 'Cập Nhật Thông Tin' : 'Thêm Đơn Vị Mới' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -321,13 +352,13 @@ onMounted(() => {
             <form @submit.prevent="saveData">
               <div class="row g-3">
                 <div class="col-md-6">
-                  <label class="form-label">Mã Đơn Vị <span class="text-danger">*</span></label>
+                  <label class="form-label fw-bold">Mã Đơn Vị <span class="text-danger">*</span></label>
                   <input v-model="form.maDonVi" type="text" class="form-control" required :disabled="isEditMode" placeholder="VD: NCC01, KH02...">
                   <div class="form-text" v-if="!isEditMode">Mã không được trùng và không thể sửa sau khi tạo.</div>
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Loại Đơn Vị</label>
+                  <label class="form-label fw-bold">Loại Đơn Vị</label>
                   <select v-model="form.loaiDonVi" class="form-select">
                     <option v-for="loai in listLoaiDonVi" :key="loai.id" :value="loai.id">
                       {{ loai.ten }}
@@ -336,30 +367,30 @@ onMounted(() => {
                 </div>
 
                 <div class="col-12">
-                  <label class="form-label">Tên Đơn Vị <span class="text-danger">*</span></label>
+                  <label class="form-label fw-bold">Tên Đơn Vị <span class="text-danger">*</span></label>
                   <input v-model="form.tenDonVi" type="text" class="form-control" required placeholder="Nhập tên công ty hoặc khách hàng">
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Số Điện Thoại</label>
+                  <label class="form-label fw-bold">Số Điện Thoại</label>
                   <input v-model="form.soDienThoai" type="text" class="form-control" placeholder="09xxxxxxx">
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Email</label>
+                  <label class="form-label fw-bold">Email</label>
                   <input v-model="form.email" type="email" class="form-control" placeholder="email@example.com">
                 </div>
 
                 <div class="col-12">
-                  <label class="form-label">Địa Chỉ</label>
+                  <label class="form-label fw-bold">Địa Chỉ</label>
                   <textarea v-model="form.diaChi" class="form-control" rows="2" placeholder="Địa chỉ chi tiết..."></textarea>
                 </div>
               </div>
 
-              <div class="text-end mt-4">
+              <div class="text-end mt-4 border-top pt-3">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-primary">
-                  {{ isEditMode ? 'Lưu Thay Đổi' : 'Thêm Mới' }}
+                <button type="submit" class="btn btn-primary px-4">
+                  <i class="bi bi-save"></i> {{ isEditMode ? 'Lưu Thay Đổi' : 'Thêm Mới' }}
                 </button>
               </div>
             </form>

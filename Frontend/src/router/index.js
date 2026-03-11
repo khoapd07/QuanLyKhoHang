@@ -3,6 +3,7 @@ import AdminLayout from '../layouts/AdminLayout.vue'
 import Login from '../components/auth/Login.vue'
 import Dashboard from '../components/dashboard/Dashboard.vue'
 
+
 // Danh mục
 import DMMay from '../components/danhmuc/DanhMucMay.vue'
 import DonVi from '../components/danhmuc/DonVi.vue'
@@ -10,7 +11,7 @@ import Kho from '../components/danhmuc/KhoChiNhanh.vue'
 import LoaiSP from '../components/danhmuc/LoaiSP.vue'
 import Hang from '../components/danhmuc/HangSanXuat.vue'
 import DMSanPham from '../components/danhmuc/DMSanPham.vue'
-
+import TrangThai from '../components/danhmuc/QLTrangThai.vue';
 // Nghiệp vụ NHẬP
 import NhapKho from '../components/nghiepvu/NhapKho.vue'
 import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
@@ -46,6 +47,7 @@ const routes = [
       { path: 'kho', name: 'Kho', component: Kho, meta: { requiresAdmin: true } },
       { path: 'hang-san-xuat', name: 'Hang', component: Hang },
       { path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
+      {path: 'trang-thai',name: 'TrangThai',component: TrangThai},
 
       // Nhập kho
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },
