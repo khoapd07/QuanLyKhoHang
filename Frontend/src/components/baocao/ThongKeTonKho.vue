@@ -36,25 +36,41 @@
                   <input type="date" class="form-control" v-model="filters.endDate">
                 </div>
               </div>
-              <div class="col-lg-3 col-md-6 col-6">
+              <div class="col-lg-3 col-md-6 col-12">
                 <div class="form-group">
                   <label>Kho/Chi nhánh</label>
-                  <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin">
-                    <option :value="0" v-if="isAdmin">Tất cả kho</option>
+                  <select class="form-control" v-model="filters.warehouseId" :disabled="!isAdmin" @change="handleSearch">
                     <option v-for="k in khoList" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                   </select>
                 </div>
               </div>
 
-              <div class="col-lg-3 col-md-6 col-6">
-                <div class="form-group">
+              <div class="col-lg-3 col-md-6 col-12">
+                <div class="form-group custom-multi-select" ref="statusDropdownRef">
                   <label>Trạng thái máy</label>
-                  <select class="form-control" v-model="filters.statusId">
-                    <!-- <option :value="-1">Tất cả</option> -->
-                    <option v-for="st in statusList" :key="st.id" :value="st.id">{{ st.name }}</option>
-                  </select>
+                  
+                  <div class="form-control dropdown-trigger" 
+                       :class="{ 'is-focused': isStatusDropdownOpen }"
+                       @click="toggleStatusDropdown">
+                    <span class="dropdown-text">{{ selectedStatusText }}</span>
+                    <i class="fas fa-chevron-down dropdown-icon"></i>
+                  </div>
+
+                  <div class="dropdown-menu-custom shadow-sm" v-show="isStatusDropdownOpen">
+                    <div class="dropdown-list">
+                      <label class="dropdown-item-custom" v-for="st in statusList" :key="st.id">
+                        <input type="checkbox" class="checkbox-ui" 
+                               :value="st.id" 
+                               v-model="filters.statusIds" 
+                               @change="handleStatusChange(st.id)">
+                        <span class="ml-2">{{ st.name }}</span>
+                      </label>
+                    </div>
+                  </div>
+                  
                 </div>
               </div>
+
             </div>
           </div>
           <div class="card-footer">
@@ -81,7 +97,7 @@
               <i class="fas fa-chart-bar"></i> {{ reportTitle }}
             </h3>
             <div class="card-tools">
-              <span class="badge badge-success" v-if="allReportData.length > 0">{{ allReportData.length }} dòng</span>
+              <span class="badge badge-success" v-if="filteredReportData.length > 0">{{ filteredReportData.length }} dòng</span>
             </div>
           </div>
 
@@ -142,7 +158,7 @@
             </table>
           </div>
 
-          <div class="bg-light border-top py-1" v-if="allReportData.length > 0 && !loading"
+          <div class="bg-light border-top py-1" v-if="filteredReportData.length > 0 && !loading"
             style="border-bottom-left-radius: .25rem; border-bottom-right-radius: .25rem;">
             <div class="d-flex justify-content-around text-center align-items-center"
               style="font-size: 13px; min-height: 40px;">
@@ -195,17 +211,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, onUnmounted } from 'vue';
 import api from '@/utils/axios';
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import ExcelJS from 'exceljs';
 
-// --- CẤU HÌNH API ---
 const API_URL = '/thong-ke/xuat-nhap-ton';
 
-// --- STATE ---
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 const isExporting = ref(false);
@@ -213,11 +227,11 @@ const isAdmin = ref(false);
 const isChotSoState = ref(true);
 const isExportingExcel = ref(false);
 
-const allReportData = ref([]);
+const allReportData = ref([]); 
+const filteredReportData = ref([]); 
 const loading = ref(false);
-const currentTenKho = ref('Tất cả các kho');
+const currentTenKho = ref('');
 
-// --- TÍNH TOÁN DỮ LIỆU PHÂN TRANG (Client-side) ---
 const pagination = reactive({
   page: 0,
   size: 20,
@@ -228,11 +242,11 @@ const pagination = reactive({
 const paginatedData = computed(() => {
   const start = pagination.page * pagination.size;
   const end = start + pagination.size;
-  return allReportData.value.slice(start, end);
+  return filteredReportData.value.slice(start, end);
 });
 
 const grandTotal = computed(() => {
-  return allReportData.value.reduce((acc, item) => {
+  return filteredReportData.value.reduce((acc, item) => {
     acc.tdk += item.tonDau || 0;
     acc.ntk += item.nhapTrong || 0;
     acc.xtk += item.xuatTrong || 0;
@@ -247,8 +261,7 @@ const visiblePages = computed(() => {
   if (total === 0) return [];
   const current = pagination.page + 1;
   const delta = 2;
-  const range = [];
-  const rangeWithDots = [];
+  const range = [], rangeWithDots = [];
   let l;
 
   for (let i = 1; i <= total; i++) {
@@ -273,31 +286,69 @@ const changePage = (newPage) => {
   pagination.page = newPage;
 };
 
+// State bộ lọc
 const filters = reactive({
   startDate: firstDay.toISOString().substring(0, 10),
   endDate: today.toISOString().substring(0, 10),
-  warehouseId: 0, // Mặc định 0 là Tất cả kho
-  statusId: 0     // ĐÃ SỬA: Mặc định 0 là "Tất cả" trạng thái theo Backend mới
+  warehouseId: '', 
+  statusIds: [0] // Mặc định [0] là Tất cả    
 });
 
 const khoList = ref([]);
 
 const statusList = ref([
-  { id: 0, name: 'Tất cả' },
-  { id: 1, name: 'Bình thường' }, // Giao diện hiện "Bình thường" cho người dùng dễ chọn, in ra nó vẫn tự ẩn
-  { id: 2, name: 'New' },
-  { id: 3, name: 'Like New' },
-  { id: 4, name: 'Hỏng' },
-  { id: 5, name: 'Xác' },
-  { id: 6, name: 'Thu hồi' },
-  { id: 7, name: 'Nhập Khẩu' }
+  { id: 0, name: 'Tất cả' }
 ]);
 
-const reportTitle = computed(() => {
-  return `Báo cáo: ${currentTenKho.value} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
+const loadTrangThai = async () => {
+  try {
+    const res = await api.get('/trang-thai'); // Gọi API đến TrangThaiController
+    const apiData = res.data;
+    
+    // Map dữ liệu từ DB (maTrangThai, tenTrangThai) sang chuẩn của Frontend (id, name)
+    const mappedStatus = apiData.map(item => ({
+      id: item.maTrangThai,
+      name: item.tenTrangThai
+    }));
+
+    // Gộp mảng "Tất cả" với dữ liệu vừa lấy được từ DB
+    statusList.value = [
+      { id: 0, name: 'Tất cả' },
+      ...mappedStatus
+    ];
+  } catch (e) {
+    console.error("Lỗi tải danh sách trạng thái:", e);
+  }
+};
+
+// --- STATE VÀ LOGIC CHO DROPDOWN TRẠNG THÁI ---
+const isStatusDropdownOpen = ref(false);
+const statusDropdownRef = ref(null);
+
+const toggleStatusDropdown = () => {
+  isStatusDropdownOpen.value = !isStatusDropdownOpen.value;
+};
+
+const selectedStatusText = computed(() => {
+  if (filters.statusIds.includes(0)) return 'Tất cả trạng thái';
+  const selectedNames = statusList.value
+    .filter(s => filters.statusIds.includes(s.id))
+    .map(s => s.name);
+  return selectedNames.join(', ');
 });
 
-// --- LOGIC PHÂN QUYỀN ---
+const closeDropdownOutside = (e) => {
+  if (statusDropdownRef.value && !statusDropdownRef.value.contains(e.target)) {
+    isStatusDropdownOpen.value = false;
+  }
+};
+// ----------------------------------------------
+
+const reportTitle = computed(() => {
+  let ten = currentTenKho.value || "Kho hệ thống";
+  return `Báo cáo: ${ten} (${formatDateString(filters.startDate)} - ${formatDateString(filters.endDate)})`;
+});
+
 const setupPhanQuyen = () => {
   const role = localStorage.getItem('userRole');
   let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -313,7 +364,7 @@ const setupPhanQuyen = () => {
     isAdmin.value = true;
   } else {
     isAdmin.value = false;
-    const myKho = userMaKho ? parseInt(userMaKho) : 0;
+    const myKho = userMaKho ? parseInt(userMaKho) : '';
     filters.warehouseId = myKho;
   }
 };
@@ -322,6 +373,11 @@ const loadKho = async () => {
   try {
     const res = await api.get('/kho');
     khoList.value = res.data;
+    
+    // Mặc định lấy kho đầu tiên
+    if (res.data.length > 0 && (!filters.warehouseId || filters.warehouseId === '')) {
+       filters.warehouseId = res.data[0].maKho;
+    }
   } catch (e) {
     console.error("Lỗi tải kho:", e);
   }
@@ -332,28 +388,66 @@ const showFirstYearWarning = () => {
 };
 
 const handleSearch = () => {
+  if (!filters.warehouseId) return; 
   pagination.page = 0;
   fetchInventoryReport();
+};
+
+const handleStatusChange = (changedId) => {
+  if (changedId === 0 && filters.statusIds.includes(0)) {
+    filters.statusIds = [0];
+  } else if (changedId !== 0 && filters.statusIds.includes(0)) {
+    filters.statusIds = filters.statusIds.filter(id => id !== 0);
+  }
+  
+  if (filters.statusIds.length === 0) {
+    filters.statusIds = [0];
+  }
+  
+  applyStatusFilter();
 };
 
 const formatProductName = (name) => {
   if (!name) return '';
   let formattedName = name.toString();
-
-  // 1. Dọn dẹp các trạng thái không cần hiển thị (Bình thường, Chưa xác định)
   formattedName = formattedName.replace(/\s*-\s*Bình thường/gi, '');
   formattedName = formattedName.replace(/\s*-\s*Chưa xác định/gi, '');
-
-  // 2. Chuẩn hóa mọi biến thể của từ "Mới" về đúng chuẩn " - New"
   formattedName = formattedName.replace(/\s*-\s*Mới\s*\(New\)/gi, ' - New');
   formattedName = formattedName.replace(/\s*-\s*Mới/gi, ' - New');
-  formattedName = formattedName.replace(/\s*-\s*New/gi, ' - New'); // Ép lại khoảng trắng cho đều
-
-  // 3. QUAN TRỌNG: Cắt bỏ dấu gạch ngang trơ trọi ở cuối chuỗi 
-  // (Phòng hờ lỗi Backend nối chuỗi trạng thái rỗng ' ' của ID 1 thành "Tên Máy - ")
+  formattedName = formattedName.replace(/\s*-\s*New/gi, ' - New'); 
   formattedName = formattedName.replace(/\s*-\s*$/g, '');
-
   return formattedName.trim();
+};
+
+const applyStatusFilter = () => {
+  let filtered = allReportData.value;
+  const selectedIds = filters.statusIds;
+
+  if (selectedIds.includes(0)) {
+    filteredReportData.value = filtered;
+  } else {
+    const otherSelectedNames = statusList.value.filter(s => selectedIds.includes(s.id) && s.id > 1).map(s => s.name);
+    const hasNormal = selectedIds.includes(1);
+    const allOtherNames = statusList.value.filter(s => s.id > 1).map(s => s.name);
+
+    filtered = filtered.filter(item => {
+      const name = item.tenSP;
+
+      const isNormalMachine = !allOtherNames.some(ext => name.endsWith(' - ' + ext));
+      if (hasNormal && isNormalMachine) return true;
+
+      const isOtherMachine = otherSelectedNames.some(ext => name.endsWith(' - ' + ext));
+      if (isOtherMachine) return true;
+
+      return false;
+    });
+
+    filteredReportData.value = filtered;
+  }
+
+  pagination.total = filteredReportData.value.length;
+  pagination.totalPages = Math.ceil(pagination.total / pagination.size);
+  pagination.page = 0;
 };
 
 const fetchInventoryReport = async () => {
@@ -372,6 +466,7 @@ const fetchInventoryReport = async () => {
 
   loading.value = true;
   allReportData.value = [];
+  filteredReportData.value = [];
 
   try {
     const yearToCheck = start.getFullYear();
@@ -390,7 +485,7 @@ const fetchInventoryReport = async () => {
         maKho: filters.warehouseId,
         tuNgay: filters.startDate,
         denNgay: filters.endDate,
-        loaiLoc: filters.statusId,
+        loaiLoc: 0, 
         page: 0,
         size: 999999
       }
@@ -399,9 +494,8 @@ const fetchInventoryReport = async () => {
     const data = response.data;
     currentTenKho.value = data.tenKho;
     allReportData.value = data.danhSachChiTiet || [];
-
-    pagination.total = allReportData.value.length;
-    pagination.totalPages = Math.ceil(pagination.total / pagination.size);
+    
+    applyStatusFilter();
 
   } catch (error) {
     console.error("Lỗi:", error);
@@ -426,7 +520,7 @@ const printToWord = async () => {
   isExporting.value = true;
 
   try {
-    const dataToExport = allReportData.value;
+    const dataToExport = filteredReportData.value;
     if (dataToExport.length === 0) {
       alert("Không có dữ liệu để xuất file.");
       return;
@@ -496,7 +590,7 @@ const exportToExcel = async () => {
   isExportingExcel.value = true;
 
   try {
-    const dataToExport = allReportData.value;
+    const dataToExport = filteredReportData.value;
     if (dataToExport.length === 0) {
       alert("Không có dữ liệu để xuất file.");
       return;
@@ -626,11 +720,112 @@ onMounted(async () => {
   const token = localStorage.getItem('token');
   if (!token) return;
   setupPhanQuyen();
-  await loadKho();
+  
+  // Chạy song song cả 2 API lấy Kho và lấy Trạng thái cho nhanh
+  await Promise.all([
+    loadKho(),
+    loadTrangThai()
+  ]);
+  
+  // Đăng ký sự kiện click ngoài để đóng dropdown
+  document.addEventListener('click', closeDropdownOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdownOutside);
 });
 </script>
 
 <style scoped>
+/* --- CSS DROPDOWN CHUẨN FORM-CONTROL BOOTSTRAP --- */
+.custom-multi-select {
+  position: relative;
+}
+
+.dropdown-trigger {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  user-select: none; 
+}
+
+.dropdown-trigger.is-focused {
+  color: #495057;
+  background-color: #fff;
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.dropdown-text {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: inherit;
+  color: #000000;
+}
+
+.dropdown-icon {
+  font-size: 10px;
+  color: #6c757d;
+  margin-left: 8px;
+}
+
+.dropdown-menu-custom {
+  position: absolute;
+  top: calc(100% - 2px); 
+  left: 0;
+  z-index: 1050;
+  width: 100%;
+  background-color: #fff;
+  border: 1px solid #80bdff; 
+  border-bottom-left-radius: 0.25rem;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.dropdown-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.dropdown-item-custom {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+  font-size: 1rem;
+  color: #000000;
+  transition: background-color 0.15s;
+}
+
+.dropdown-item-custom:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-ui {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.dropdown-list::-webkit-scrollbar { width: 6px; }
+.dropdown-list::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+.dropdown-list::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+/* ---------------------------------------------------- */
+
 .skeleton-loader {
   width: 100%;
   height: 1.2em;
@@ -641,13 +836,8 @@ onMounted(async () => {
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .card-body.table-responsive {
@@ -670,38 +860,31 @@ onMounted(async () => {
     flex: 0 0 50%;
     max-width: 50%;
   }
-
   .form-control {
     font-size: 13px;
     padding: 0.25rem 0.5rem;
     height: calc(1.8125rem + 2px);
   }
-
   .form-group label {
     font-size: 12px;
     margin-bottom: 2px;
   }
-
   .card-footer {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
-
   .card-footer .btn {
     width: 100%;
     margin-left: 0 !important;
   }
-
   .table {
     font-size: 13px;
   }
-
   .table th,
   .table td {
     padding: 8px 6px;
   }
-
   .pagination .page-link {
     padding: 0.25rem 0.5rem;
     font-size: 12px;
