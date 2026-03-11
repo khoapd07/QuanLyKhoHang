@@ -162,7 +162,7 @@ const uploadExcel = async (event) => {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
-      timeout: 60000 
+      timeout: 3600000 
     });
 
     importedData.value = response.data.danhSachChiTiet || response.data;
