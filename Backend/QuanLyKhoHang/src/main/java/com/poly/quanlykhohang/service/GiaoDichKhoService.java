@@ -29,6 +29,10 @@ public class GiaoDichKhoService {
     @Autowired private MayInDAO mayInDAO;
     @Autowired private IdGenerator idGenerator;
 
+    public MayInDAO getMayInDAO() {
+        return mayInDAO;
+    }
+
     // ================= NHẬP KHO =================
     public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi(Integer maKho) {
         List<PhieuNhap> listEntity;
@@ -52,10 +56,9 @@ public class GiaoDichKhoService {
             if (pn.getKhoNhap() != null) dto.setTenKho(pn.getKhoNhap().getTenKho());
             if (pn.getNhaCungCap() != null) dto.setTenKhachHang(pn.getNhaCungCap().getTenDonVi());
 
-            // --- [LOGIC MỚI BẮT ĐẦU] ---
-            int slConLaiTaiKho = 0;   // Còn nằm im tại kho nhập
-            int slDaChuyenDi = 0;     // Đã chuyển sang kho khác
-            int slDaBan = 0;          // Đã xuất bán
+            // --- [LOGIC MỚI: TÍNH HIỆN TRẠNG CHUẨN] ---
+            int slConLai = 0;
+            int slDaBan = 0;
             BigDecimal tienCon = BigDecimal.ZERO;
 
             Set<String> hangSet = new HashSet<>();
@@ -63,7 +66,7 @@ public class GiaoDichKhoService {
 
             if (pn.getDanhSachChiTiet() != null) {
                 for (ChiTietPhieuNhap ct : pn.getDanhSachChiTiet()) {
-                    // 1. Tóm tắt tên SP
+
                     if (ct.getSanPham() != null) {
                         String keyDisplay = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
                         spCountMap.put(keyDisplay, spCountMap.getOrDefault(keyDisplay, 0) + 1);
@@ -72,41 +75,30 @@ public class GiaoDichKhoService {
                         }
                     }
 
-                    // 2. Phân loại trạng thái máy
+                    // Kiểm tra tồn kho của từng máy in thuộc phiếu này
                     MayIn may = ct.getMayIn();
                     if (may != null) {
-                        boolean tonKho = Boolean.TRUE.equals(may.getTonKho());
-
-                        if (!tonKho) {
-                            // Case 1: Đã bán
-                            slDaBan++;
-                        } else {
-                            // Case 2: Còn tồn kho (check xem đang ở kho nào)
-                            boolean dungKho = may.getKho().getMaKho().equals(pn.getKhoNhap().getMaKho());
-
-                            if (dungKho) {
-                                // Vẫn ở kho nhập
-                                slConLaiTaiKho++;
-                                if (ct.getDonGia() != null) tienCon = tienCon.add(ct.getDonGia());
-                            } else {
-                                // Đã chuyển sang kho khác (Vẫn tồn kho nhưng không ở đây)
-                                slDaChuyenDi++;
+                        // Nếu máy CÒN trong kho (chưa bị xuất ở bất kỳ phiếu xuất nào)
+                        if (Boolean.TRUE.equals(may.getTonKho())) {
+                            slConLai++;
+                            if (ct.getDonGia() != null) {
+                                tienCon = tienCon.add(ct.getDonGia());
                             }
+                        } else {
+                            // Máy đã bị xuất (TonKho = false)
+                            slDaBan++;
                         }
                     }
                 }
             }
 
-            // Gán giá trị hiển thị
-            dto.setSoLuongConLai(slConLaiTaiKho); // Chỉ hiển thị số thực tế còn tại kho này
+            dto.setSoLuongConLai(slConLai);
             dto.setTienConLai(tienCon);
             dto.setDanhSachHang(String.join(", ", hangSet));
 
-            // Tạo chuỗi tóm tắt thông minh hơn
             List<String> summaryParts = new ArrayList<>();
-            // Hiển thị cảnh báo nếu có hàng đã chuyển hoặc đã bán
-            if (slDaChuyenDi > 0) summaryParts.add("(Đã chuyển: " + slDaChuyenDi + ")");
-            if (slDaBan > 0) summaryParts.add("(Đã bán: " + slDaBan + ")");
+            // Nếu có máy đã xuất, hiển thị cảnh báo nhỏ
+            if (slDaBan > 0) summaryParts.add("(Đã xuất: " + slDaBan + " máy)");
 
             for (String key : spCountMap.keySet()) {
                 summaryParts.add(key + " x" + spCountMap.get(key));
@@ -128,9 +120,11 @@ public class GiaoDichKhoService {
         String lastIdPN = phieuNhapDAO.findLastId(prefixPN).orElse(null);
         String soPhieuMoi = idGenerator.generateNextId("PN", lastIdPN);
 
+        LocalDateTime thoiGianGiaoDich = (dto.getNgayTaoPhieu() != null) ? dto.getNgayTaoPhieu() : LocalDateTime.now();
+
         PhieuNhap phieuNhap = new PhieuNhap();
         phieuNhap.setSoPhieu(soPhieuMoi);
-        phieuNhap.setNgayNhap(LocalDateTime.now());
+        phieuNhap.setNgayNhap(thoiGianGiaoDich);
         phieuNhap.setGhiChu(dto.getGhiChu());
 
         Kho kho = khoDAO.findById(dto.getMaKho()).orElseThrow(() -> new RuntimeException("Thiếu Kho"));
@@ -152,7 +146,6 @@ public class GiaoDichKhoService {
                 int soLuongCanNhap = ctDto.getSoLuong();
                 Integer trangThaiNhap = (ctDto.getTrangThai() != null) ? ctDto.getTrangThai() : 1;
 
-                // [LOGIC SINH MÃ MÁY]
                 String prefixMaMay = sp.getMaSP();
                 String lastMaMayInDB = mayInDAO.findLastId(prefixMaMay).orElse(null);
 
@@ -168,10 +161,7 @@ public class GiaoDichKhoService {
                     mayMoi.setSoPhieuNhap(savedPhieu.getSoPhieu());
                     mayMoi.setTrangThai(trangThaiNhap);
                     mayMoi.setTonKho(true);
-                    mayMoi.setNgayTao(LocalDateTime.now());
-
-                    // [ĐÃ SỬA] Xóa dòng setHangSanXuat gây lỗi
-                    // Hãng SX sẽ được truy xuất thông qua quan hệ MayIn -> SanPham -> HangSX
+                    mayMoi.setNgayTao(thoiGianGiaoDich);
 
                     mayInDAO.save(mayMoi);
 
@@ -198,59 +188,59 @@ public class GiaoDichKhoService {
         return phieuNhapDAO.save(savedPhieu);
     }
 
-    // [CÁC PHƯƠNG THỨC KHÁC GIỮ NGUYÊN]
-    // ... xoaPhieuNhap, xuatKho, xoaPhieuXuat ...
-
     @Transactional(rollbackFor = Exception.class)
     public void xoaPhieuNhap(String soPhieu) {
-        // 1. Tìm phiếu nhập
         PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập"));
 
-        // 2. Tạo bản sao danh sách để duyệt (tránh lỗi thay đổi list khi đang duyệt)
-        List<ChiTietPhieuNhap> listCanXoa = new ArrayList<>(phieuNhap.getDanhSachChiTiet());
-
-        // [SỬA LỖI QUAN TRỌNG TẠI ĐÂY]
-        // Thay vì set null, ta dùng .clear() để báo Hibernate danh sách này bị làm rỗng
-        // nhưng vẫn giữ nguyên tham chiếu wrapper của Hibernate.
-        phieuNhap.getDanhSachChiTiet().clear();
-
-        // Lưu tạm để Hibernate cập nhật trạng thái "rỗng" của Phiếu Nhập xuống DB
-        // Điều này giúp ngắt kết nối giữa Phiếu Nhập và các Chi Tiết
-        phieuNhapDAO.save(phieuNhap);
-
-        // 3. Xử lý xóa từng dòng chi tiết và máy móc đi kèm
-        for (ChiTietPhieuNhap ct : listCanXoa) {
+        for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
             MayIn may = ct.getMayIn();
-
-            // Kiểm tra máy
-            if (may != null) {
-                // Nếu máy đã bán -> Chặn luôn (Rollback toàn bộ)
-                if (Boolean.FALSE.equals(may.getTonKho())) {
-                    throw new RuntimeException("Lỗi: Máy " + may.getMaMay() + " đã xuất bán, không thể xóa phiếu nhập!");
-                }
-
-                // Xóa Máy (Vì dòng chi tiết nhập đã bị ngắt kết nối ở bước clear() trên, nên xóa máy an toàn)
-                mayInDAO.delete(may);
+            if (may != null && Boolean.FALSE.equals(may.getTonKho())) {
+                throw new RuntimeException("Lỗi: Máy " + may.getMaMay() + " đã xuất bán, KHÔNG THỂ xóa phiếu nhập này!");
             }
-
-            // Xóa dòng chi tiết phiếu nhập (Dọn dẹp rác)
-            chiTietPhieuNhapDAO.delete(ct);
         }
 
-        // 4. Cuối cùng xóa Phiếu Nhập Header
+        List<MayIn> danhSachMayCanXoa = new ArrayList<>();
+
+        Iterator<ChiTietPhieuNhap> iterator = phieuNhap.getDanhSachChiTiet().iterator();
+        while (iterator.hasNext()) {
+            ChiTietPhieuNhap ct = iterator.next();
+            MayIn may = ct.getMayIn();
+            SanPham sp = ct.getSanPham();
+
+            if (may != null) {
+                danhSachMayCanXoa.add(may);
+            }
+
+            if (sp != null) {
+                sp.setSoLuong(Math.max(0, sp.getSoLuong() - 1));
+                sanPhamDAO.save(sp);
+            }
+
+            chiTietPhieuNhapDAO.delete(ct);
+            iterator.remove();
+        }
+
+        chiTietPhieuNhapDAO.flush();
+
+        for (MayIn may : danhSachMayCanXoa) {
+            mayInDAO.delete(may);
+        }
+        mayInDAO.flush();
+
         phieuNhapDAO.delete(phieuNhap);
     }
 
     public List<PhieuXuatResponseDTO> layDanhSachPhieuXuatHienThi(Integer maKho) {
-        List<PhieuXuat> listEntity = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
-        List<PhieuXuatResponseDTO> listDto = new ArrayList<>();
+        List<PhieuXuat> listEntity;
 
         if (maKho != null && maKho > 0) {
             listEntity = phieuXuatDAO.findByMaKhoOrderByNgayXuatDesc(maKho);
         } else {
             listEntity = phieuXuatDAO.findAll(Sort.by(Sort.Direction.DESC, "ngayXuat"));
         }
+
+        List<PhieuXuatResponseDTO> listDto = new ArrayList<>();
 
         for (PhieuXuat px : listEntity) {
             PhieuXuatResponseDTO dto = new PhieuXuatResponseDTO();
@@ -294,9 +284,11 @@ public class GiaoDichKhoService {
         String lastIdPX = phieuXuatDAO.findLastId(prefixPX).orElse(null);
         String soPhieuMoi = idGenerator.generateNextId("PX", lastIdPX);
 
+        LocalDateTime thoiGianGiaoDich = (dto.getNgayTaoPhieu() != null) ? dto.getNgayTaoPhieu() : LocalDateTime.now();
+
         PhieuXuat phieuXuat = new PhieuXuat();
         phieuXuat.setSoPhieu(soPhieuMoi);
-        phieuXuat.setNgayXuat(LocalDateTime.now());
+        phieuXuat.setNgayXuat(thoiGianGiaoDich);
         phieuXuat.setGhiChu(dto.getGhiChu());
 
         DonVi khach = donViDAO.findById(dto.getMaDonVi()).orElseThrow();
@@ -423,7 +415,7 @@ public class GiaoDichKhoService {
             mayMoi.setTrangThai(trangThaiNhap);
             mayMoi.setTonKho(true);
             mayMoi.setNgayTao(LocalDateTime.now());
-            // [ĐÃ SỬA] Xóa dòng setHangSanXuat
+
             mayInDAO.save(mayMoi);
 
             ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
@@ -441,5 +433,4 @@ public class GiaoDichKhoService {
         sp.setSoLuong(sp.getSoLuong() + soLuongThem);
         sanPhamDAO.save(sp);
     }
-
 }
