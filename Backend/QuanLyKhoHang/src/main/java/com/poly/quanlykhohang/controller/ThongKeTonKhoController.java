@@ -56,14 +56,12 @@ public class ThongKeTonKhoController {
     // =================================================================
     // 2. API CHỐT SỔ (ĐÃ THÊM ĐỦ 5 THAM SỐ)
     // =================================================================
-    // 1. API CHỐT SỔ (Bản 4 tham số)
     @PostMapping("/chot-so")
     public ResponseEntity<?> chotSoDauNam(@RequestParam Integer nam, @RequestParam Integer maKho) {
         try {
             thongKeDAO.chotSoDauNam(nam, maKho);
             String tenKho = (maKho == 0) ? "Tất cả các kho" : thongKeDAO.getTenKhoById(maKho);
 
-            // FIX: Gọi bản 4 tham số (nam, maKho, page, size)
             List<Object[]> rawResults = thongKeDAO.getLichSuChotSoPhanTrang(nam, maKho, 0, 999999);
             List<BaoCaoXuatNhapTonDTO> result = mapToDTOList(rawResults);
 
@@ -76,7 +74,9 @@ public class ThongKeTonKhoController {
         }
     }
 
-    // 2. API XEM LỊCH SỬ (Chế độ tĩnh - 4 tham số)
+    // =================================================================
+    // 3. API XEM LỊCH SỬ (Chế độ tĩnh - 4 tham số)
+    // =================================================================
     @GetMapping("/lich-su")
     public ResponseEntity<?> xemLichSu(
             @RequestParam Integer nam,
@@ -87,11 +87,9 @@ public class ThongKeTonKhoController {
         try {
             String tenKho = (maKho == 0) ? "Tất cả các kho" : thongKeDAO.getTenKhoById(maKho);
 
-            // FIX: Truyền 4 tham số theo đúng DAO
             List<Object[]> rawResults = thongKeDAO.getLichSuChotSoPhanTrang(nam, maKho, page, size);
             List<BaoCaoXuatNhapTonDTO> listDTO = mapToDTOList(rawResults);
 
-            // FIX: Hàm đếm và hàm tổng chỉ dùng 2 tham số (nam, maKho)
             long totalItems = thongKeDAO.countLichSuChotSo(nam, maKho);
             List<Object[]> totals = thongKeDAO.getTongHopLichSu(nam, maKho);
 
@@ -105,8 +103,9 @@ public class ThongKeTonKhoController {
             if (!totals.isEmpty() && totals.get(0) != null) {
                 Object[] t = totals.get(0);
                 Map<String, Object> grandTotal = new HashMap<>();
-                grandTotal.put("tongSL", t[0]); // Tổng tồn cuối đã chốt
-                grandTotal.put("tongTien", t[1]); // Tổng thành tiền đã chốt
+                // Đã sửa index lấy data khớp với kết quả SP trả về (3 là Tồn Cuối, 4 là Tổng Tiền)
+                grandTotal.put("tongSL", t[3]);
+                grandTotal.put("tongTien", t[4]);
                 response.put("grandTotal", grandTotal);
             }
 
@@ -116,6 +115,21 @@ public class ThongKeTonKhoController {
         }
     }
 
+    // =================================================================
+    // 4. API KIỂM TRA ĐÃ CHỐT SỔ CHƯA (VALIDATE)
+    // =================================================================
+    @GetMapping("/check-chot-so")
+    public ResponseEntity<?> checkDaChotSo(
+            @RequestParam Integer nam,
+            @RequestParam Integer maKho
+    ) {
+        try {
+            int count = thongKeDAO.demSoLuongBanGhiChotSo(nam, maKho);
+            return ResponseEntity.ok(count > 0);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi kiểm tra trạng thái chốt sổ: " + e.getMessage());
+        }
+    }
 
     // =================================================================
     // HELPER MAPPING
@@ -127,11 +141,20 @@ public class ThongKeTonKhoController {
         for (Object[] row : rawResults) {
             BaoCaoXuatNhapTonDTO dto = new BaoCaoXuatNhapTonDTO();
             dto.setMaSP(toStringSafe(row[0]));
-            dto.setTenSP(toStringSafe(row[1]));
+
+            // Đã sửa: Nối Tên SP và Trạng thái để Frontend lọc được chuẩn xác
+            String tenSP = toStringSafe(row[1]);
+            String trangThai = toStringSafe(row[3]);
+            if (!trangThai.isEmpty()) {
+                dto.setTenSP(tenSP + " - " + trangThai);
+            } else {
+                dto.setTenSP(tenSP);
+            }
+
             dto.setDonvitinh(toStringSafe(row[4]));
             dto.setTonDau(toNumber(row[5]));
-            dto.setNhapTrong(toNumber(row[6])); // Sẽ là 0 vì lấy tĩnh từ DMTonKho
-            dto.setXuatTrong(toNumber(row[7])); // Sẽ là 0
+            dto.setNhapTrong(toNumber(row[6]));
+            dto.setXuatTrong(toNumber(row[7]));
             dto.setTonCuoi(toNumber(row[8]));
             dto.setThanhTien(toBigDecimal(row[9]));
 
