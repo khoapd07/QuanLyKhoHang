@@ -95,12 +95,16 @@ public class ThongKeExcelService {
                 BaoCaoXuatNhapTonDTO dto = new BaoCaoXuatNhapTonDTO();
                 dto.setStt(getNumericValue(row.getCell(0)).intValue());
 
-                String maSanPham = getStringValue(row.getCell(1)).trim();
-                dto.setMaSP(maSanPham);
+                // ==========================================
+                // LÀM SẠCH MÃ SẢN PHẨM (Bỏ hậu tố -new, -thuhoi, -xac...)
+                // ==========================================
+                String maSanPhamGoc = getStringValue(row.getCell(1)).trim();
+                String maSanPhamSach = maSanPhamGoc.replaceAll("(?i)-(thu\\s*hoi|new|xac|like\\s*new|cu|cu).*$", "").trim();
+
+                dto.setMaSP(maSanPhamSach);
                 dto.setTenSP(getStringValue(row.getCell(2)));
                 dto.setDonvitinh(getStringValue(row.getCell(3)));
 
-                // TỰ TÍNH TOÁN TỒN CUỐI: TĐK + NTK - XTK
                 long tonCuoi = tonDau + nhapTrong - xuatTrong;
 
                 dto.setTonDau(tonDau);
@@ -111,22 +115,33 @@ public class ThongKeExcelService {
                 dto.setThanhTien(donGia.multiply(BigDecimal.valueOf(tonCuoi)));
                 list.add(dto);
 
-                int trangThai = 1;
+                // ==========================================
+                // TỰ ĐỘNG BẮT TRẠNG THÁI TỪ TÊN SẢN PHẨM
+                // ==========================================
+                int trangThai = 1; // 1 = Bình thường (Mặc định nếu không thấy từ khóa nào)
                 String tenSP = dto.getTenSP().toLowerCase();
-                if (tenSP.contains("new") && !tenSP.contains("like")) trangThai = 2;
-                else if (tenSP.contains("like new")) trangThai = 3;
-                else if (tenSP.contains("thu hồi")) trangThai = 6;
+
+                if (tenSP.contains("like new")) {
+                    trangThai = 3;
+                } else if (tenSP.contains("new")) {
+                    trangThai = 2;
+                } else if (tenSP.contains("thu hồi") || tenSP.contains("thu hoi")) {
+                    trangThai = 6;
+                } else if (tenSP.contains("xác") || tenSP.contains("xac")) {
+                    // Giả sử mã trạng thái Xác trong DB của bạn là 7 (bạn có thể đổi lại số này cho đúng DB của bạn)
+                    trangThai = 7;
+                }
 
                 // GOM SỐ LƯỢNG NHẬP
                 long slNhapCanTao = tonDau + nhapTrong;
                 if (slNhapCanTao > 0) {
-                    String keyNhap = maSanPham + "_" + trangThai;
+                    String keyNhap = maSanPhamSach + "_" + trangThai;
                     if (mapNhap.containsKey(keyNhap)) {
                         ChiTietNhapDTO ext = mapNhap.get(keyNhap);
                         ext.setSoLuong(ext.getSoLuong() + (int) slNhapCanTao);
                     } else {
                         ChiTietNhapDTO ctn = new ChiTietNhapDTO();
-                        ctn.setMaSP(maSanPham);
+                        ctn.setMaSP(maSanPhamSach);
                         ctn.setSoLuong((int) slNhapCanTao);
                         ctn.setDonGia(donGia);
                         ctn.setTrangThai(trangThai);
@@ -138,17 +153,17 @@ public class ThongKeExcelService {
                 // GOM SỐ LƯỢNG XUẤT
                 long slXuatCanTao = xuatTrong;
                 if (slXuatCanTao > 0) {
-                    if (mapXuat.containsKey(maSanPham)) {
-                        ChiTietXuatDTO ext = mapXuat.get(maSanPham);
+                    if (mapXuat.containsKey(maSanPhamSach)) {
+                        ChiTietXuatDTO ext = mapXuat.get(maSanPhamSach);
                         for (int k = 0; k < slXuatCanTao; k++) ext.getDanhSachSeri().add("TEMP");
                     } else {
                         ChiTietXuatDTO ctx = new ChiTietXuatDTO();
-                        ctx.setMaSP(maSanPham);
+                        ctx.setMaSP(maSanPhamSach);
                         ctx.setDonGia(donGia);
                         List<String> tempQty = new ArrayList<>();
                         for (int k = 0; k < slXuatCanTao; k++) tempQty.add("TEMP");
                         ctx.setDanhSachSeri(tempQty);
-                        mapXuat.put(maSanPham, ctx);
+                        mapXuat.put(maSanPhamSach, ctx);
                     }
                 }
             }
