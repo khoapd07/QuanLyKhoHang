@@ -45,7 +45,7 @@
                 <div class="row">
                   <div class="col-lg-5 col-md-6 col-12">
                     <div class="form-group">
-                      <label>Năm Cần Chốt</label>
+                      <label>Năm Cần Chốt Tồn Đầu</label>
                       <input type="number" class="form-control" v-model="filters.nam" placeholder="--- Chọn năm cần chốt sổ ---">
                     </div>
                   </div>
@@ -169,20 +169,36 @@
                   <div class="col-lg-3 col-md-6 col-12">
                     <div class="form-group">
                       <label>Chọn Kho</label>
-                      <select class="form-control" v-model="historyFilters.warehouseId" :disabled="!isAdmin">
-                        <option :value="0" v-if="isAdmin">Tất cả kho</option>
+                      <select class="form-control" v-model="historyFilters.warehouseId" :disabled="!isAdmin" @change="fetchHistoryData">
                         <option v-for="kho in khoList" :key="kho.maKho" :value="kho.maKho">{{ kho.tenKho }}</option>
                       </select>
                     </div>
                   </div>
+                  
                   <div class="col-lg-3 col-md-6 col-12">
-                    <div class="form-group">
-                      <label>Trạng thái máy (Lọc nhanh)</label>
-                      <select class="form-control" v-model="historyFilters.statusId" @change="applyHistoryFilter">
-                        <option v-for="st in statusList" :key="st.id" :value="st.id">{{ st.name }}</option>
-                      </select>
+                    <div class="form-group custom-multi-select" ref="statusDropdownRef">
+                      <label>Trạng thái máy</label>
+                      <div class="form-control dropdown-trigger" 
+                           :class="{ 'is-focused': isStatusDropdownOpen }"
+                           @click="toggleStatusDropdown">
+                        <span class="dropdown-text">{{ selectedStatusText }}</span>
+                        <i class="fas fa-chevron-down dropdown-icon"></i>
+                      </div>
+
+                      <div class="dropdown-menu-custom shadow-sm" v-show="isStatusDropdownOpen">
+                        <div class="dropdown-list">
+                          <label class="dropdown-item-custom" v-for="st in statusList" :key="st.id">
+                            <input type="checkbox" class="checkbox-ui" 
+                                   :value="st.id" 
+                                   v-model="historyFilters.statusIds" 
+                                   @change="handleStatusChange(st.id)">
+                            <span class="ml-2">{{ st.name }}</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
                   <div class="col-lg-3 col-md-12 col-12 d-flex align-items-end">
                     <div class="form-group w-100">
                       <button type="button" class="btn btn-primary btn-block" @click="fetchHistoryData" :disabled="loadingHistory">
@@ -297,7 +313,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, onUnmounted } from 'vue';
 import api from '@/utils/axios';
 import { saveAs } from "file-saver";
 import PizZip from "pizzip";
@@ -329,38 +345,74 @@ const formatProductName = (name) => {
 };
 
 const statusList = ref([
-  { id: 0, name: 'Tất cả' },
-  { id: 1, name: 'Bình thường' },
-  { id: 2, name: 'New' },
-  { id: 3, name: 'Like New' },
-  { id: 4, name: 'Hỏng' },
-  { id: 5, name: 'Xác' },
-  { id: 6, name: 'Thu hồi' },
-  { id: 7, name: 'Nhập Khẩu' },
+  { id: 0, name: 'Tất cả' }
 ]);
 
-// Lưu trữ Dữ liệu gốc lấy từ Backend
+const loadTrangThai = async () => {
+  try {
+    const res = await api.get('/trang-thai'); // Gọi API đến TrangThaiController
+    const apiData = res.data;
+    
+    // Map dữ liệu từ DB (maTrangThai, tenTrangThai) sang chuẩn của Frontend (id, name)
+    const mappedStatus = apiData.map(item => ({
+      id: item.maTrangThai,
+      name: item.tenTrangThai
+    }));
+
+    // Gộp mảng "Tất cả" với dữ liệu vừa lấy được từ DB
+    statusList.value = [
+      { id: 0, name: 'Tất cả' },
+      ...mappedStatus
+    ];
+  } catch (e) {
+    console.error("Lỗi tải danh sách trạng thái:", e);
+  }
+};
+
 const allActionData = ref([]); 
 const allHistoryData = ref([]); 
 const filteredHistoryData = ref([]); 
 
-// Lưu trữ dữ liệu đang hiển thị trên 1 trang
 const reportData = ref([]);
 const historyData = ref([]);
 
 const grandTotalAction = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 const grandTotalHistory = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-const filters = reactive({ nam: new Date().getFullYear() - 1, warehouseId: '' });
+const filters = reactive({ nam: new Date().getFullYear(), warehouseId: '' });
 const loading = ref(false);
 const currentTenKho = ref('');
 const actionPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: 0, statusId: 0 });
+// ĐÃ SỬA: statusIds dùng mảng để lưu nhiều lựa chọn
+const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: '', statusIds: [0] });
 const loadingHistory = ref(false);
 const historyTenKho = ref('');
 const searchedHistory = ref(false);
 const historyPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
+
+// --- STATE VÀ LOGIC CHO DROPDOWN TRẠNG THÁI ---
+const isStatusDropdownOpen = ref(false);
+const statusDropdownRef = ref(null);
+
+const toggleStatusDropdown = () => {
+  isStatusDropdownOpen.value = !isStatusDropdownOpen.value;
+};
+
+const selectedStatusText = computed(() => {
+  if (historyFilters.statusIds.includes(0)) return 'Tất cả trạng thái';
+  const selectedNames = statusList.value
+    .filter(s => historyFilters.statusIds.includes(s.id))
+    .map(s => s.name);
+  return selectedNames.join(', ');
+});
+
+const closeDropdownOutside = (e) => {
+  if (statusDropdownRef.value && !statusDropdownRef.value.contains(e.target)) {
+    isStatusDropdownOpen.value = false;
+  }
+};
+// ----------------------------------------------
 
 const setupPhanQuyen = () => {
   const role = localStorage.getItem('userRole');
@@ -429,13 +481,26 @@ const formatCurrency = (value) => {
 };
 
 // ==========================================
-// LOGIC TAB 1: THỰC HIỆN CHỐT SỔ (PHÂN TRANG FRONTEND)
+// LOGIC TAB 1: THỰC HIỆN CHỐT SỔ 
 // ==========================================
 const thucHienChotSo = async () => {
   if (!filters.warehouseId) {
       alert("Vui lòng chọn kho để chốt sổ!");
       return;
   }
+
+  // --- VALIDATE LOGIC CHỐT SỔ TẠI ĐÂY ---
+  const currentYear = new Date().getFullYear();
+  const namCanChot = parseInt(filters.nam);
+  
+  // Nếu nhập năm >= năm hiện tại, chặn ngay lập tức. (Ví dụ năm nay là 2026, thì chỉ được chốt 2026 đổ lại, vì 2026 sẽ lấy data của 2025). 
+  // Sửa theo ý bạn: Chỉ cho chốt năm trước đó (Tồn đầu kỳ của năm hiện tại). Nếu nhập > năm hiện tại -> CHẶN.
+  if (namCanChot > currentYear) {
+    alert(`THAO TÁC KHÔNG HỢP LỆ!\n\nNăm hiện tại là ${currentYear}. Bạn chỉ có thể chốt số dư Tồn Đầu Kỳ cho năm ${currentYear} trở về trước.\nKhông thể chốt trước cho năm tương lai vì dữ liệu chưa phát sinh đầy đủ.`);
+    return;
+  }
+  // --------------------------------------
+
   if (!confirm(`Bạn có chắc chắn muốn chốt sổ cho kho này trong năm ${filters.nam}? Dữ liệu cũ sẽ bị đè!`)) return;
   actionPagination.page = 0;
   goiApiChotSo();
@@ -464,9 +529,8 @@ const goiApiChotSo = async () => {
 const goiApiXemKetQuaSauChot = async () => {
   loading.value = true;
   try {
-    const namKetQua = parseInt(filters.nam) + 1;
+    const namKetQua = parseInt(filters.nam);
     
-    // Yêu cầu Backend trả toàn bộ dữ liệu (size lớn) 1 lần
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: { nam: namKetQua, maKho: filters.warehouseId, page: 0, size: 999999 }
     });
@@ -474,7 +538,6 @@ const goiApiXemKetQuaSauChot = async () => {
     currentTenKho.value = response.data.tenKho;
     allActionData.value = response.data.danhSachChiTiet || [];
     
-    // Tính tổng trên TOÀN BỘ dữ liệu
     grandTotalAction.value = allActionData.value.reduce((acc, item) => {
       acc.tdk += Number(item.tonDau || 0);
       acc.ntk += Number(item.nhapTrong || 0);
@@ -509,20 +572,20 @@ const changeActionPage = (newPage) => {
 };
 
 // ==========================================
-// LOGIC TAB 2: XEM LỊCH SỬ (FRONTEND FILTER & PAGINATION)
+// LOGIC TAB 2: XEM LỊCH SỬ 
 // ==========================================
 const fetchHistoryData = async () => {
+  if (!historyFilters.warehouseId) return; 
+  
   loadingHistory.value = true;
   searchedHistory.value = true;
   try {
-    // Lấy toàn bộ dữ liệu lịch sử lưu vào RAM máy khách (size 999999)
     const response = await api.get(`${API_BASE}/lich-su`, {
       params: { nam: historyFilters.nam, maKho: historyFilters.warehouseId, page: 0, size: 999999 }
     });
     historyTenKho.value = response.data.tenKho;
     allHistoryData.value = response.data.danhSachChiTiet || [];
     
-    // Kích hoạt bộ lọc trên Frontend
     applyHistoryFilter();
     
   } catch (error) {
@@ -532,30 +595,49 @@ const fetchHistoryData = async () => {
   }
 };
 
-// Hàm lọc trạng thái chỉ chạy trên dữ liệu đã tải trong RAM
+// ĐÃ THÊM: Logic thông minh khi click checkbox
+const handleStatusChange = (changedId) => {
+  if (changedId === 0 && historyFilters.statusIds.includes(0)) {
+    historyFilters.statusIds = [0];
+  } else if (changedId !== 0 && historyFilters.statusIds.includes(0)) {
+    historyFilters.statusIds = historyFilters.statusIds.filter(id => id !== 0);
+  }
+  
+  if (historyFilters.statusIds.length === 0) {
+    historyFilters.statusIds = [0];
+  }
+  
+  applyHistoryFilter();
+};
+
+// ĐÃ SỬA: Hàm lọc lịch sử nhận dạng mảng nhiều lựa chọn
 const applyHistoryFilter = () => {
   let filtered = allHistoryData.value;
-  const statusId = historyFilters.statusId;
+  const selectedIds = historyFilters.statusIds;
 
-  if (statusId !== 0) {
-    const st = statusList.value.find(s => s.id === statusId);
-    if (st) {
-      if (st.id === 1) { 
-        // Lọc máy "Bình thường" (Không chứa các đuôi trạng thái khác)
-        filtered = filtered.filter(item => {
-          return !statusList.value.some(s => s.id > 1 && item.tenSP.endsWith(' - ' + s.name));
-        });
-      } else {
-        // Lọc theo đuôi trạng thái
-        filtered = filtered.filter(item => item.tenSP.endsWith(' - ' + st.name));
-      }
-    }
+  if (selectedIds.includes(0)) {
+    filteredHistoryData.value = filtered;
+  } else {
+    const otherSelectedNames = statusList.value.filter(s => selectedIds.includes(s.id) && s.id > 1).map(s => s.name);
+    const hasNormal = selectedIds.includes(1);
+    const allOtherNames = statusList.value.filter(s => s.id > 1).map(s => s.name);
+
+    filtered = filtered.filter(item => {
+      const name = item.tenSP;
+
+      const isNormalMachine = !allOtherNames.some(ext => name.endsWith(' - ' + ext));
+      if (hasNormal && isNormalMachine) return true;
+
+      const isOtherMachine = otherSelectedNames.some(ext => name.endsWith(' - ' + ext));
+      if (isOtherMachine) return true;
+
+      return false;
+    });
+
+    filteredHistoryData.value = filtered;
   }
 
-  filteredHistoryData.value = filtered;
-
-  // Tính Tổng lại Dựa trên Danh sách đã Lọc
-  grandTotalHistory.value = filtered.reduce((acc, item) => {
+  grandTotalHistory.value = filteredHistoryData.value.reduce((acc, item) => {
     acc.tdk += Number(item.tonDau || 0);
     acc.ntk += Number(item.nhapTrong || 0);
     acc.xtk += Number(item.xuatTrong || 0);
@@ -564,8 +646,8 @@ const applyHistoryFilter = () => {
     return acc;
   }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
 
-  historyPagination.total = filtered.length;
-  historyPagination.totalPages = Math.ceil(filtered.length / historyPagination.size);
+  historyPagination.total = filteredHistoryData.value.length;
+  historyPagination.totalPages = Math.ceil(filteredHistoryData.value.length / historyPagination.size);
   historyPagination.page = 0;
 
   applyHistoryPagination();
@@ -583,7 +665,7 @@ const changeHistoryPage = (newPage) => {
 };
 
 // ==========================================
-// XUẤT FILE WORD (Dùng Dữ Liệu Tự Tính Trong RAM)
+// XUẤT FILE WORD 
 // ==========================================
 const loadFile = async (url) => {
   const response = await fetch(url);
@@ -596,9 +678,8 @@ const printToWord = async (namInput, maKhoInput, tenKhoString, tabName) => {
   isExporting.value = true;
 
   try {
-    let namCanLay = tabName === 'action' ? parseInt(namInput) + 1 : namInput;
+    let namCanLay = parseInt(namInput);
     
-    // LẤY DỮ LIỆU ĐÃ LỌC TRÊN FRONTEND (Không gọi API lại)
     const sourceData = tabName === 'action' ? allActionData.value : filteredHistoryData.value;
     
     if (sourceData.length === 0) {
@@ -612,7 +693,6 @@ const printToWord = async (namInput, maKhoInput, tenKhoString, tabName) => {
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    // Lấy Tổng cộng có sẵn
     const totals = tabName === 'action' ? grandTotalAction.value : grandTotalHistory.value;
 
     const today = new Date();
@@ -665,16 +745,15 @@ const printToWord = async (namInput, maKhoInput, tenKhoString, tabName) => {
 };
 
 // ==========================================
-// XUẤT FILE EXCEL (Dùng Dữ Liệu Tự Tính Trong RAM)
+// XUẤT FILE EXCEL 
 // ==========================================
 const exportToExcel = async (namInput, maKhoInput, tenKhoString, tabName) => {
   if (isExportingExcel.value) return;
   isExportingExcel.value = true;
 
   try {
-    let namCanLay = tabName === 'action' ? parseInt(namInput) + 1 : namInput;
+    let namCanLay = parseInt(namInput);
     
-    // LẤY DỮ LIỆU ĐÃ LỌC TRÊN FRONTEND (Không gọi API lại)
     const sourceData = tabName === 'action' ? allActionData.value : filteredHistoryData.value;
     
     if (sourceData.length === 0) {
@@ -771,15 +850,18 @@ const exportToExcel = async (namInput, maKhoInput, tenKhoString, tabName) => {
   }
 };
 
-
 const loadKho = async () => {
   try {
     const res = await api.get('/kho');
     khoList.value = res.data;
     
     if (res.data.length > 0) {
-        filters.warehouseId = res.data[0].maKho;
-        historyFilters.warehouseId = isAdmin.value ? 0 : res.data[0].maKho;
+        if (!filters.warehouseId || filters.warehouseId === '') {
+            filters.warehouseId = res.data[0].maKho;
+        }
+        if (!historyFilters.warehouseId || historyFilters.warehouseId === '') {
+            historyFilters.warehouseId = res.data[0].maKho;
+        }
     }
   } catch (e) {
     console.error("Lỗi tải kho:", e);
@@ -787,8 +869,22 @@ const loadKho = async () => {
 };
 
 onMounted(async () => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
   setupPhanQuyen();
-  await loadKho();
+  
+  // Chạy song song cả 2 API lấy Kho và lấy Trạng thái cho nhanh
+  await Promise.all([
+    loadKho(),
+    loadTrangThai()
+  ]);
+  
+  // Đăng ký sự kiện click ngoài để đóng dropdown
+  document.addEventListener('click', closeDropdownOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdownOutside);
 });
 </script>
 
@@ -846,6 +942,94 @@ onMounted(async () => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
 }
+
+/* --- CSS DROPDOWN CHUẨN FORM-CONTROL BOOTSTRAP --- */
+.custom-multi-select {
+  position: relative;
+}
+
+.dropdown-trigger {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  user-select: none; 
+}
+
+.dropdown-trigger.is-focused {
+  color: #495057;
+  background-color: #fff;
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.dropdown-text {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: inherit;
+  color: #000000;
+}
+
+.dropdown-icon {
+  font-size: 10px;
+  color: #6c757d;
+  margin-left: 8px;
+}
+
+.dropdown-menu-custom {
+  position: absolute;
+  top: calc(100% - 2px); 
+  left: 0;
+  z-index: 1050;
+  width: 100%;
+  background-color: #fff;
+  border: 1px solid #80bdff; 
+  border-bottom-left-radius: 0.25rem;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.dropdown-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.dropdown-item-custom {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+  font-size: 1rem;
+  color: #000000;
+  transition: background-color 0.15s;
+}
+
+.dropdown-item-custom:hover {
+  background-color: #f8f9fa;
+}
+
+.checkbox-ui {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+.dropdown-item-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-list::-webkit-scrollbar { width: 6px; }
+.dropdown-list::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+.dropdown-list::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+/* ---------------------------------------------------- */
 
 @media (max-width: 768px) {
   .nav-tabs .nav-link {
