@@ -50,26 +50,22 @@ public class ThongKeExcelService {
     private LoaiSanPhamDAO loaiSanPhamDAO;
 
     @Transactional(rollbackFor = Exception.class)
-    public List<BaoCaoXuatNhapTonDTO> processAndImportExcel(MultipartFile file, Integer maKhoTuGiaoDien) throws Exception {
+    public List<BaoCaoXuatNhapTonDTO> processAndImportExcel(MultipartFile file, Integer maKhoTuGiaoDien, LocalDateTime ngayTaoPhieuTuGiaoDien) throws Exception {
         List<BaoCaoXuatNhapTonDTO> list = new ArrayList<>();
 
         Map<String, ChiTietNhapDTO> mapNhap = new LinkedHashMap<>();
         Map<String, ChiTietXuatDTO> mapXuat = new LinkedHashMap<>();
 
-        LocalDateTime ngayGiaoDich = LocalDateTime.now();
+        // NẾU TỪ GIAO DIỆN CÓ CHỌN NGÀY THÌ LẤY NGÀY ĐÓ, KHÔNG THÌ LẤY TẠM NGÀY HIỆN TẠI
+        LocalDateTime ngayGiaoDich = (ngayTaoPhieuTuGiaoDien != null) ? ngayTaoPhieuTuGiaoDien : LocalDateTime.now();
         int finalMaKho = (maKhoTuGiaoDien != null && maKhoTuGiaoDien > 0) ? maKhoTuGiaoDien : 1;
 
-        // ==========================================================
-        // CHUẨN BỊ TỪ ĐIỂN TỪ DATABASE
-        // ==========================================================
         List<TrangThai> danhSachTrangThaiDB = trangThaiDAO.findAll();
         List<SanPham> danhSachSanPhamDB = sanPhamDAO.findAll();
         List<HangSanXuat> danhSachHangDB = hangSanXuatDAO.findAll();
 
-        // Sắp xếp mã Sản phẩm theo độ dài giảm dần
         danhSachSanPhamDB.sort((sp1, sp2) -> Integer.compare(sp2.getMaSP().length(), sp1.getMaSP().length()));
 
-        // TÌM HOẶC TẠO "LOẠI SẢN PHẨM" MẶC ĐỊNH LÀ "Máy Văn Phòng"
         LoaiSanPham loaiMayVanPhong = loaiSanPhamDAO.findAll().stream()
                 .filter(l -> l.getTenLoai().equalsIgnoreCase("Máy Văn Phòng"))
                 .findFirst()
@@ -82,22 +78,23 @@ public class ThongKeExcelService {
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
 
-            // 1. ĐỌC NGÀY KẾT THÚC
-            Row dateRow = sheet.getRow(2);
-            if (dateRow != null) {
-                String ngayKetThucStr = getStringValue(dateRow.getCell(2));
-                if (ngayKetThucStr != null && !ngayKetThucStr.isEmpty()) {
-                    try {
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                        LocalDate parsedDate = LocalDate.parse(ngayKetThucStr.trim(), formatter);
-                        ngayGiaoDich = parsedDate.atTime(12, 0, 0);
-                    } catch (Exception e) {
-                        System.err.println("Lỗi parse ngày từ Excel");
+            // NẾU GIAO DIỆN KHÔNG CHỌN NGÀY -> VẪN THỬ LẤY TỪ EXCEL CHO CHẮC CÚ
+            if (ngayTaoPhieuTuGiaoDien == null) {
+                Row dateRow = sheet.getRow(2);
+                if (dateRow != null) {
+                    String ngayKetThucStr = getStringValue(dateRow.getCell(2));
+                    if (ngayKetThucStr != null && !ngayKetThucStr.isEmpty()) {
+                        try {
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                            LocalDate parsedDate = LocalDate.parse(ngayKetThucStr.trim(), formatter);
+                            ngayGiaoDich = parsedDate.atTime(12, 0, 0);
+                        } catch (Exception e) {
+                            System.err.println("Lỗi parse ngày từ Excel");
+                        }
                     }
                 }
             }
 
-            // 2. ĐỌC DỮ LIỆU
             int startRow = 5;
             for (int i = startRow; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -107,7 +104,6 @@ public class ThongKeExcelService {
                 if (firstCell == null || firstCell.getCellType() == CellType.BLANK) continue;
                 if (firstCell.getCellType() == CellType.STRING && firstCell.getStringCellValue().trim().startsWith("Tổng")) break;
 
-                // --- VALIDATE TRỐNG VÀ SỐ ÂM ---
                 int[] requiredCols = {1, 2, 3, 4, 5, 6, 8};
                 for (int col : requiredCols) {
                     Cell cell = row.getCell(col);
@@ -134,15 +130,11 @@ public class ThongKeExcelService {
 
                 String maExcel = getStringValue(row.getCell(1)).trim();
                 String tenExcel = getStringValue(row.getCell(2)).trim();
-                String donViTinhExcel = getStringValue(row.getCell(3)).trim(); // Lấy ĐVT từ Excel
+                String donViTinhExcel = getStringValue(row.getCell(3)).trim();
 
-                // ==========================================
-                // DÒ TÌM VÀ TỰ ĐỘNG TẠO MÃ SẢN PHẨM
-                // ==========================================
                 String matchedMaSP = null;
                 String maExcelUpper = maExcel.toUpperCase();
 
-                // Khớp chính xác
                 for (SanPham sp : danhSachSanPhamDB) {
                     if (maExcelUpper.equals(sp.getMaSP().toUpperCase())) {
                         matchedMaSP = sp.getMaSP();
@@ -150,7 +142,6 @@ public class ThongKeExcelService {
                     }
                 }
 
-                // Khớp một phần
                 if (matchedMaSP == null) {
                     for (SanPham sp : danhSachSanPhamDB) {
                         if (maExcelUpper.contains(sp.getMaSP().toUpperCase())) {
@@ -160,19 +151,11 @@ public class ThongKeExcelService {
                     }
                 }
 
-                // ===============================================================
-                // AUTO TẠO MỚI SẢN PHẨM (NẾU KHÔNG TÌM THẤY TRONG DB)
-                // ===============================================================
                 if (matchedMaSP == null) {
                     SanPham newSp = new SanPham();
 
-                    // Regex gọt đuôi cho Mã: Bỏ dấu "-" và các chữ trạng thái
                     String maSPSach = maExcel.replaceAll("(?i)-(thu\\s*hoi|new|xac|xác|like\\s*new|cu|cũ|hỏng).*$", "").trim();
-
-                    // LÀM SẠCH TÊN: Bỏ đi dấu "-" và các từ chỉ trạng thái ở cuối chuỗi
                     String tenSPSach = tenExcel.replaceAll("(?i)\\s*-\\s*(thu\\s*hồi|thu\\s*hoi|new|xác|xac|like\\s*new|cu|cũ|hỏng)\\s*$", "").trim();
-
-                    // Cú chót: Nếu tên vẫn còn chữ " - " lẻ loi ở cuối thì gọt luôn
                     if (tenSPSach.endsWith("-")) {
                         tenSPSach = tenSPSach.substring(0, tenSPSach.length() - 1).trim();
                     }
@@ -180,18 +163,12 @@ public class ThongKeExcelService {
                     newSp.setMaSP(maSPSach);
                     newSp.setTenSP(tenSPSach);
                     newSp.setSoLuong(0);
-
-                    // GÁN ĐƠN VỊ TÍNH (Lấy từ Excel, nếu Excel rỗng thì set mặc định là "Cái")
                     newSp.setDonViTinh(donViTinhExcel.isEmpty() ? "Cái" : donViTinhExcel);
-
-                    // Gán Loại Sản Phẩm
                     newSp.setLoaiSanPham(loaiMayVanPhong);
 
-                    // Tìm và Gán Hãng thông minh từ Tên đã làm sạch
                     HangSanXuat hangDuocChon = timTenHangTuTenSanPham(tenSPSach, danhSachHangDB);
                     newSp.setHangSanXuat(hangDuocChon);
 
-                    // Lưu SP
                     sanPhamDAO.save(newSp);
                     sanPhamDAO.flush();
 
@@ -214,10 +191,7 @@ public class ThongKeExcelService {
                 dto.setThanhTien(donGia.multiply(BigDecimal.valueOf(tonCuoi)));
                 list.add(dto);
 
-                // ==========================================
-                // DÒ TÌM TRẠNG THÁI DỰA VÀO TỪ ĐIỂN DB
-                // ==========================================
-                int trangThaiMatch = 2; // Mặc định ID = 2 (Bình thường)
+                int trangThaiMatch = 2;
                 String chuoiCanDo = (maExcel + " " + tenExcel).toLowerCase();
 
                 for (TrangThai tt : danhSachTrangThaiDB) {
@@ -230,7 +204,6 @@ public class ThongKeExcelService {
                     }
                 }
 
-                // GOM SỐ LƯỢNG NHẬP
                 long slNhapCanTao = tonDau + nhapTrong;
                 if (slNhapCanTao > 0) {
                     String keyNhap = matchedMaSP + "_" + trangThaiMatch;
@@ -248,7 +221,6 @@ public class ThongKeExcelService {
                     }
                 }
 
-                // GOM SỐ LƯỢNG XUẤT
                 long slXuatCanTao = xuatTrong;
                 if (slXuatCanTao > 0) {
                     if (mapXuat.containsKey(matchedMaSP)) {
@@ -267,7 +239,6 @@ public class ThongKeExcelService {
             }
         }
 
-        // BƯỚC 1: LƯU PHIẾU NHẬP
         PhieuNhap phieuNhapDaLuu = null;
         if (!mapNhap.isEmpty()) {
             PhieuNhapDTO phieuNhapGiaLap = new PhieuNhapDTO();
@@ -281,7 +252,6 @@ public class ThongKeExcelService {
             mayInDAO.flush();
         }
 
-        // BƯỚC 2: TÓM GỌN CÁC SERIAL VỪA SINH RA TRÊN RAM
         Map<String, List<String>> poolMayVuaTao = new HashMap<>();
         if (phieuNhapDaLuu != null && phieuNhapDaLuu.getDanhSachChiTiet() != null) {
             for (ChiTietPhieuNhap ct : phieuNhapDaLuu.getDanhSachChiTiet()) {
@@ -293,7 +263,6 @@ public class ThongKeExcelService {
             }
         }
 
-        // BƯỚC 3: RÚT MÁY RA ĐỂ TẠO PHIẾU XUẤT
         if (!mapXuat.isEmpty()) {
             PhieuXuatDTO phieuXuatGiaLap = new PhieuXuatDTO();
             phieuXuatGiaLap.setMaKho(finalMaKho);
@@ -330,14 +299,10 @@ public class ThongKeExcelService {
         return list;
     }
 
-    // ========================================================
-    // HÀM HỖ TRỢ: TÌM HÃNG TỪ TÊN SẢN PHẨM THÔNG MINH
-    // ========================================================
     private HangSanXuat timTenHangTuTenSanPham(String tenSP, List<HangSanXuat> danhSachHangDB) {
         if (tenSP == null || tenSP.trim().isEmpty()) {
             return getOrTaoHangKhac(danhSachHangDB);
         }
-
         String tenSPLower = tenSP.toLowerCase();
 
         for (HangSanXuat hang : danhSachHangDB) {

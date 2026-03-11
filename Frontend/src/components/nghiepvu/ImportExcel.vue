@@ -10,14 +10,20 @@
       </div>
 
       <div class="row align-items-end mb-4 bg-light p-3 rounded border">
-        <div class="col-md-4 mb-2 mb-md-0">
-          <label class="form-label fw-bold small text-muted">Kho áp dụng (nếu file không chỉ định Kho)</label>
+        <div class="col-md-3 mb-2 mb-md-0">
+          <label class="form-label fw-bold small text-muted">Kho áp dụng</label>
           <select class="form-select form-select-sm shadow-none border-secondary" v-model="selectedKho" :disabled="!isAdmin">
             <option value="" disabled selected>-- Vui lòng chọn kho --</option> 
             <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
           </select>
         </div>
-        <div class="col-md-4">
+        
+        <div class="col-md-4 mb-2 mb-md-0">
+          <label class="form-label fw-bold small text-muted">Ngày Nhập/Xuất (Tùy chỉnh)</label>
+          <input type="datetime-local" class="form-control form-control-sm shadow-none border-secondary" v-model="selectedDate" />
+        </div>
+
+        <div class="col-md-5">
           <input type="file" ref="excelFileInput" class="d-none" accept=".xlsx, .xls" @change="uploadExcel" />
           <button type="button" class="btn btn-warning btn-sm fw-bold w-100 shadow-sm" @click="triggerExcelUpload" :disabled="isImporting">
             <i class="fas" :class="isImporting ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
@@ -79,12 +85,12 @@ import api from '@/utils/axios';
 
 const listKho = ref([]);
 const selectedKho = ref(0);
+const selectedDate = ref(''); // Biến lưu ngày tự chọn
 const isAdmin = ref(false);
 const excelFileInput = ref(null);
 const isImporting = ref(false);
 const importedData = ref([]);
 
-// THÊM HÀM TÍNH TỔNG GRAND TOTAL
 const grandTotal = computed(() => {
   return importedData.value.reduce((acc, item) => {
     acc.tdk += Number(item.tonDau) || 0;
@@ -108,7 +114,7 @@ const setupPhanQuyen = async () => {
 
   if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
     isAdmin.value = true;
-    selectedKho.value = null; // null là chế độ tự nhận diện kho từ file
+    selectedKho.value = null; 
   } else {
     isAdmin.value = false;
     selectedKho.value = userMaKho ? parseInt(userMaKho) : null;
@@ -125,10 +131,9 @@ const loadKho = async () => {
 };
 
 const triggerExcelUpload = () => {
-  // THÊM ĐOẠN IF NÀY VÀO ĐẦU HÀM
   if (!selectedKho.value || selectedKho.value === 0 || selectedKho.value === "") {
     alert("Vui lòng chọn kho áp dụng trước khi Import file!");
-    return; // Lệnh return này sẽ dừng hàm lại, không chạy đoạn code click() mở file ở dưới
+    return; 
   }
 
   if (excelFileInput.value) {
@@ -142,22 +147,24 @@ const uploadExcel = async (event) => {
 
   const formData = new FormData();
   formData.append('file', file);
-  // Gửi kèm kho (nếu user không phải admin, nó sẽ fix cứng kho của user đó)
   formData.append('maKho', selectedKho.value === 0 ? 1 : selectedKho.value);
+  
+  // Gửi kèm ngày nhập nếu người dùng có chọn
+  if (selectedDate.value) {
+    formData.append('ngayNhap', selectedDate.value);
+  }
 
   isImporting.value = true;
   importedData.value = [];
 
   try {
-    // ĐÃ SỬA API Endpoint
     const response = await api.post('/import/import-excel', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
-      timeout: 60000 // Chờ 60 giây vì thao tác insert hàng trăm máy khá lâu
+      timeout: 60000 
     });
 
-    // Lấy dữ liệu trả về để render ra bảng xem trước
     importedData.value = response.data.danhSachChiTiet || response.data;
     
     if (response.data.thongBao) {
@@ -171,7 +178,7 @@ const uploadExcel = async (event) => {
     alert("Có lỗi khi đọc file Excel: " + (error.response?.data?.message || error.response?.data || error.message));
   } finally {
     isImporting.value = false;
-    event.target.value = ''; // Reset thẻ input file
+    event.target.value = ''; 
   }
 };
 
