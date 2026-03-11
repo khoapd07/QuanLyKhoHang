@@ -13,7 +13,7 @@
         <div class="col-md-3 mb-2 mb-md-0">
           <label class="form-label fw-bold small text-muted">Kho áp dụng</label>
           <select class="form-select form-select-sm shadow-none border-secondary" v-model="selectedKho" :disabled="!isAdmin">
-            <option value="" disabled selected>-- Vui lòng chọn kho --</option> 
+            <option value="" disabled>-- Vui lòng chọn kho --</option> 
             <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
           </select>
         </div>
@@ -84,7 +84,7 @@ import { ref, onMounted, computed } from 'vue';
 import api from '@/utils/axios';
 
 const listKho = ref([]);
-const selectedKho = ref(0);
+const selectedKho = ref(''); // Đổi 0 thành chuỗi rỗng '' để tránh lỗi khi so sánh với option value
 const selectedDate = ref(''); // Biến lưu ngày tự chọn
 const isAdmin = ref(false);
 const excelFileInput = ref(null);
@@ -114,10 +114,11 @@ const setupPhanQuyen = async () => {
 
   if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
     isAdmin.value = true;
-    selectedKho.value = null; 
+    selectedKho.value = ''; // Admin được quyền tự chọn kho
   } else {
     isAdmin.value = false;
-    selectedKho.value = userMaKho ? parseInt(userMaKho) : null;
+    // Nhân viên: Tự động gán cứng mã kho của nhân viên đó
+    selectedKho.value = userMaKho ? parseInt(userMaKho) : ''; 
   }
 };
 
@@ -131,7 +132,8 @@ const loadKho = async () => {
 };
 
 const triggerExcelUpload = () => {
-  if (!selectedKho.value || selectedKho.value === 0 || selectedKho.value === "") {
+  // Check nếu rỗng thì báo lỗi
+  if (!selectedKho.value || selectedKho.value === "") {
     alert("Vui lòng chọn kho áp dụng trước khi Import file!");
     return; 
   }
@@ -147,9 +149,9 @@ const uploadExcel = async (event) => {
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('maKho', selectedKho.value === 0 ? 1 : selectedKho.value);
+  // Đẩy thẳng mã kho đã được fix cứng (hoặc admin đã chọn) xuống API
+  formData.append('maKho', selectedKho.value);
   
-  // Gửi kèm ngày nhập nếu người dùng có chọn
   if (selectedDate.value) {
     formData.append('ngayNhap', selectedDate.value);
   }

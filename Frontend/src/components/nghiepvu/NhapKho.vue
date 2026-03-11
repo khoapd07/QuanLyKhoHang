@@ -73,7 +73,7 @@
                                             Chi tiết
                                         </button>
                                         <button class="btn btn-outline-warning" @click="moModalSua(item)"
-                                            title="Sửa ghi chú">
+                                            title="Sửa ngày & ghi chú">
                                             Sửa
                                         </button>
                                         <button
@@ -99,8 +99,7 @@
                                         index + 1 }}</span>
                                     <span class="fw-bold text-primary">{{ item.soPhieu }}</span>
                                 </div>
-                                <small class="text-muted" style="font-size: 11px;">{{ formatDate(item.ngayNhap)
-                                    }}</small>
+                                <small class="text-muted" style="font-size: 11px;">{{ formatDate(item.ngayNhap) }}</small>
                             </div>
 
                             <div class="mb-2" style="font-size: 12px;">
@@ -129,8 +128,7 @@
                                 <div style="font-size: 11px;">
                                     <div>SL: <span class="fw-bold text-success">{{ item.soLuongConLai }}/{{
                                             item.tongSoLuongMay }}</span></div>
-                                    <div>Tồn: <span class="fw-bold text-danger">{{ formatCurrency(item.tienConLai)
-                                            }}</span></div>
+                                    <div>Tồn: <span class="fw-bold text-danger">{{ formatCurrency(item.tienConLai) }}</span></div>
                                 </div>
 
                                 <div class="btn-group btn-group-sm">
@@ -140,7 +138,7 @@
                                     </button>
 
                                     <button class="btn btn-outline-warning px-2" @click="moModalSua(item)"
-                                        title="Sửa ghi chú">
+                                        title="Sửa">
                                         Sửa
                                     </button>
 
@@ -178,11 +176,18 @@
             <div class="modal-dialog modal-dialog-centered modal-sm">
                 <div class="modal-content">
                     <div class="modal-header bg-warning p-2">
-                        <h6 class="modal-title small fw-bold">Sửa Ghi Chú</h6>
+                        <h6 class="modal-title small fw-bold">Sửa Thông Tin Phiếu</h6>
                         <button type="button" class="btn-close small" @click="showEditModal = false"></button>
                     </div>
                     <div class="modal-body p-2">
-                        <textarea class="form-control form-control-sm" rows="3" v-model="editItem.ghiChu"></textarea>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold mb-1">Ngày Nhập</label>
+                            <input type="datetime-local" class="form-control form-control-sm" v-model="editItem.ngayTaoPhieu">
+                        </div>
+                        <div>
+                            <label class="form-label small fw-bold mb-1">Ghi Chú</label>
+                            <textarea class="form-control form-control-sm" rows="3" v-model="editItem.ghiChu"></textarea>
+                        </div>
                     </div>
                     <div class="modal-footer p-1">
                         <button class="btn btn-secondary btn-sm" @click="showEditModal = false">Hủy</button>
@@ -206,7 +211,7 @@ const showModal = ref(false);
 const showEditModal = ref(false);
 const selectedSoPhieu = ref(null);
 const loading = ref(false);
-const editItem = ref({ soPhieu: '', ghiChu: '' });
+const editItem = ref({ soPhieu: '', ghiChu: '', ngayTaoPhieu: '' }); // Đã thêm ngayTaoPhieu
 const searchQuery = ref("");
 const isAdmin = ref(false);
 const filterMaKho = ref(0);
@@ -236,8 +241,46 @@ watch(filteredList, (newVal) => { pagination.total = newVal.length; pagination.t
 const paginatedData = computed(() => { const start = pagination.page * pagination.size; const end = start + pagination.size; return filteredList.value.slice(start, end); });
 const changePage = (pageIndex) => { if (pageIndex >= 0 && pageIndex < pagination.totalPages) pagination.page = pageIndex; };
 const moChiTiet = (soPhieu) => { selectedSoPhieu.value = soPhieu; showModal.value = true; };
-const moModalSua = (item) => { editItem.value = { ...item }; showEditModal.value = true; };
-const luuCapNhat = async () => { try { await api.put(`${API_URL}/${editItem.value.soPhieu}`, { soPhieu: editItem.value.soPhieu, ghiChu: editItem.value.ghiChu }); alert("Cập nhật thành công!"); showEditModal.value = false; layDanhSach(); } catch (e) { alert("Lỗi: " + (e.response?.data?.message || e.message)); } };
+
+// ==========================================
+// HÀM FORMAT NGÀY TỪ MẢNG SỐ SANG YYYY-MM-DDTHH:mm ĐỂ NHÉT VÀO INPUT DATETIME-LOCAL
+// ==========================================
+const formatForInput = (dateArray) => {
+    if (!dateArray) return '';
+    if (Array.isArray(dateArray)) {
+        const [year, month, day, hour, minute] = dateArray;
+        const f = (n) => n < 10 ? '0' + n : n;
+        // Phải đúng format yyyy-MM-ddThh:mm
+        return `${year}-${f(month)}-${f(day)}T${f(hour || 0)}:${f(minute || 0)}`;
+    }
+    // Nếu là string ISO chuẩn thì cắt bớt dây (nếu có)
+    return new Date(dateArray).toISOString().slice(0, 16);
+};
+
+const moModalSua = (item) => { 
+    editItem.value = { 
+        soPhieu: item.soPhieu, 
+        ghiChu: item.ghiChu,
+        ngayTaoPhieu: formatForInput(item.ngayNhap) // Gán ngày cũ vào input
+    }; 
+    showEditModal.value = true; 
+};
+
+const luuCapNhat = async () => { 
+    try { 
+        await api.put(`${API_URL}/${editItem.value.soPhieu}`, { 
+            soPhieu: editItem.value.soPhieu, 
+            ghiChu: editItem.value.ghiChu,
+            ngayTaoPhieu: editItem.value.ngayTaoPhieu // Gửi ngày mới lên
+        }); 
+        alert("Cập nhật thành công!"); 
+        showEditModal.value = false; 
+        layDanhSach(); 
+    } catch (e) { 
+        alert("Lỗi: " + (e.response?.data?.message || e.message)); 
+    } 
+};
+
 const xoaPhieu = async (soPhieu) => { if (!confirm('Cảnh báo: Xóa phiếu này sẽ xóa toàn bộ máy trong kho. Tiếp tục?')) return; try { await api.delete(`${API_URL}/${soPhieu}`); alert("Đã xóa thành công!"); layDanhSach(); } catch (e) { alert("Lỗi xóa: " + (e.response?.data?.message || e.message)); } };
 const isYearLocked = (dateInput) => { if (!dateInput) return false; let year = Array.isArray(dateInput) ? dateInput[0] : new Date(dateInput).getFullYear(); return year < new Date().getFullYear(); };
 const splitSummary = (str) => str ? str.split(', ') : [];
@@ -247,65 +290,17 @@ onMounted(async () => { await setupPhanQuyen(); layDanhSach(); });
 </script>
 
 <style scoped>
-/* -----------------------------------------------------------
-   1. CSS CHO MÁY TÍNH (PC/LAPTOP - Màn hình > 768px)
-   ----------------------------------------------------------- */
+/* CSS giữ nguyên như cũ */
 @media (min-width: 768px) {
-    .btn-fix-height {
-        height: 31px;
-        /* Chiều cao chuẩn của form-control-sm trong Bootstrap */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        white-space: nowrap;
-        /* Ngăn chữ bị xuống dòng */
-    }
-
-    .my-select {
-        max-width: 200px;
-    }
-
-    .my-input {
-        max-width: 200px;
-    }
+    .btn-fix-height { height: 31px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+    .my-select { max-width: 200px; }
+    .my-input { max-width: 200px; }
 }
-
-/* -----------------------------------------------------------
-   2. CSS CHO ĐIỆN THOẠI (MOBILE - Màn hình < 768px)
-   ----------------------------------------------------------- */
 @media (max-width: 767px) {
-
-    /* Chuyển toolbar thành cột dọc để không bị tràn */
-    .header-toolbar {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    /* Input và Select full chiều rộng màn hình */
-    .my-select,
-    .my-input {
-        width: 100% !important;
-        font-size: 13px;
-        margin-bottom: 5px;
-    }
-
-    /* Nút Tạo cũng full chiều rộng và cách ra một chút */
-    .btn-fix-height {
-        width: 100%;
-        justify-content: center;
-        margin-top: 5px;
-        height: 35px;
-        /* Cao hơn xíu cho dễ bấm trên điện thoại */
-    }
-
-    /* Bo góc thẻ card trên mobile */
-    .mobile-card {
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .product-summary {
-        font-size: 12px;
-    }
+    .header-toolbar { flex-direction: column; width: 100%; }
+    .my-select, .my-input { width: 100% !important; font-size: 13px; margin-bottom: 5px; }
+    .btn-fix-height { width: 100%; justify-content: center; margin-top: 5px; height: 35px; }
+    .mobile-card { border-radius: 8px; overflow: hidden; }
+    .product-summary { font-size: 12px; }
 }
 </style>

@@ -108,6 +108,15 @@ public class KhoController {
         }
     }
 
+    @PutMapping("/xuat/{soPhieu}")
+    public ResponseEntity<?> capNhatPhieuXuat(@PathVariable String soPhieu, @RequestBody PhieuXuatDTO dto) {
+        try {
+            return ResponseEntity.ok(giaoDichService.capNhatPhieuXuat(soPhieu, dto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @PostMapping("/xuat")
     public ResponseEntity<?> xuatKho(@RequestBody PhieuXuatDTO dto) {
         try {

@@ -40,7 +40,7 @@
                                 <th width="25%">Chi tiết</th>
                                 <th>Tổng SL</th>
                                 <th>Tổng Tiền</th>
-                                <th width="150px">Thao tác</th>
+                                <th width="180px">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,13 +68,16 @@
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-outline-info" @click="moChiTiet(item.soPhieu)" title="Xem">
-                                            <i class="fas fa-eye"></i> Chi tiết
+                                            Chi tiết
+                                        </button>
+                                        <button class="btn btn-outline-warning" @click="moModalSua(item)" title="Sửa ngày & ghi chú">
+                                            Sửa
                                         </button>
                                         <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger" @click="huyPhieu(item.soPhieu)">
-                                            <i class="fas fa-undo"></i> Xóa
+                                            Xóa
                                         </button>
                                         <button v-else class="btn btn-secondary disabled">
-                                            <i class="fas fa-lock"></i> Xóa
+                                            <i class="fas fa-lock"></i>
                                         </button>
                                     </div>
                                 </td>
@@ -126,6 +129,9 @@
                                 
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-info px-2" @click="moChiTiet(item.soPhieu)">Chi Tiết</button>
+                                    
+                                    <button class="btn btn-outline-warning px-2" @click="moModalSua(item)">Sửa</button>
+
                                     <button v-if="!isYearLocked(item.ngayXuat)" 
                                             class="btn btn-outline-danger px-2" @click="huyPhieu(item.soPhieu)">Xóa</button>
                                     <button v-else class="btn btn-secondary px-2 disabled"><i class="fas fa-lock"></i></button>
@@ -147,6 +153,32 @@
         </div>
 
         <XuatKhoChiTiet v-if="showModal" :soPhieu="selectedSoPhieu" @close="showModal = false" />
+
+        <div v-if="showEditModal" class="modal d-block" style="background: rgba(0,0,0,0.5)">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning p-2">
+                        <h6 class="modal-title small fw-bold">Sửa Thông Tin Phiếu Xuất</h6>
+                        <button type="button" class="btn-close small" @click="showEditModal = false"></button>
+                    </div>
+                    <div class="modal-body p-2">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold mb-1">Ngày Xuất</label>
+                            <input type="datetime-local" class="form-control form-control-sm border-warning" v-model="editItem.ngayTaoPhieu">
+                        </div>
+                        <div>
+                            <label class="form-label small fw-bold mb-1">Ghi Chú</label>
+                            <textarea class="form-control form-control-sm border-warning" rows="3" v-model="editItem.ghiChu"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer p-1">
+                        <button class="btn btn-secondary btn-sm" @click="showEditModal = false">Hủy</button>
+                        <button class="btn btn-primary btn-sm" @click="luuCapNhat">Lưu</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -160,13 +192,14 @@ const danhSachPhieu = ref([]);
 const listKho = ref([]); 
 const loading = ref(false);
 const showModal = ref(false);
+const showEditModal = ref(false); // Trạng thái Modal sửa
 const selectedSoPhieu = ref(null);
+const editItem = ref({ soPhieu: '', ghiChu: '', ngayTaoPhieu: '' }); // Dữ liệu sửa
 const searchQuery = ref("");
 const isAdmin = ref(false);
 const filterMaKho = ref(0); 
 const pagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-// Logic giữ nguyên
 const setupPhanQuyen = async () => {
     const role = localStorage.getItem('userRole');
     let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -191,6 +224,44 @@ watch(filteredList, (newVal) => { pagination.total = newVal.length; pagination.t
 const paginatedData = computed(() => { const start = pagination.page * pagination.size; const end = start + pagination.size; return filteredList.value.slice(start, end); });
 const changePage = (pageIndex) => { if (pageIndex >= 0 && pageIndex < pagination.totalPages) pagination.page = pageIndex; };
 const moChiTiet = (soPhieu) => { selectedSoPhieu.value = soPhieu; showModal.value = true; };
+
+// HÀM FORMAT NGÀY CHO INPUT DATETIME-LOCAL
+const formatForInput = (dateArray) => {
+    if (!dateArray) return '';
+    if (Array.isArray(dateArray)) {
+        const [year, month, day, hour, minute] = dateArray;
+        const f = (n) => n < 10 ? '0' + n : n;
+        return `${year}-${f(month)}-${f(day)}T${f(hour || 0)}:${f(minute || 0)}`;
+    }
+    return new Date(dateArray).toISOString().slice(0, 16);
+};
+
+// HÀM MỞ MODAL SỬA
+const moModalSua = (item) => { 
+    editItem.value = { 
+        soPhieu: item.soPhieu, 
+        ghiChu: item.ghiChu,
+        ngayTaoPhieu: formatForInput(item.ngayXuat) 
+    }; 
+    showEditModal.value = true; 
+};
+
+// HÀM LƯU CẬP NHẬT PHIẾU XUẤT
+const luuCapNhat = async () => { 
+    try { 
+        await api.put(`${API_URL}/${editItem.value.soPhieu}`, { 
+            soPhieu: editItem.value.soPhieu, 
+            ghiChu: editItem.value.ghiChu,
+            ngayTaoPhieu: editItem.value.ngayTaoPhieu 
+        }); 
+        alert("Cập nhật thành công!"); 
+        showEditModal.value = false; 
+        layDanhSach(); 
+    } catch (e) { 
+        alert("Lỗi: " + (e.response?.data?.message || e.message)); 
+    } 
+};
+
 const huyPhieu = async (soPhieu) => { if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Có thể bán lại). Tiếp tục?`)) return; try { await api.delete(`${API_URL}/${soPhieu}`); alert("Đã hủy phiếu và hoàn trả kho thành công!"); layDanhSach(); } catch (error) { alert("Lỗi: " + (error.response?.data?.message || error.message)); } };
 const isYearLocked = (dateInput) => { if (!dateInput) return false; let year = Array.isArray(dateInput) ? dateInput[0] : new Date(dateInput).getFullYear(); return year < new Date().getFullYear(); };
 const splitSummary = (str) => str ? str.split(', ') : [];
@@ -200,20 +271,13 @@ onMounted(async () => { await setupPhanQuyen(); layDanhSach(); });
 </script>
 
 <style scoped>
-/* 1. CSS CHO MÁY TÍNH (Web) */
 @media (min-width: 768px) {
-    .btn-fix-height {
-        height: 31px; /* Chiều cao chuẩn của input-sm */
-        display: flex; align-items: center; justify-content: center;
-    }
+    .btn-fix-height { height: 31px; display: flex; align-items: center; justify-content: center; }
 }
-
-/* 2. CSS CHO ĐIỆN THOẠI (Mobile) */
 @media (max-width: 767px) {
     .header-toolbar { flex-direction: column; width: 100%; }
     .my-select, .my-input { width: 100% !important; max-width: 100% !important; font-size: 13px; margin-bottom: 5px; }
     .btn-fix-height { width: 100%; justify-content: center; margin-top: 5px; height: 35px; }
-    
     .mobile-card { border-radius: 8px; overflow: hidden; }
     .product-summary { font-size: 12px; }
 }

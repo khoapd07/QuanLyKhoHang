@@ -368,7 +368,21 @@ public class GiaoDichKhoService {
     public PhieuNhap capNhatPhieuNhap(String soPhieu, PhieuNhapDTO dto) {
         PhieuNhap phieuCu = phieuNhapDAO.findById(soPhieu).orElseThrow();
         phieuCu.setGhiChu(dto.getGhiChu());
+        if (dto.getNgayTaoPhieu() != null) {
+            phieuCu.setNgayNhap(dto.getNgayTaoPhieu());
+        }
         return phieuNhapDAO.save(phieuCu);
+    }
+
+    @Transactional
+    public PhieuXuat capNhatPhieuXuat(String soPhieu, PhieuXuatDTO dto) {
+        PhieuXuat phieuCu = phieuXuatDAO.findById(soPhieu).orElseThrow();
+        phieuCu.setGhiChu(dto.getGhiChu());
+        // Cập nhật Ngày Xuất nếu có truyền lên từ Frontend
+        if (dto.getNgayTaoPhieu() != null) {
+            phieuCu.setNgayXuat(dto.getNgayTaoPhieu());
+        }
+        return phieuXuatDAO.save(phieuCu);
     }
 
     @Transactional
