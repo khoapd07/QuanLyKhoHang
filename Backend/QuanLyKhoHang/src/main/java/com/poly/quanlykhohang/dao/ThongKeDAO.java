@@ -26,7 +26,7 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     int demSoLuongBanGhiChotSo(@Param("namSau") int namSau, @Param("maKho") int maKho);
 
     // =================================================================
-    // API LỊCH SỬ CHỐT SỔ (CHỈ FETCH DỮ LIỆU TĨNH)
+    // API LỊCH SỬ CHỐT SỔ (CHỈ FETCH DỮ LIỆU TĨNH TỪ DMTonKho)
     // =================================================================
 
     // 1. Lấy chi tiết phân trang (4 tham số: nam, maKho, page, size)
@@ -38,15 +38,16 @@ public interface ThongKeDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
             @Param("size") Integer size
     );
 
-    // 2. Hàm đếm tổng số dòng (Đã thêm vào - 2 tham số: nam, maKho)
+    // 2. Hàm đếm tổng số dòng (2 tham số: nam, maKho)
+    // Dùng raw SQL COUNT(*) cho nhanh vì không cần logic phức tạp
     @Query(value = "SELECT COUNT(*) FROM DMTonKho WHERE Nam = :nam AND (:maKho = 0 OR MaKho = :maKho)", nativeQuery = true)
     long countLichSuChotSo(
             @Param("nam") Integer nam,
             @Param("maKho") Integer maKho
     );
 
-    // 3. Hàm tính tổng cộng (2 tham số: nam, maKho)
-    @Query(value = "SELECT ISNULL(SUM(SoLuongDau), 0), ISNULL(SUM(GiaTriDau), 0) FROM DMTonKho WHERE Nam = :nam AND (:maKho = 0 OR MaKho = :maKho)", nativeQuery = true)
+    // 3. Hàm tính tổng cộng (Đã sửa lại để gọi SP thay vì Raw SQL)
+    @Query(value = "EXEC sp_TongHopLichSuChotSo :nam, :maKho", nativeQuery = true)
     List<Object[]> getTongHopLichSu(
             @Param("nam") Integer nam,
             @Param("maKho") Integer maKho
