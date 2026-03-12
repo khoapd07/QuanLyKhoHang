@@ -16,13 +16,33 @@
                             <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                         </select>
                     </div>
+
                     <div class="col-12 col-md-3 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">NHÀ CUNG CẤP (*)</label>
-                        <select class="form-select form-select-sm shadow-none" v-model="phieuNhap.maDonVi">
-                            <option value="" disabled>-- Chọn NCC --</option>
-                            <option v-for="ncc in listNhaCungCap" :key="ncc.maDonVi" :value="ncc.maDonVi">{{ ncc.tenDonVi }}</option>
-                        </select>
+                        <div class="dropdown">
+                            <button class="form-select form-select-sm shadow-none text-start" 
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="text-truncate">
+                                    {{ phieuNhap.maDonVi ? getTenNCC(phieuNhap.maDonVi) : '-- Chọn NCC (Gõ để tìm) --' }}
+                                </span>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control form-control-sm mb-2 shadow-none border-success" 
+                                       v-model="searchNccText" 
+                                       placeholder="🔍 Nhập tên Nhà cung cấp..." 
+                                       @click.stop>
+                                <div v-if="filteredNcc.length > 0">
+                                    <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" 
+                                            v-for="ncc in filteredNcc" :key="ncc.maDonVi" 
+                                            @click="selectNcc(ncc.maDonVi)">
+                                        {{ ncc.tenDonVi }}
+                                    </button>
+                                </div>
+                                <div v-else class="text-center text-muted py-2 small">Không tìm thấy.</div>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="col-12 col-md-3 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">NGÀY NHẬP (Tùy chỉnh)</label>
                         <input type="datetime-local" class="form-control form-control-sm shadow-none" v-model="phieuNhap.ngayTaoPhieu">
@@ -39,12 +59,30 @@
                     <div class="row g-2 align-items-end">
                         <div class="col-12 col-md-5">
                             <label class="form-label fw-bold small-label">SẢN PHẨM</label>
-                            <select class="form-select form-select-sm" v-model="currentItem.maSP">
-                                <option value="" disabled>-- Chọn sản phẩm --</option>
-                                <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">
-                                    {{ sp.tenSP }} ({{ sp.maSP }})
-                                </option>
-                            </select>
+                            
+                            <div class="dropdown">
+                                <button class="form-select form-select-sm shadow-none text-start" 
+                                        type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="text-truncate">
+                                        {{ currentItem.maSP ? getTenSP(currentItem.maSP) : '-- Chọn sản phẩm (Gõ để tìm) --' }}
+                                    </span>
+                                </button>
+                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 350px; overflow-y: auto;">
+                                    <input type="text" class="form-control form-control-sm mb-2 shadow-none border-success" 
+                                           v-model="searchProductText" 
+                                           placeholder="🔍 Nhập mã hoặc tên sản phẩm..." 
+                                           @click.stop>
+                                    <div v-if="filteredProducts.length > 0">
+                                        <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" 
+                                                v-for="sp in filteredProducts" :key="sp.maSP" 
+                                                @click="selectProduct(sp.maSP)">
+                                            <strong class="text-primary">{{ sp.maSP }}</strong> - {{ sp.tenSP }}
+                                        </button>
+                                    </div>
+                                    <div v-else class="text-center text-muted py-2 small">Không tìm thấy sản phẩm.</div>
+                                </div>
+                            </div>
+
                         </div>
                         
                         <div class="col-4 col-md-2">
@@ -67,7 +105,7 @@
 
                         <div class="col-12 col-md-1">
                             <button class="btn btn-success btn-sm w-100 fw-bold btn-add-fix" @click="themDong">
-                                <i class="fas fa-plus">Thêm</i>
+                                Thêm
                             </button>
                         </div>
                     </div>
@@ -79,35 +117,42 @@
                     <thead class="table-light text-center">
                         <tr>
                             <th>Sản Phẩm</th>
-                            <th width="100px">Trạng Thái</th>
-                            <th>Giá</th>
-                            <th width="50px">SL</th>
-                            <th>Tiền</th>
-                            <th width="40px">#</th>
+                            <th width="150px">Trạng Thái</th>
+                            <th width="120px">Giá</th>
+                            <th width="60px">SL</th>
+                            <th width="150px">Tiền</th>
+                            <th width="50px">#</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="(item, index) in listHienThi" :key="index">
                             <td class="text-break">{{ getTenSP(item.maSP) }}</td>
-                            
                             <td class="text-center">{{ getTenTrangThai(item.trangThai) }}</td>
-                            
                             <td class="text-end">{{ formatCurrency(item.donGia) }}</td>
                             <td class="text-center fw-bold">{{ item.soLuong }}</td>
                             <td class="text-end text-primary">{{ formatCurrency(item.donGia * item.soLuong) }}</td>
                             <td class="text-center p-0">
                                 <button class="btn btn-link btn-sm text-danger text-decoration-none fw-bold" @click="listHienThi.splice(index, 1)">
-                                    <i class="fas fa-trash-alt me-1"></i> Xóa
+                                    Xóa
                                 </button>
                             </td>
                         </tr>
                     </tbody>
+                    <tfoot>
+                        <tr class="table-light fw-bold">
+                            <td colspan="3" class="text-end border-end-0">TỔNG CỘNG:</td>
+                            <td class="text-center text-primary fs-6 border-start-0">{{ tongSoLuongPhieu }}</td>
+                            <td class="text-end text-danger fs-6">{{ formatCurrency(tongTienPhieu) }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 
             <div class="mt-3 text-center">
-                <button class="btn btn-primary px-5 fw-bold shadow-sm" @click="luuPhieu" :disabled="listHienThi.length === 0">
-                    <i class="fas fa-save me-2"></i> LƯU PHIẾU
+                <button class="btn btn-primary px-5 py-2 fw-bold shadow-sm" @click="luuPhieu" :disabled="listHienThi.length === 0 || isSaving">
+                    <span v-if="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+                    LƯU PHIẾU
                 </button>
             </div>
         </div>
@@ -125,33 +170,74 @@ const listSanPham = ref([]);
 const listDonVi = ref([]); 
 const listTrangThai = ref([]); 
 
-// KHAI BÁO THÊM ngayTaoPhieu
 const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '', ngayTaoPhieu: '' });
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 }); 
 const listHienThi = ref([]);
 const isAdmin = ref(false);
+const isSaving = ref(false);
 
-const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
+// --- LOGIC TÌM KIẾM NHÀ CUNG CẤP ---
+const searchNccText = ref("");
 
 const listNhaCungCap = computed(() => {
     if (!Array.isArray(listDonVi.value)) return [];
     return listDonVi.value.filter(dv => {
         const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
-        return loai === 1;
+        return loai === 1; // Chỉ lấy loại 1 là Nhà Cung Cấp
     });
 });
+
+const filteredNcc = computed(() => {
+    if (!searchNccText.value) return listNhaCungCap.value;
+    const keyword = searchNccText.value.toLowerCase();
+    return listNhaCungCap.value.filter(ncc => 
+        ncc.tenDonVi.toLowerCase().includes(keyword) || 
+        ncc.maDonVi.toLowerCase().includes(keyword)
+    );
+});
+
+const selectNcc = (ma) => {
+    phieuNhap.value.maDonVi = ma;
+    searchNccText.value = ""; 
+};
+
+const getTenNCC = (ma) => listNhaCungCap.value.find(n => n.maDonVi === ma)?.tenDonVi || ma;
+
+// --- LOGIC TÌM KIẾM SẢN PHẨM ---
+const searchProductText = ref("");
+
+const filteredProducts = computed(() => {
+    if (!searchProductText.value) return listSanPham.value;
+    const keyword = searchProductText.value.toLowerCase();
+    return listSanPham.value.filter(sp => 
+        sp.tenSP.toLowerCase().includes(keyword) || 
+        sp.maSP.toLowerCase().includes(keyword)
+    );
+});
+
+const selectProduct = (maSP) => {
+    currentItem.value.maSP = maSP;
+    searchProductText.value = ""; 
+};
+
+// --- TÍNH TỔNG CỘNG ---
+const tongSoLuongPhieu = computed(() => listHienThi.value.reduce((sum, item) => sum + parseInt(item.soLuong || 0), 0));
+const tongTienPhieu = computed(() => listHienThi.value.reduce((sum, item) => sum + (parseFloat(item.donGia || 0) * parseInt(item.soLuong || 0)), 0));
+
+// --- LOAD DỮ LIỆU ---
+const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
 
 const loadData = async () => {
     try {
         const [k, s, d, tt] = await Promise.all([
             api.get('/kho'), 
-            api.get('/san-pham'), 
-            api.get('/don-vi'),
+            api.get('/san-pham/list'), // Lấy toàn bộ sản phẩm
+            api.get('/don-vi?size=1000'), // Ép lấy 1000 đơn vị (Bao trọn toàn bộ danh sách mà ko sợ lỗi API list)
             api.get('/trang-thai')
         ]);
         
         listKho.value = getDataSafe(k);
-        listSanPham.value = getDataSafe(s);
+        listSanPham.value = getDataSafe(s); 
         listDonVi.value = getDataSafe(d);
         listTrangThai.value = getDataSafe(tt); 
 
@@ -178,16 +264,22 @@ const themDong = () => {
 const luuPhieu = async () => {
     if(!phieuNhap.value.maKho || !phieuNhap.value.maDonVi) return alert("Chọn Kho & NCC!");
     if(listHienThi.value.length === 0) return alert("Chưa có SP!");
+    
+    isSaving.value = true;
     try {
         await api.post('/kho/nhap', { 
             maKho: phieuNhap.value.maKho, 
             maDonVi: phieuNhap.value.maDonVi, 
             ghiChu: phieuNhap.value.ghiChu, 
-            ngayTaoPhieu: phieuNhap.value.ngayTaoPhieu || null, // TRUYỀN NGÀY VÀO PAYLOAD
+            ngayTaoPhieu: phieuNhap.value.ngayTaoPhieu || null,
             chiTietPhieuNhap: listHienThi.value 
         });
         alert("Thành công!"); router.push('/nhap-kho');
-    } catch (e) { alert("Lỗi: " + (e.response?.data?.message || e.message)); }
+    } catch (e) { 
+        alert("Lỗi: " + (e.response?.data?.message || e.message)); 
+    } finally {
+        isSaving.value = false;
+    }
 };
 
 const getTenSP = (ma) => listSanPham.value.find(s => s.maSP === ma)?.tenSP || ma;
@@ -198,10 +290,20 @@ const getTenTrangThai = (id) => {
 };
 
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+
 onMounted(() => loadData());
 </script>
 
 <style scoped>
+.dropdown-menu::-webkit-scrollbar { width: 6px; }
+.dropdown-menu::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
+.hover-bg:hover { background-color: #f8f9fa; }
+
+/* Ẩn cái dấu mũi tên mặc định của dropdown bootstrap để nhìn giống thẻ select thật */
+.dropdown-toggle::after {
+    display: none !important;
+}
+
 /* CSS PC */
 @media (min-width: 768px) {
     .btn-add-fix {

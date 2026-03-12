@@ -42,4 +42,8 @@ public class PhieuXuat {
 
     @OneToMany(mappedBy = "phieuXuat", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChiTietPhieuXuat> danhSachChiTiet;
+
+    @ManyToOne
+    @JoinColumn(name = "MaHT")
+    private HinhThucXuat hinhThucXuat;
 }

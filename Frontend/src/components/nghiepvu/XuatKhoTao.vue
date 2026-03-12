@@ -8,24 +8,48 @@
         </div>
         <div class="card-body">
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label fw-bold">Kho Xuất (*)</label>
                     <select class="form-select" v-model="phieuXuat.maKho" @change="resetSelection" :disabled="!isAdmin">
                         <option :value="null" disabled>-- Chọn Kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
+
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Khách Hàng (*)</label>
-                    <select class="form-select" v-model="phieuXuat.maDonVi">
-                         <option :value="null" disabled>-- Chọn Khách Hàng --</option>
-                         <option v-for="kh in listKhachHang" :key="kh.maDonVi" :value="kh.maDonVi">{{ kh.tenDonVi }}</option>
+                    <div class="dropdown">
+                        <button class="form-select text-start bg-white" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="text-truncate">
+                                {{ phieuXuat.maDonVi ? getTenKhach(phieuXuat.maDonVi) : '-- Chọn KH (Gõ để tìm) --' }}
+                            </span>
+                        </button>
+                        <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
+                            <input type="text" class="form-control mb-2 border-warning" v-model="searchKhachText" placeholder="🔍 Nhập tên KH..." @click.stop>
+                            <div v-if="filteredKhachHang.length > 0">
+                                <button type="button" class="dropdown-item py-2 border-bottom text-wrap hover-bg" 
+                                        v-for="kh in filteredKhachHang" :key="kh.maDonVi" @click="selectKhachHang(kh.maDonVi)">
+                                    {{ kh.tenDonVi }}
+                                </button>
+                            </div>
+                            <div v-else class="text-center text-muted py-2">Không tìm thấy KH.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Hình Thức (*)</label>
+                    <select class="form-select border-warning" v-model="phieuXuat.maHT">
+                        <option :value="null" disabled>-- Chọn Lý do --</option>
+                        <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+
+                <div class="col-md-2">
                     <label class="form-label fw-bold">Ngày Xuất (Tùy chỉnh)</label>
                     <input type="datetime-local" class="form-control" v-model="phieuXuat.ngayTaoPhieu">
                 </div>
+
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Ghi Chú</label>
                     <input type="text" class="form-control" v-model="phieuXuat.ghiChu" placeholder="Lý do xuất...">
@@ -43,12 +67,23 @@
                     <div class="row g-3 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label fw-bold">1. Sản Phẩm</label>
-                            <select class="form-select" v-model="currentItem.maSP" @change="onChonSanPham">
-                                <option value="" disabled>-- Chọn SP --</option>
-                                <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">
-                                    {{ sp.tenSP }} ({{ sp.maSP }})
-                                </option>
-                            </select>
+                            <div class="dropdown">
+                                <button class="form-select text-start bg-white" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="text-truncate">
+                                        {{ currentItem.maSP ? getTenSP(currentItem.maSP) : '-- Chọn SP (Gõ để tìm) --' }}
+                                    </span>
+                                </button>
+                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 350px; overflow-y: auto;">
+                                    <input type="text" class="form-control mb-2 border-warning" v-model="searchProductText" placeholder="🔍 Nhập mã hoặc tên SP..." @click.stop>
+                                    <div v-if="filteredProducts.length > 0">
+                                        <button type="button" class="dropdown-item py-2 border-bottom text-wrap hover-bg" 
+                                                v-for="sp in filteredProducts" :key="sp.maSP" @click="selectProduct(sp.maSP)">
+                                            <strong class="text-primary">{{ sp.maSP }}</strong> - {{ sp.tenSP }}
+                                        </button>
+                                    </div>
+                                    <div v-else class="text-center text-muted py-2">Không tìm thấy.</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="col-md-2">
@@ -170,9 +205,9 @@ const router = useRouter();
 const listKho = ref([]);
 const listDonVi = ref([]);
 const listSanPham = ref([]);
+const listHinhThuc = ref([]);
 
-// KHAI BÁO THÊM ngayTaoPhieu
-const phieuXuat = ref({ maKho: null, maDonVi: null, ghiChu: '', ngayTaoPhieu: '', chiTietPhieuXuat: [] });
+const phieuXuat = ref({ maKho: null, maDonVi: null, maHT: null, ghiChu: '', ngayTaoPhieu: '', chiTietPhieuXuat: [] });
 const currentItem = ref({ maSP: '', donGia: 0 });
 const listHienThi = ref([]);
 
@@ -181,6 +216,42 @@ const selectedSerials = ref([]);
 const searchText = ref("");       
 const isAdmin = ref(false);
 let lastCheckedIndex = -1;
+
+const searchKhachText = ref("");
+
+const listKhachHang = computed(() => {
+    if (!Array.isArray(listDonVi.value)) return [];
+    return listDonVi.value.filter(dv => {
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
+        return loai === 2;
+    });
+});
+
+const filteredKhachHang = computed(() => {
+    if(!searchKhachText.value) return listKhachHang.value;
+    const kw = searchKhachText.value.toLowerCase();
+    return listKhachHang.value.filter(kh => kh.tenDonVi.toLowerCase().includes(kw) || kh.maDonVi.toLowerCase().includes(kw));
+});
+
+const selectKhachHang = (ma) => { phieuXuat.value.maDonVi = ma; searchKhachText.value = ""; };
+const getTenKhach = (ma) => listKhachHang.value.find(kh => kh.maDonVi === ma)?.tenDonVi || ma;
+
+const searchProductText = ref("");
+
+const filteredProducts = computed(() => {
+    if (!searchProductText.value) return listSanPham.value;
+    const kw = searchProductText.value.toLowerCase();
+    return listSanPham.value.filter(sp => sp.tenSP.toLowerCase().includes(kw) || sp.maSP.toLowerCase().includes(kw));
+});
+
+const selectProduct = (maSP) => {
+    currentItem.value.maSP = maSP;
+    searchProductText.value = ""; 
+    onChonSanPham();
+};
+
+const getTenSP = (maSP) => listSanPham.value.find(s => s.maSP === maSP)?.tenSP || maSP;
+
 
 const usedSerials = computed(() => {
     return listHienThi.value.flatMap(item => item.danhSachSeri);
@@ -276,25 +347,19 @@ const removeSerial = (s) => {
     selectedSerials.value = selectedSerials.value.filter(item => item !== s);
 };
 
-const listKhachHang = computed(() => {
-    if (!Array.isArray(listDonVi.value)) return [];
-    return listDonVi.value.filter(dv => {
-        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
-        return loai === 2;
-    });
-});
-
 const loadMasterData = async () => {
     try {
-        const [k, d, s] = await Promise.all([
+        const [k, d, s, ht] = await Promise.all([
              api.get('/kho'),      
-             api.get('/don-vi'),   
-             api.get('/san-pham')  
+             api.get('/don-vi?size=1000'), 
+             api.get('/san-pham/list'), 
+             api.get('/hinh-thuc-xuat')
         ]);
         
         listKho.value = getDataSafe(k);
         listDonVi.value = getDataSafe(d);
         listSanPham.value = getDataSafe(s);
+        listHinhThuc.value = getDataSafe(ht);
 
         const role = localStorage.getItem('userRole');
         let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -341,12 +406,14 @@ const themDongChiTiet = () => {
 
 const luuPhieuXuat = async () => {
     if (!phieuXuat.value.maKho || !phieuXuat.value.maDonVi) return alert("Vui lòng chọn Kho và Khách hàng");
+    if (!phieuXuat.value.maHT) return alert("Vui lòng chọn Hình thức xuất!");
     
     const payload = {
         maKho: phieuXuat.value.maKho,
         maDonVi: phieuXuat.value.maDonVi,
+        maHT: phieuXuat.value.maHT,
         ghiChu: phieuXuat.value.ghiChu,
-        ngayTaoPhieu: phieuXuat.value.ngayTaoPhieu || null, // TRUYỀN NGÀY VÀO PAYLOAD
+        ngayTaoPhieu: phieuXuat.value.ngayTaoPhieu || null,
         chiTietPhieuXuat: listHienThi.value
     };
 
@@ -360,7 +427,6 @@ const luuPhieuXuat = async () => {
     }
 };
 
-const getTenSP = (maSP) => listSanPham.value.find(s => s.maSP === maSP)?.tenSP || maSP;
 const formatCurrency = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
 onMounted(() => loadMasterData());
@@ -371,4 +437,5 @@ onMounted(() => loadMasterData());
 .dropdown-menu::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
 .cursor-pointer { cursor: pointer; }
 .hover-bg:hover { background-color: #f8f9fa; }
+.dropdown-toggle::after { display: none !important; }
 </style>

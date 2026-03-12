@@ -15,6 +15,8 @@ import TrangThai from '../components/danhmuc/QLTrangThai.vue';
 // Nghiệp vụ NHẬP
 import NhapKho from '../components/nghiepvu/NhapKho.vue'
 import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
+import NhapKhoSua from '../components/nghiepvu/NhapKhoSua.vue'
+
 
 // Nghiệp vụ XUẤT
 import XuatKho from '../components/nghiepvu/XuatKho.vue'
@@ -52,6 +54,7 @@ const routes = [
       // Nhập kho
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },
       { path: 'nhap-kho/tao-moi', name: 'TaoPhieuNhap', component: NhapKhoTao },
+      { path: '/nhap-kho/sua/:id', name: 'SuaPhieuNhap', component: NhapKhoSua },
 
       // Xuất kho
       { path: 'xuat-kho', name: 'XuatKho', component: XuatKho },

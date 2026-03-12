@@ -4,8 +4,11 @@ import com.poly.quanlykhohang.dao.*;
 import com.poly.quanlykhohang.dto.*;
 import com.poly.quanlykhohang.entity.*;
 import com.poly.quanlykhohang.util.IdGenerator;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,20 +21,37 @@ import java.util.*;
 @Service
 public class GiaoDichKhoService {
 
-    @Autowired private ThongKeDAO thongKeDAO;
-    @Autowired private PhieuNhapDAO phieuNhapDAO;
-    @Autowired private ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
-    @Autowired private PhieuXuatDAO phieuXuatDAO;
-    @Autowired private ChiTietPhieuXuatDAO chiTietPhieuXuatDAO;
-    @Autowired private DonViDAO donViDAO;
-    @Autowired private KhoDAO khoDAO;
-    @Autowired private SanPhamDAO sanPhamDAO;
-    @Autowired private MayInDAO mayInDAO;
-    @Autowired private IdGenerator idGenerator;
+    @Autowired
+    private ThongKeDAO thongKeDAO;
+    @Autowired
+    private PhieuNhapDAO phieuNhapDAO;
+    @Autowired
+    private ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
+    @Autowired
+    private PhieuXuatDAO phieuXuatDAO;
+    @Autowired
+    private ChiTietPhieuXuatDAO chiTietPhieuXuatDAO;
+    @Autowired
+    private DonViDAO donViDAO;
+    @Autowired
+    private KhoDAO khoDAO;
+    @Autowired
+    private SanPhamDAO sanPhamDAO;
+    @Autowired
+    private MayInDAO mayInDAO;
+    @Autowired
+    private IdGenerator idGenerator;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private HinhThucXuatDAO hinhThucXuatDAO;
 
     public MayInDAO getMayInDAO() {
         return mayInDAO;
     }
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     // ================= NHẬP KHO =================
     public List<PhieuNhapResponseDTO> layDanhSachPhieuNhapHienThi(Integer maKho) {
@@ -56,7 +76,6 @@ public class GiaoDichKhoService {
             if (pn.getKhoNhap() != null) dto.setTenKho(pn.getKhoNhap().getTenKho());
             if (pn.getNhaCungCap() != null) dto.setTenKhachHang(pn.getNhaCungCap().getTenDonVi());
 
-            // --- [LOGIC MỚI: TÍNH HIỆN TRẠNG CHUẨN] ---
             int slConLai = 0;
             int slDaBan = 0;
             BigDecimal tienCon = BigDecimal.ZERO;
@@ -75,17 +94,14 @@ public class GiaoDichKhoService {
                         }
                     }
 
-                    // Kiểm tra tồn kho của từng máy in thuộc phiếu này
                     MayIn may = ct.getMayIn();
                     if (may != null) {
-                        // Nếu máy CÒN trong kho (chưa bị xuất ở bất kỳ phiếu xuất nào)
                         if (Boolean.TRUE.equals(may.getTonKho())) {
                             slConLai++;
                             if (ct.getDonGia() != null) {
                                 tienCon = tienCon.add(ct.getDonGia());
                             }
                         } else {
-                            // Máy đã bị xuất (TonKho = false)
                             slDaBan++;
                         }
                     }
@@ -97,7 +113,6 @@ public class GiaoDichKhoService {
             dto.setDanhSachHang(String.join(", ", hangSet));
 
             List<String> summaryParts = new ArrayList<>();
-            // Nếu có máy đã xuất, hiển thị cảnh báo nhỏ
             if (slDaBan > 0) summaryParts.add("(Đã xuất: " + slDaBan + " máy)");
 
             for (String key : spCountMap.keySet()) {
@@ -193,47 +208,50 @@ public class GiaoDichKhoService {
         PhieuNhap phieuNhap = phieuNhapDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập"));
 
+        // 1. KIỂM TRA CHỐT SỔ
+        int namPhieu = phieuNhap.getNgayNhap().getYear();
+        int khoId = phieuNhap.getKhoNhap().getMaKho();
+        int namKiemTraChotSo = namPhieu + 1;
+
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namKiemTraChotSo, khoId) > 0) {
+            throw new RuntimeException("KHÔNG THỂ XÓA! Dữ liệu năm " + namPhieu + " đã được chốt sổ vào đầu năm " + namKiemTraChotSo + ".");
+        }
+
+        // 2. KIỂM TRA TỒN KHO & HOÀN LẠI SỐ LƯỢNG SẢN PHẨM
         for (ChiTietPhieuNhap ct : phieuNhap.getDanhSachChiTiet()) {
             MayIn may = ct.getMayIn();
             if (may != null && Boolean.FALSE.equals(may.getTonKho())) {
                 throw new RuntimeException("Lỗi: Máy " + may.getMaMay() + " đã xuất bán, KHÔNG THỂ xóa phiếu nhập này!");
             }
-        }
 
-        List<MayIn> danhSachMayCanXoa = new ArrayList<>();
-
-        Iterator<ChiTietPhieuNhap> iterator = phieuNhap.getDanhSachChiTiet().iterator();
-        while (iterator.hasNext()) {
-            ChiTietPhieuNhap ct = iterator.next();
-            MayIn may = ct.getMayIn();
+            // Trừ lại số lượng Sản phẩm
             SanPham sp = ct.getSanPham();
-
-            if (may != null) {
-                danhSachMayCanXoa.add(may);
-            }
-
             if (sp != null) {
                 sp.setSoLuong(Math.max(0, sp.getSoLuong() - 1));
                 sanPhamDAO.save(sp);
             }
-
-            chiTietPhieuNhapDAO.delete(ct);
-            iterator.remove();
         }
 
-        chiTietPhieuNhapDAO.flush();
+        // 3. Ép lưu các thay đổi về số lượng Sản Phẩm xuống DB ngay lập tức
+        sanPhamDAO.flush();
 
-        for (MayIn may : danhSachMayCanXoa) {
-            mayInDAO.delete(may);
-        }
-        mayInDAO.flush();
+        // ====================================================================
+        // 4. BÚA TẠ JDBCTEMPLATE: XÓA TRỰC TIẾP XUỐNG SQL SERVER
+        // Bỏ qua toàn bộ cơ chế Cascade và Cache của Hibernate
+        // ====================================================================
 
-        phieuNhapDAO.delete(phieuNhap);
+        // Chém bay toàn bộ Chi Tiết (Con)
+        jdbcTemplate.update("DELETE FROM CTPhieuNhap WHERE SoPhieu = ?", soPhieu);
+
+        // Chém bay toàn bộ Máy In (Cha)
+        jdbcTemplate.update("DELETE FROM DMMay WHERE SoPhieuNhap = ?", soPhieu);
+
+        // Tiễn Phiếu Nhập lên đường (Ông nội)
+        jdbcTemplate.update("DELETE FROM PhieuNhap WHERE SoPhieu = ?", soPhieu);
     }
 
     public List<PhieuXuatResponseDTO> layDanhSachPhieuXuatHienThi(Integer maKho) {
         List<PhieuXuat> listEntity;
-
         if (maKho != null && maKho > 0) {
             listEntity = phieuXuatDAO.findByMaKhoOrderByNgayXuatDesc(maKho);
         } else {
@@ -241,7 +259,6 @@ public class GiaoDichKhoService {
         }
 
         List<PhieuXuatResponseDTO> listDto = new ArrayList<>();
-
         for (PhieuXuat px : listEntity) {
             PhieuXuatResponseDTO dto = new PhieuXuatResponseDTO();
             dto.setSoPhieu(px.getSoPhieu());
@@ -252,6 +269,9 @@ public class GiaoDichKhoService {
             if (px.getKhoXuat() != null) dto.setTenKho(px.getKhoXuat().getTenKho());
             if (px.getKhachHang() != null) dto.setTenKhachHang(px.getKhachHang().getTenDonVi());
 
+            // LẤY TÊN HÌNH THỨC TRẢ VỀ CHO VUE
+            if (px.getHinhThucXuat() != null) dto.setTenHinhThuc(px.getHinhThucXuat().getTenHT());
+
             Map<String, Integer> spCountMap = new HashMap<>();
             Set<String> hangSet = new HashSet<>();
             if (px.getDanhSachChiTiet() != null) {
@@ -259,7 +279,7 @@ public class GiaoDichKhoService {
                     if (ct.getSanPham() != null) {
                         String tenSP = ct.getSanPham().getTenSP();
                         spCountMap.put(tenSP, spCountMap.getOrDefault(tenSP, 0) + 1);
-                        if(ct.getSanPham().getHangSanXuat() != null) hangSet.add(ct.getSanPham().getHangSanXuat().getTenHang());
+                        if (ct.getSanPham().getHangSanXuat() != null) hangSet.add(ct.getSanPham().getHangSanXuat().getTenHang());
                     }
                 }
             }
@@ -295,6 +315,12 @@ public class GiaoDichKhoService {
         phieuXuat.setKhachHang(khach);
         Kho kho = khoDAO.findById(dto.getMaKho()).orElseThrow();
         phieuXuat.setKhoXuat(kho);
+
+        // LƯU HÌNH THỨC VÀO DATABASE
+        if (dto.getMaHT() != null) {
+            HinhThucXuat ht = hinhThucXuatDAO.findById(dto.getMaHT()).orElseThrow(() -> new RuntimeException("Không tìm thấy hình thức xuất"));
+            phieuXuat.setHinhThucXuat(ht);
+        }
 
         PhieuXuat savedPhieu = phieuXuatDAO.save(phieuXuat);
         List<ChiTietPhieuXuat> listChiTiet = new ArrayList<>();
@@ -340,12 +366,13 @@ public class GiaoDichKhoService {
         PhieuXuat phieuXuat = phieuXuatDAO.findById(soPhieu)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất: " + soPhieu));
 
+        // CẬP NHẬT KIỂM TRA CHỐT SỔ (+1 NĂM)
         int namPhieu = phieuXuat.getNgayXuat().getYear();
         int khoId = phieuXuat.getKhoXuat().getMaKho();
-        int soLuongBanGhiChot = thongKeDAO.demSoLuongBanGhiChotSo(namPhieu, khoId);
+        int namKiemTraChotSo = namPhieu + 1; // Kiểm tra sổ của năm kế tiếp
 
-        if (soLuongBanGhiChot > 0) {
-            throw new RuntimeException("KHÔNG THỂ XÓA! Năm " + namPhieu + " đã được chốt sổ. Dữ liệu đã bị khóa.");
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namKiemTraChotSo, khoId) > 0) {
+            throw new RuntimeException("KHÔNG THỂ XÓA! Dữ liệu năm " + namPhieu + " đã được chốt sổ vào đầu năm " + namKiemTraChotSo + ".");
         }
 
         if (phieuXuat.getDanhSachChiTiet() != null) {
@@ -378,23 +405,39 @@ public class GiaoDichKhoService {
     public PhieuXuat capNhatPhieuXuat(String soPhieu, PhieuXuatDTO dto) {
         PhieuXuat phieuCu = phieuXuatDAO.findById(soPhieu).orElseThrow();
         phieuCu.setGhiChu(dto.getGhiChu());
-        // Cập nhật Ngày Xuất nếu có truyền lên từ Frontend
         if (dto.getNgayTaoPhieu() != null) {
             phieuCu.setNgayXuat(dto.getNgayTaoPhieu());
         }
+
+        // CẬP NHẬT HÌNH THỨC NẾU CÓ SỬA
+        if (dto.getMaHT() != null) {
+            HinhThucXuat ht = hinhThucXuatDAO.findById(dto.getMaHT()).orElseThrow();
+            phieuCu.setHinhThucXuat(ht);
+        }
+
         return phieuXuatDAO.save(phieuCu);
     }
 
     @Transactional
     public void xoaDongChiTietNhap(Integer maCTPN) {
         ChiTietPhieuNhap ct = chiTietPhieuNhapDAO.findById(maCTPN).orElseThrow();
+
+        // BỔ SUNG KIỂM TRA CHỐT SỔ (+1 NĂM) TRƯỚC KHI XÓA CHI TIẾT
+        PhieuNhap pn = ct.getPhieuNhap();
+        int namPhieu = pn.getNgayNhap().getYear();
+        int khoId = pn.getKhoNhap().getMaKho();
+        int namKiemTraChotSo = namPhieu + 1;
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namKiemTraChotSo, khoId) > 0) {
+            throw new RuntimeException("KHÔNG THỂ XÓA! Dữ liệu năm " + namPhieu + " đã được chốt sổ vào đầu năm " + namKiemTraChotSo + ".");
+        }
+
         MayIn mayIn = ct.getMayIn();
         if (mayIn != null && Boolean.FALSE.equals(mayIn.getTonKho())) {
             throw new RuntimeException("Máy đã bán, không thể xóa!");
         }
-        PhieuNhap pn = ct.getPhieuNhap();
+
         pn.setTongSoLuong(Math.max(0, pn.getTongSoLuong() - 1));
-        if(ct.getDonGia()!=null) pn.setTongTien(pn.getTongTien().subtract(ct.getDonGia()));
+        if (ct.getDonGia() != null) pn.setTongTien(pn.getTongTien().subtract(ct.getDonGia()));
         phieuNhapDAO.save(pn);
 
         SanPham sp = ct.getSanPham();
@@ -439,12 +482,143 @@ public class GiaoDichKhoService {
             ctEntity.setDonGia(dto.getDonGia());
             ctEntity.setGhiChu("Bổ sung");
             chiTietPhieuNhapDAO.save(ctEntity);
-            if(dto.getDonGia()!=null) tongTienThem = tongTienThem.add(dto.getDonGia());
+            if (dto.getDonGia() != null) tongTienThem = tongTienThem.add(dto.getDonGia());
         }
         phieuNhap.setTongSoLuong(phieuNhap.getTongSoLuong() + soLuongThem);
         phieuNhap.setTongTien(phieuNhap.getTongTien().add(tongTienThem));
         phieuNhapDAO.save(phieuNhap);
         sp.setSoLuong(sp.getSoLuong() + soLuongThem);
         sanPhamDAO.save(sp);
+    }
+    // ================= SỬA ĐƠN GIÁ ĐỒNG LOẠT THEO MÃ SẢN PHẨM =================
+    @Transactional(rollbackFor = Exception.class)
+    public void capNhatGiaTheoSanPham(String soPhieu, String maSP, BigDecimal giaMoi) {
+        PhieuNhap pn = phieuNhapDAO.findById(soPhieu)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu"));
+
+        // Kiểm tra chốt sổ
+        int namPhieu = pn.getNgayNhap().getYear();
+        int khoId = pn.getKhoNhap().getMaKho();
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namPhieu + 1, khoId) > 0) {
+            throw new RuntimeException("Dữ liệu đã chốt sổ, không thể sửa giá!");
+        }
+
+        BigDecimal tongTienChenhLech = BigDecimal.ZERO;
+        BigDecimal giaMoiChuan = giaMoi != null ? giaMoi : BigDecimal.ZERO;
+
+        // Duyệt qua toàn bộ máy trong phiếu, cứ trùng mã SP là cập nhật giá mới
+        for (ChiTietPhieuNhap ct : pn.getDanhSachChiTiet()) {
+            if (ct.getSanPham() != null && ct.getSanPham().getMaSP().equals(maSP)) {
+                BigDecimal giaCu = ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO;
+                tongTienChenhLech = tongTienChenhLech.add(giaMoiChuan.subtract(giaCu));
+
+                ct.setDonGia(giaMoiChuan);
+                chiTietPhieuNhapDAO.save(ct);
+            }
+        }
+
+        // Cập nhật lại tổng tiền của Phiếu Nhập
+        pn.setTongTien(pn.getTongTien().add(tongTienChenhLech));
+        phieuNhapDAO.save(pn);
+    }
+    // ================= XUẤT KHO: XÓA 1 DÒNG CHI TIẾT =================
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaDongChiTietXuat(Integer maCTPX) {
+        ChiTietPhieuXuat ct = chiTietPhieuXuatDAO.findById(maCTPX).orElseThrow();
+        PhieuXuat px = ct.getPhieuXuat();
+
+        int namPhieu = px.getNgayXuat().getYear();
+        int khoId = px.getKhoXuat().getMaKho();
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namPhieu + 1, khoId) > 0) {
+            throw new RuntimeException("Dữ liệu đã chốt sổ, không thể xóa!");
+        }
+
+        // Trả lại máy in vào kho
+        MayIn mayIn = ct.getMayIn();
+        if (mayIn != null) {
+            mayIn.setTonKho(true);
+            mayInDAO.save(mayIn);
+        }
+
+        // Trừ tiền và số lượng của phiếu
+        px.setTongSoLuong(Math.max(0, px.getTongSoLuong() - 1));
+        if (ct.getDonGia() != null) px.setTongTien(px.getTongTien().subtract(ct.getDonGia()));
+        phieuXuatDAO.save(px);
+
+        // Cộng lại số lượng tổng của sản phẩm
+        SanPham sp = ct.getSanPham();
+        sp.setSoLuong(sp.getSoLuong() + 1);
+        sanPhamDAO.save(sp);
+
+        chiTietPhieuXuatDAO.delete(ct);
+    }
+
+    // ================= XUẤT KHO: BỔ SUNG MÁY VÀO PHIẾU CŨ =================
+    @Transactional(rollbackFor = Exception.class)
+    public void themDongVaoPhieuCuXuat(String soPhieu, ChiTietXuatDTO dto) {
+        PhieuXuat px = phieuXuatDAO.findById(soPhieu).orElseThrow();
+        SanPham sp = sanPhamDAO.findById(dto.getMaSP()).orElseThrow();
+
+        BigDecimal tongTienThem = BigDecimal.ZERO;
+        int slThem = 0;
+
+        if (dto.getDanhSachSeri() != null) {
+            for (String maMayXuat : dto.getDanhSachSeri()) {
+                MayIn mayInDb = mayInDAO.findById(maMayXuat).orElseThrow();
+                if (Boolean.FALSE.equals(mayInDb.getTonKho())) {
+                    throw new RuntimeException("Máy " + maMayXuat + " đã xuất kho rồi!");
+                }
+
+                // Trừ kho
+                mayInDb.setTonKho(false);
+                mayInDAO.save(mayInDb);
+
+                ChiTietPhieuXuat ctEntity = new ChiTietPhieuXuat();
+                ctEntity.setPhieuXuat(px);
+                ctEntity.setSanPham(sp);
+                ctEntity.setMayIn(mayInDb);
+                ctEntity.setDonGia(dto.getDonGia());
+                chiTietPhieuXuatDAO.save(ctEntity);
+
+                slThem++;
+                if (dto.getDonGia() != null) tongTienThem = tongTienThem.add(dto.getDonGia());
+            }
+
+            // Cập nhật số lượng tổng sản phẩm
+            sp.setSoLuong(Math.max(0, sp.getSoLuong() - slThem));
+            sanPhamDAO.save(sp);
+
+            // Cập nhật phiếu
+            px.setTongSoLuong(px.getTongSoLuong() + slThem);
+            px.setTongTien(px.getTongTien().add(tongTienThem));
+            phieuXuatDAO.save(px);
+        }
+    }
+
+    // ================= XUẤT KHO: SỬA GIÁ ĐỒNG LOẠT =================
+    @Transactional(rollbackFor = Exception.class)
+    public void capNhatGiaTheoSanPhamXuat(String soPhieu, String maSP, BigDecimal giaMoi) {
+        PhieuXuat px = phieuXuatDAO.findById(soPhieu).orElseThrow();
+
+        int namPhieu = px.getNgayXuat().getYear();
+        int khoId = px.getKhoXuat().getMaKho();
+        if (thongKeDAO.demSoLuongBanGhiChotSo(namPhieu + 1, khoId) > 0) {
+            throw new RuntimeException("Dữ liệu đã chốt sổ, không thể sửa giá!");
+        }
+
+        BigDecimal tongTienChenhLech = BigDecimal.ZERO;
+        BigDecimal giaMoiChuan = giaMoi != null ? giaMoi : BigDecimal.ZERO;
+
+        for (ChiTietPhieuXuat ct : px.getDanhSachChiTiet()) {
+            if (ct.getSanPham() != null && ct.getSanPham().getMaSP().equals(maSP)) {
+                BigDecimal giaCu = ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO;
+                tongTienChenhLech = tongTienChenhLech.add(giaMoiChuan.subtract(giaCu));
+
+                ct.setDonGia(giaMoiChuan);
+                chiTietPhieuXuatDAO.save(ct);
+            }
+        }
+        px.setTongTien(px.getTongTien().add(tongTienChenhLech));
+        phieuXuatDAO.save(px);
     }
 }
