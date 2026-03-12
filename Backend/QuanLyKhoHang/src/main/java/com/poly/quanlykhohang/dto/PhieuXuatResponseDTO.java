@@ -17,4 +17,6 @@ public class PhieuXuatResponseDTO {
 
     private String tomTatSanPham; // VD: "iPhone 15 x2"
     private String danhSachHang;  // VD: "Apple"
+
+    private String tenHinhThuc;
 }

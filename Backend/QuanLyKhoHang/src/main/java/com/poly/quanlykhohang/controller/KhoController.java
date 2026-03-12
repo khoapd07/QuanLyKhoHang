@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,17 @@ public class KhoController {
         }
     }
 
+    @PutMapping("/nhap/{soPhieu}/san-pham/{maSP}/gia")
+    public ResponseEntity<?> capNhatGiaTheoSanPham(@PathVariable String soPhieu, @PathVariable String maSP, @RequestBody Map<String, BigDecimal> payload) {
+        try {
+            BigDecimal giaMoi = payload.get("donGia");
+            giaoDichService.capNhatGiaTheoSanPham(soPhieu, maSP, giaMoi);
+            return ResponseEntity.ok("Cập nhật giá thành công cho toàn bộ máy!");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
+    }
+
     // ==================================================
     // 2. XUẤT KHO
     // ==================================================
@@ -132,6 +144,40 @@ public class KhoController {
         try {
             giaoDichService.xoaPhieuXuat(soPhieu);
             return ResponseEntity.ok("Đã hủy phiếu xuất thành công.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
+    }
+
+    // 1. API Sửa Giá Xuất Kho
+    @PutMapping("/xuat/{soPhieu}/san-pham/{maSP}/gia")
+    public ResponseEntity<?> capNhatGiaTheoSanPhamXuat(@PathVariable String soPhieu, @PathVariable String maSP, @RequestBody Map<String, BigDecimal> payload) {
+        try {
+            BigDecimal giaMoi = payload.get("donGia");
+            giaoDichService.capNhatGiaTheoSanPhamXuat(soPhieu, maSP, giaMoi);
+            return ResponseEntity.ok("Cập nhật giá xuất thành công!");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
+    }
+
+    // 2. API Bổ Sung Máy Xuất Kho
+    @PostMapping("/xuat/{soPhieu}/bo-sung")
+    public ResponseEntity<?> themDongVaoPhieuCuXuat(@PathVariable String soPhieu, @RequestBody ChiTietXuatDTO dto) {
+        try {
+            giaoDichService.themDongVaoPhieuCuXuat(soPhieu, dto);
+            return ResponseEntity.ok("Bổ sung máy vào phiếu xuất thành công");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createError(e.getMessage()));
+        }
+    }
+
+    // 3. API Xóa Dòng Xuất Kho
+    @DeleteMapping("/xuat/chi-tiet/{id}")
+    public ResponseEntity<?> xoaDongChiTietXuat(@PathVariable Integer id) {
+        try {
+            giaoDichService.xoaDongChiTietXuat(id);
+            return ResponseEntity.ok("Đã trả máy về kho thành công!");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }

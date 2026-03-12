@@ -37,7 +37,7 @@
                                 <th>Ngày Xuất</th>
                                 <th>Kho Xuất</th>
                                 <th>Khách Hàng</th>
-                                <th width="25%">Chi tiết</th>
+                                <th width="25%">Hình Thức</th>
                                 <th>Tổng SL</th>
                                 <th>Tổng Tiền</th>
                                 <th width="180px">Thao tác</th>
@@ -50,19 +50,7 @@
                                 <td>{{ formatDate(item.ngayXuat) }}</td>
                                 <td>{{ item.tenKho }}</td>
                                 <td class="fw-bold text-truncate" style="max-width: 150px;">{{ item.tenKhachHang || '---' }}</td>
-                                <td>
-                                    <span v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx" 
-                                        class="badge bg-warning text-dark me-1 border border-warning mb-1 text-wrap text-start">
-                                        {{ part }}
-                                    </span>
-                                    <span v-if="splitSummary(item.tomTatSanPham).length > 4" 
-                                        class="badge bg-secondary text-white me-1 mb-1">
-                                        +{{ splitSummary(item.tomTatSanPham).length - 4 }} nữa...
-                                    </span>
-                                    <div v-if="item.ghiChu" class="text-muted fst-italic text-truncate" style="max-width: 150px;">
-                                        ({{ item.ghiChu }})
-                                    </div>
-                                </td>
+                                <td class="text-center fw-bold text-success">{{ item.tenHinhThuc || '---' }}</td>
                                 <td class="text-center fw-bold">{{ item.tongSoLuong }}</td>
                                 <td class="text-end text-danger fw-bold">{{ formatCurrency(item.tongTien) }}</td>
                                 <td class="text-center">
@@ -110,11 +98,8 @@
                             </div>
 
                             <div class="bg-light rounded p-2 mb-2 product-summary">
-                                <div v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx" class="fw-bold text-dark mb-1">
-                                    • {{ part }}
-                                </div>
-                                <div v-if="splitSummary(item.tomTatSanPham).length > 4" class="fw-bold text-secondary mb-1" style="font-size: 11px;">
-                                    • ... và {{ splitSummary(item.tomTatSanPham).length - 4 }} sản phẩm khác
+                                <div class="fw-bold text-success mb-1" style="font-size: 12px;">
+                                     {{ item.tenHinhThuc || 'Chưa xác định hình thức' }}
                                 </div>
                                 <div v-if="item.ghiChu" class="text-muted fst-italic mt-1" style="font-size: 11px;">
                                     📝 {{ item.ghiChu }}
@@ -192,9 +177,9 @@ const danhSachPhieu = ref([]);
 const listKho = ref([]); 
 const loading = ref(false);
 const showModal = ref(false);
-const showEditModal = ref(false); // Trạng thái Modal sửa
+const showEditModal = ref(false); 
 const selectedSoPhieu = ref(null);
-const editItem = ref({ soPhieu: '', ghiChu: '', ngayTaoPhieu: '' }); // Dữ liệu sửa
+const editItem = ref({ soPhieu: '', ghiChu: '', ngayTaoPhieu: '' }); 
 const searchQuery = ref("");
 const isAdmin = ref(false);
 const filterMaKho = ref(0); 
@@ -218,14 +203,14 @@ const layDanhSach = async () => {
 const filteredList = computed(() => {
     if (!searchQuery.value) return danhSachPhieu.value;
     const query = searchQuery.value.toLowerCase();
-    return danhSachPhieu.value.filter(item => item.soPhieu.toLowerCase().includes(query) || (item.tenKhachHang && item.tenKhachHang.toLowerCase().includes(query)) || (item.ghiChu && item.ghiChu.toLowerCase().includes(query)));
+    // Bổ sung logic tìm kiếm theo tên hình thức nếu cần
+    return danhSachPhieu.value.filter(item => item.soPhieu.toLowerCase().includes(query) || (item.tenKhachHang && item.tenKhachHang.toLowerCase().includes(query)) || (item.ghiChu && item.ghiChu.toLowerCase().includes(query)) || (item.tenHinhThuc && item.tenHinhThuc.toLowerCase().includes(query)));
 });
 watch(filteredList, (newVal) => { pagination.total = newVal.length; pagination.totalPages = Math.ceil(newVal.length / pagination.size); pagination.page = 0; }, { immediate: true });
 const paginatedData = computed(() => { const start = pagination.page * pagination.size; const end = start + pagination.size; return filteredList.value.slice(start, end); });
 const changePage = (pageIndex) => { if (pageIndex >= 0 && pageIndex < pagination.totalPages) pagination.page = pageIndex; };
 const moChiTiet = (soPhieu) => { selectedSoPhieu.value = soPhieu; showModal.value = true; };
 
-// HÀM FORMAT NGÀY CHO INPUT DATETIME-LOCAL
 const formatForInput = (dateArray) => {
     if (!dateArray) return '';
     if (Array.isArray(dateArray)) {
@@ -236,7 +221,6 @@ const formatForInput = (dateArray) => {
     return new Date(dateArray).toISOString().slice(0, 16);
 };
 
-// HÀM MỞ MODAL SỬA
 const moModalSua = (item) => { 
     editItem.value = { 
         soPhieu: item.soPhieu, 
@@ -246,7 +230,6 @@ const moModalSua = (item) => {
     showEditModal.value = true; 
 };
 
-// HÀM LƯU CẬP NHẬT PHIẾU XUẤT
 const luuCapNhat = async () => { 
     try { 
         await api.put(`${API_URL}/${editItem.value.soPhieu}`, { 
@@ -264,7 +247,7 @@ const luuCapNhat = async () => {
 
 const huyPhieu = async (soPhieu) => { if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Có thể bán lại). Tiếp tục?`)) return; try { await api.delete(`${API_URL}/${soPhieu}`); alert("Đã hủy phiếu và hoàn trả kho thành công!"); layDanhSach(); } catch (error) { alert("Lỗi: " + (error.response?.data?.message || error.message)); } };
 const isYearLocked = (dateInput) => { if (!dateInput) return false; let year = Array.isArray(dateInput) ? dateInput[0] : new Date(dateInput).getFullYear(); return year < new Date().getFullYear(); };
-const splitSummary = (str) => str ? str.split(', ') : [];
+const splitSummary = (str) => str ? str.split(', ') : []; // Không dùng đến nhưng vẫn giữ theo yêu cầu
 const formatDate = (dateArray) => { if (!dateArray) return ''; if (Array.isArray(dateArray)) { const f = (n) => n < 10 ? '0' + n : n; return `${f(dateArray[2])}/${f(dateArray[1])}/${dateArray[0]}`; } return new Date(dateArray).toLocaleDateString('vi-VN'); };
 const formatCurrency = (v) => { if(!v) return '0 đ'; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v); };
 onMounted(async () => { await setupPhanQuyen(); layDanhSach(); });

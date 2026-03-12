@@ -4,6 +4,7 @@ import com.poly.quanlykhohang.entity.MayIn;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -62,4 +63,13 @@ public interface MayInDAO extends JpaRepository<MayIn, String> {
             @Param("trangThai") Integer trangThai,
             Pageable pageable
     );
+    @Modifying
+    @Query(value = "DELETE FROM DMMay WHERE SoPhieuNhap = :soPhieu", nativeQuery = true)
+    void xoaMayInTheoSoPhieu(@Param("soPhieu") String soPhieu);
+
+    @Modifying
+    @Query("DELETE FROM MayIn m WHERE m.soPhieuNhap = :soPhieu")
+    void xoaTatCaMayInBangSoPhieu(@Param("soPhieu") String soPhieu);
+
+
 }
