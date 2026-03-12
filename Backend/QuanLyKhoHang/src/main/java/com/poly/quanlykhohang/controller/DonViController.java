@@ -27,14 +27,16 @@ public class DonViController {
     // 1. Lấy danh sách (Ai cũng xem được)
     @GetMapping
     public ResponseEntity<Page<DonVi>> getAll(
+            @RequestParam(required = false) Integer loaiDonVi,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // Sắp xếp theo MaDonVi
         Pageable pageable = PageRequest.of(page, size, Sort.by("maDonVi").ascending());
-        return ResponseEntity.ok(donViDAO.findAll(pageable));
-    }
 
+        // Gọi hàm searchAndFilter từ DAO thay vì findAll
+        return ResponseEntity.ok(donViDAO.searchAndFilter(loaiDonVi, search, pageable));
+    }
     // API phụ: Lấy riêng NCC (để load vào combobox Nhập kho)
     @GetMapping("/nha-cung-cap")
     public ResponseEntity<List<DonVi>> getNhaCungCap() {

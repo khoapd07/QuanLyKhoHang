@@ -13,6 +13,10 @@ const message = ref({ type: '', text: '' });
 const isEditMode = ref(false);
 let modalInstance = null;
 
+// --- STATE LỌC & TÌM KIẾM [MỚI] ---
+const filterLoai = ref(0); // 0 = Tất cả
+const searchQuery = ref('');
+
 // --- STATE PHÂN TRANG (Server-side) ---
 const currentPage = ref(0);
 const itemsPerPage = ref(20); 
@@ -64,27 +68,26 @@ const listLoaiDonVi = [
 
 // --- API METHODS ---
 
-// 1. Lấy danh sách (Có phân trang)
+// 1. Lấy danh sách (CÓ TRUYỀN PARAM LỌC VÀ TÌM KIẾM)
 const loadData = async (page = 0) => {
   isLoading.value = true;
   try {
-    const response = await api.get(API_URL, {
-        params: { page: page, size: itemsPerPage.value }
-    });
+    const params = { page: page, size: itemsPerPage.value };
     
-    // Logic gán dữ liệu chuẩn Page
+    // Đẩy tham số tìm kiếm và lọc lên backend
+    if (filterLoai.value !== 0) params.loaiDonVi = filterLoai.value;
+    if (searchQuery.value && searchQuery.value.trim() !== '') params.search = searchQuery.value.trim();
+
+    const response = await api.get(API_URL, { params: params });
+    
     const data = response.data;
     if(data) {
-        // 1. Lấy content
         danhSach.value = data.content || [];
-
-        // 2. Lấy thông tin phân trang (Ưu tiên object lồng 'page' nếu có)
         if (data.page) {
             totalPages.value = data.page.totalPages || 0;
             totalElements.value = data.page.totalElements || 0;
             currentPage.value = data.page.number || 0;
         } else {
-            // Cấu trúc phẳng
             totalPages.value = data.totalPages || 0;
             totalElements.value = data.totalElements || 0;
             currentPage.value = (typeof data.number === 'number') ? data.number : 0;
@@ -93,7 +96,6 @@ const loadData = async (page = 0) => {
         danhSach.value = [];
         totalElements.value = 0;
     }
-    
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
     showMessage('danger', 'Lỗi tải dữ liệu: ' + msg);
@@ -102,25 +104,29 @@ const loadData = async (page = 0) => {
   }
 };
 
-// Chuyển trang
 const changePage = (page) => {
     if (page >= 0 && page < totalPages.value) {
         loadData(page);
     }
 };
 
-// 2. Lưu - ĐÃ BỔ SUNG VALIDATE RÕ RÀNG
+// [MỚI] Hàm xóa điều kiện lọc
+const resetFilter = () => {
+    filterLoai.value = 0;
+    searchQuery.value = '';
+    loadData(0);
+};
+
+// 2. Lưu (Thêm/Sửa)
 const saveData = async () => {
   const maDonViInput = form.maDonVi?.trim() || '';
   const tenDonViInput = form.tenDonVi?.trim() || '';
 
-  // 1. Validate rỗng
   if (!maDonViInput || !tenDonViInput) {
     showMessage('warning', 'Vui lòng nhập đầy đủ Mã đơn vị và Tên đơn vị!');
     return;
   }
 
-  // 2. Validate trùng Mã Đơn Vị (chỉ kiểm tra khi Thêm mới)
   if (!isEditMode.value) {
       const isDuplicateMa = danhSach.value.some(
           item => item.maDonVi.toLowerCase() === maDonViInput.toLowerCase()
@@ -131,7 +137,6 @@ const saveData = async () => {
       }
   }
 
-  // 3. Validate trùng Tên Đơn Vị (Bỏ qua chính nó nếu đang sửa)
   const isDuplicateTen = danhSach.value.some(
       item => item.tenDonVi.toLowerCase().trim() === tenDonViInput.toLowerCase() 
               && item.maDonVi !== form.maDonVi
@@ -141,7 +146,6 @@ const saveData = async () => {
       return;
   }
 
-  // Gán lại data đã trim spaces
   const payload = { 
       ...form, 
       maDonVi: maDonViInput, 
@@ -159,7 +163,6 @@ const saveData = async () => {
     closeModal();
     loadData(currentPage.value); 
   } catch (error) {
-    console.error("API Error:", error);
     let msg = "Lỗi không xác định";
     if (error.response) {
        msg = error.response.data?.message || error.response.data || error.message;
@@ -240,16 +243,52 @@ onMounted(() => {
 
 <template>
   <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
       <h3 class="text-primary"><i class="bi bi-people-fill"></i> Quản Lý Đối Tác (Đơn Vị)</h3>
       <div>
-           <button class="btn btn-outline-secondary me-2" @click="loadData(currentPage)">
-                <i class="bi bi-arrow-clockwise"></i>
-            </button>
-          <button class="btn btn-primary" @click="openAddModal">
+          <button class="btn btn-primary fw-bold" @click="openAddModal">
             <i class="bi bi-person-plus-fill"></i> Thêm Đơn Vị
           </button>
       </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body bg-light rounded py-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-auto fw-bold text-muted">
+                    <i class="bi bi-funnel-fill"></i> Lọc & Tìm kiếm:
+                </div>
+                
+                <div class="col-md-3">
+                    <select v-model="filterLoai" class="form-select form-select-sm" @change="loadData(0)">
+                        <option :value="0">-- Tất cả Loại Đơn Vị --</option>
+                        <option v-for="loai in listLoaiDonVi" :key="loai.id" :value="loai.id">
+                            {{ loai.ten }}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" v-model="searchQuery" 
+                               placeholder="Nhập tên đơn vị, số điện thoại..." 
+                               @keyup.enter="loadData(0)">
+                        <button class="btn btn-primary" @click="loadData(0)">
+                            <i class="bi bi-search"></i> Tìm
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-md-auto">
+                    <button class="btn btn-sm btn-outline-secondary me-2" @click="resetFilter" v-if="filterLoai !== 0 || searchQuery !== ''">
+                        <i class="bi bi-x-circle"></i> Xóa lọc
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" @click="loadData(currentPage)">
+                        <i class="bi bi-arrow-clockwise"></i> Tải lại
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div v-if="message.text" :class="`alert alert-${message.type} alert-dismissible fade show`">
@@ -286,7 +325,7 @@ onMounted(() => {
                 <td class="fw-bold text-primary">{{ item.maDonVi }}</td>
                 <td class="fw-medium">{{ item.tenDonVi }}</td>
                 <td>
-                  <div v-if="item.soDienThoai"><i class="bi bi-telephone"></i> {{ item.soDienThoai }}</div>
+                  <div v-if="item.soDienThoai"><i class="bi bi-telephone text-success"></i> {{ item.soDienThoai }}</div>
                   <div v-if="item.email" class="small text-muted"><i class="bi bi-envelope"></i> {{ item.email }}</div>
                 </td>
                 <td>
@@ -304,7 +343,10 @@ onMounted(() => {
               </tr>
 
               <tr v-if="!isLoading && danhSach.length === 0">
-                <td colspan="7" class="text-center text-muted py-3">Chưa có dữ liệu đơn vị.</td>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block text-secondary mb-2"></i>
+                    Không tìm thấy dữ liệu đơn vị phù hợp.
+                </td>
               </tr>
             </tbody>
           </table>

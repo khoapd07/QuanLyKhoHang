@@ -250,7 +250,7 @@ onMounted(() => {
             <thead class="table-dark">
                 <tr>
                 <th class="text-center" width="80px">STT</th>
-                <th class="text-center" width="5%">ID</th>
+                <!-- <th class="text-center" width="5%">ID</th> -->
                 <th width="20%">Tên Đăng Nhập</th>
                 <th width="20%">Vai Trò</th>
                 <th>Thuộc Kho</th>
@@ -268,7 +268,7 @@ onMounted(() => {
                 <td class="text-center">
                     {{ ((currentPage || 0) * itemsPerPage) + index + 1 }}
                 </td>
-                <td class="text-center fw-bold">{{ user.maTaiKhoan }}</td>
+                <!-- <td class="text-center fw-bold">{{ user.maTaiKhoan }}</td> -->
                 <td class="text-primary fw-medium">{{ user.tenTaiKhoan }}</td>
                 <td>
                     <span :class="['badge', (user.vaiTro?.maVaitro === 1 || user.maVaitro === 1) ? 'bg-danger' : 'bg-info text-dark']">
