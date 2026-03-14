@@ -459,17 +459,43 @@ const thucHienChotSo = async () => {
 
   actionPagination.page = 0;
   loading.value = true;
+  
   try {
-    // GỌI API XÁC THỰC MẬT KHẨU
-    // Lưu ý: Bạn cần tạo một API bên Backend để check mật khẩu này
-    // Ví dụ: POST /api/auth/verify-password
+    // 1. Lấy thông tin user từ localStorage một cách an toàn
+    let savedUsername = '';
+    const userInfoString = localStorage.getItem('userInfo');
+    
+    if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        // ĐÃ THÊM `userInfo.hoTen` VÀO ĐÂY THEO ĐÚNG ẢNH BẠN CHỤP!
+        savedUsername = userInfo.hoTen || userInfo.tenTaiKhoan || userInfo.username || userInfo.sub || ''; 
+    }
+
+    // 2. Nếu trong userInfo không có, thử lấy key trực tiếp bên ngoài localStorage
+    if (!savedUsername) {
+        // ĐÃ THÊM `localStorage.getItem('hoTen')` VÀO ĐÂY!
+        savedUsername = localStorage.getItem('hoTen') || localStorage.getItem('username') || localStorage.getItem('tenTaiKhoan') || '';
+    }
+
+    // 3. Nếu vẫn KHÔNG CÓ tên đăng nhập (Mất Session) -> Báo lỗi chặn lại ngay
+    if (!savedUsername) {
+        Swal.fire(
+            'Lỗi phiên đăng nhập', 
+            'Không tìm thấy tên tài khoản của bạn trong hệ thống. Vui lòng đăng xuất và đăng nhập lại!', 
+            'error'
+        );
+        loading.value = false;
+        return;
+    }
+
+    // 4. GỌI API XÁC THỰC MẬT KHẨU
     const authRes = await api.post('/thong-ke/verify-password', { 
-        username: JSON.parse(localStorage.getItem('userInfo'))?.tenTaiKhoan, 
+        username: savedUsername, 
         password: password 
     });
 
     if (authRes.data.success) {
-        // NẾU MẬT KHẨU ĐÚNG -> TIẾN HÀNH CHỐT SỔ
+        // NẾU MẬT KHẨU ĐÚNG -> GỌI API CHỐT SỔ
         await api.post(`${API_BASE}/chot-so`, null, { params: { nam: filters.nam, maKho: filters.warehouseId } });
         
         Swal.fire(
