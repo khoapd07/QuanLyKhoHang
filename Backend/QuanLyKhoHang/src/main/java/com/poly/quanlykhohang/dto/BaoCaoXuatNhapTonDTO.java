@@ -20,4 +20,8 @@ public class BaoCaoXuatNhapTonDTO {
     private Long tonCuoi;         // SQL trả về: TonCuoi
     private BigDecimal giaBQ;     // SQL trả về: GiaBQ
     private BigDecimal thanhTien; // SQL trả về: ThanhTien
+    private Integer maTrangThai;
+
+    public Integer getMaTrangThai() { return maTrangThai; }
+    public void setMaTrangThai(Integer maTrangThai) { this.maTrangThai = maTrangThai; }
 }

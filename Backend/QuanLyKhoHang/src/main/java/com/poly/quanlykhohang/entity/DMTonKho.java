@@ -2,7 +2,6 @@ package com.poly.quanlykhohang.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 
 @Entity
@@ -14,7 +13,6 @@ import java.math.BigDecimal;
 public class DMTonKho {
 
     // --- 4 CỘT KHÓA CHÍNH (COMPOSITE KEY) ---
-
     @Id
     @Column(name = "Nam")
     private Integer nam;
@@ -31,11 +29,10 @@ public class DMTonKho {
     @Column(name = "MaTrangThai")
     private Integer maTrangThai;
 
-    // --- CÁC CỘT DỮ LIỆU ĐÃ ĐƯỢC ĐỒNG BỘ VỚI SQL ---
+    // --- CÁC CỘT DỮ LIỆU ---
+    @Column(name = "SoLuong")
+    private Integer soLuong;
 
-    @Column(name = "SoLuong") // Đã đổi từ SoLuongDau -> SoLuong
-    private Integer soLuong;  // Đổi thành Integer cho khớp chuẩn kiểu INT trong SQL
-
-    @Column(name = "GiaTri")  // Đã đổi từ GiaTriDau -> GiaTri
+    @Column(name = "GiaTri")
     private BigDecimal giaTri;
 }
