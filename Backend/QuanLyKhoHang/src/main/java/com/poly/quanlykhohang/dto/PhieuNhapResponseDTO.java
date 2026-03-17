@@ -22,4 +22,6 @@ public class PhieuNhapResponseDTO {
 
     private String tomTatSanPham;
     private String danhSachHang;
+
+    private String tenHinhThuc;
 }

@@ -45,6 +45,8 @@ public class GiaoDichKhoService {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private HinhThucXuatDAO hinhThucXuatDAO;
+    @Autowired
+    private HinhThucNhapDAO hinhThucNhapDAO; // THÊM DÒNG NÀY
 
     public MayInDAO getMayInDAO() {
         return mayInDAO;
@@ -75,6 +77,7 @@ public class GiaoDichKhoService {
 
             if (pn.getKhoNhap() != null) dto.setTenKho(pn.getKhoNhap().getTenKho());
             if (pn.getNhaCungCap() != null) dto.setTenKhachHang(pn.getNhaCungCap().getTenDonVi());
+            if (pn.getHinhThucNhap() != null) dto.setTenHinhThuc(pn.getHinhThucNhap().getTenHT()); // THÊM DÒNG NÀY
 
             int slConLai = 0;
             int slDaBan = 0;
@@ -148,6 +151,12 @@ public class GiaoDichKhoService {
         if (dto.getMaDonVi() != null) {
             DonVi ncc = donViDAO.findById(dto.getMaDonVi()).orElseThrow(() -> new RuntimeException("Thiếu NCC"));
             phieuNhap.setNhaCungCap(ncc);
+        }
+
+        // THÊM LOGIC LƯU HÌNH THỨC NHẬP
+        if (dto.getMaHT() != null) {
+            HinhThucNhap ht = hinhThucNhapDAO.findById(dto.getMaHT()).orElseThrow(() -> new RuntimeException("Thiếu hình thức"));
+            phieuNhap.setHinhThucNhap(ht);
         }
 
         PhieuNhap savedPhieu = phieuNhapDAO.save(phieuNhap);
@@ -268,25 +277,24 @@ public class GiaoDichKhoService {
             dto.setTongSoLuong(px.getTongSoLuong());
             if (px.getKhoXuat() != null) dto.setTenKho(px.getKhoXuat().getTenKho());
             if (px.getKhachHang() != null) dto.setTenKhachHang(px.getKhachHang().getTenDonVi());
-
-            // LẤY TÊN HÌNH THỨC TRẢ VỀ CHO VUE
             if (px.getHinhThucXuat() != null) dto.setTenHinhThuc(px.getHinhThucXuat().getTenHT());
 
-            Map<String, Integer> spCountMap = new HashMap<>();
+            // ĐÃ ĐỒNG BỘ ĐỊNH DẠNG VỚI PHIẾU NHẬP ĐỂ LỌC THEO MÃ SP
+            Map<String, Integer> spCountMap = new LinkedHashMap<>();
             Set<String> hangSet = new HashSet<>();
             if (px.getDanhSachChiTiet() != null) {
                 for (ChiTietPhieuXuat ct : px.getDanhSachChiTiet()) {
                     if (ct.getSanPham() != null) {
-                        String tenSP = ct.getSanPham().getTenSP();
-                        spCountMap.put(tenSP, spCountMap.getOrDefault(tenSP, 0) + 1);
+                        String keyDisplay = "[" + ct.getSanPham().getMaSP() + "] " + ct.getSanPham().getTenSP();
+                        spCountMap.put(keyDisplay, spCountMap.getOrDefault(keyDisplay, 0) + 1);
                         if (ct.getSanPham().getHangSanXuat() != null) hangSet.add(ct.getSanPham().getHangSanXuat().getTenHang());
                     }
                 }
             }
             dto.setDanhSachHang(String.join(", ", hangSet));
             List<String> summaryParts = new ArrayList<>();
-            for (String tenSP : spCountMap.keySet()) {
-                summaryParts.add(tenSP + " x" + spCountMap.get(tenSP));
+            for (String key : spCountMap.keySet()) {
+                summaryParts.add(key + " x" + spCountMap.get(key));
             }
             dto.setTomTatSanPham(String.join(", ", summaryParts));
             listDto.add(dto);
@@ -397,6 +405,11 @@ public class GiaoDichKhoService {
         phieuCu.setGhiChu(dto.getGhiChu());
         if (dto.getNgayTaoPhieu() != null) {
             phieuCu.setNgayNhap(dto.getNgayTaoPhieu());
+        }
+        // THÊM SỬA HÌNH THỨC NHẬP
+        if (dto.getMaHT() != null) {
+            HinhThucNhap ht = hinhThucNhapDAO.findById(dto.getMaHT()).orElseThrow();
+            phieuCu.setHinhThucNhap(ht);
         }
         return phieuNhapDAO.save(phieuCu);
     }

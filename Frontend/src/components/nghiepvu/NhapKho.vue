@@ -1,5 +1,5 @@
 <template>
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-primary">
         <div class="card-header bg-primary text-white p-2">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
                 <h6 class="mb-0 fw-bold"><i class="bi bi-box-seam me-1"></i> QUẢN LÝ NHẬP KHO</h6>
@@ -11,9 +11,6 @@
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
 
-                    <input type="text" class="form-control form-control-sm my-input" v-model="searchQuery"
-                        placeholder="🔍 Tìm phiếu...">
-
                     <router-link to="/nhap-kho/tao-moi"
                         class="btn btn-light btn-sm fw-bold d-flex align-items-center btn-fix-height">
                         <i class="fas fa-plus me-1"></i> Tạo
@@ -23,6 +20,32 @@
         </div>
 
         <div class="card-body p-2">
+            <div class="bg-light border rounded p-2 mb-2">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm border-primary" v-model="filters.keyword" placeholder="🔍 Tìm mã phiếu, ghi chú...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-primary" v-model="filters.maHT">
+                            <option value="">-- Lọc theo Hình thức --</option>
+                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.tenHT">{{ ht.tenHT }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-primary" v-model="filters.tenKhach">
+                            <option value="">-- Lọc theo Nhà cung cấp --</option>
+                            <option v-for="ncc in listNhaCungCap" :key="ncc.maDonVi" :value="ncc.tenDonVi">{{ ncc.tenDonVi }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-primary" v-model="filters.maSP">
+                            <option value="">-- Lọc theo Model máy --</option>
+                            <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">{{ sp.maSP }} - {{ sp.tenSP }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="loading" class="text-center py-3">
                 <div class="spinner-border spinner-border-sm text-primary"></div>
             </div>
@@ -37,7 +60,7 @@
                                 <th>Ngày Nhập</th>
                                 <th>Kho</th>
                                 <th>Nhà Cung Cấp</th>
-                                <th width="20%">Chi tiết</th>
+                                <th width="20%">Hình Thức</th>
                                 <th>Hiện Trạng</th>
                                 <th>Giá Trị</th>
                                 <th width="180px">Thao tác</th>
@@ -50,15 +73,10 @@
                                 <td>{{ formatDate(item.ngayNhap) }}</td>
                                 <td>{{ item.tenKho }}</td>
                                 <td class="fw-bold">{{ item.tenKhachHang || '-' }}</td>
-                                <td>
-                                    <div v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx"
-                                        class="badge bg-info text-dark me-1 border border-info mb-1">{{ part }}</div>
-                                    <div v-if="splitSummary(item.tomTatSanPham).length > 4" 
-                                        class="badge bg-secondary text-white me-1 mb-1">
-                                        +{{ splitSummary(item.tomTatSanPham).length - 4 }} nữa...
-                                    </div>
-                                    <div v-if="item.ghiChu" class="text-muted fst-italic text-truncate"
-                                        style="max-width: 150px;">{{ item.ghiChu }}</div>
+                                <td class="text-center">
+                                    <span class="fw-bold text-success">{{ item.tenHinhThuc || '---' }}</span>
+                                    <div v-if="item.ghiChu" class="text-muted fst-italic text-truncate mt-1"
+                                        style="max-width: 150px; margin: 0 auto;">({{ item.ghiChu }})</div>
                                 </td>
                                 <td class="text-center">
                                     <span class="fw-bold text-success">{{ item.soLuongConLai }}</span>/{{ item.tongSoLuongMay }}
@@ -77,6 +95,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            <tr v-if="paginatedData.length === 0"><td colspan="9" class="text-center text-muted py-3">Không tìm thấy dữ liệu phù hợp với bộ lọc.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -100,18 +119,17 @@
                                 <div class="text-truncate text-muted">
                                     <i class="bi bi-truck me-1"></i> {{ item.tenKhachHang }}
                                 </div>
+                                <div class="text-truncate text-success fw-bold mt-1">
+                                    <i class="bi bi-tag-fill me-1 text-muted"></i> {{ item.tenHinhThuc || '---' }}
+                                </div>
                             </div>
 
                             <div class="bg-light rounded p-2 mb-2 product-summary">
-                                <div v-for="(part, idx) in splitSummary(item.tomTatSanPham).slice(0, 4)" :key="idx"
-                                    class="fw-bold text-dark mb-1">
-                                    • {{ part }}
-                                </div>
-                                <div v-if="splitSummary(item.tomTatSanPham).length > 4" class="fw-bold text-secondary mb-1" style="font-size: 11px;">
-                                    • ... và {{ splitSummary(item.tomTatSanPham).length - 4 }} sản phẩm khác
-                                </div>
-                                <div v-if="item.ghiChu" class="text-muted fst-italic mt-1" style="font-size: 11px;">
+                                <div v-if="item.ghiChu" class="text-muted fst-italic" style="font-size: 11px;">
                                     📝 {{ item.ghiChu }}
+                                </div>
+                                <div v-else class="text-muted fst-italic" style="font-size: 11px;">
+                                    Không có ghi chú
                                 </div>
                             </div>
 
@@ -134,7 +152,7 @@
                             </div>
                         </div>
                     </div>
-                    <div v-if="paginatedData.length === 0" class="text-center text-muted small py-2">Không có dữ liệu.</div>
+                    <div v-if="paginatedData.length === 0" class="text-center text-muted small py-3">Không có dữ liệu.</div>
                 </div>
 
                 <div class="d-flex justify-content-center mt-2 px-1" v-if="pagination.total > 0">
@@ -257,6 +275,7 @@
                                                 <button class="btn btn-secondary px-1" @click="editRowIndex = -1">Hủy</button>
                                             </div>
                                             <div v-else class="btn-group btn-group-sm w-100">
+                                                <button class="btn btn-outline-warning px-1" @click="batDauSuaDong(index)">Sửa</button>
                                                 <button class="btn btn-outline-danger px-1" @click="xoaDongSua(index)">Xóa</button>
                                             </div>
                                         </td>
@@ -282,6 +301,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 </template>
 
@@ -295,16 +315,33 @@ const danhSachPhieu = ref([]);
 const listKho = ref([]);
 const listSanPham = ref([]);
 const listTrangThai = ref([]);
+const listDonVi = ref([]);
+const listHinhThuc = ref([]);
 
 const showModal = ref(false);
 const selectedSoPhieu = ref(null);
 const loading = ref(false);
-const searchQuery = ref("");
 const isAdmin = ref(false);
 const filterMaKho = ref(0);
 const pagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-// --- BIẾN CHO MODAL SỬA TOÀN DIỆN ---
+// BỘ LỌC ĐA NĂNG
+const filters = reactive({
+    keyword: '',
+    maHT: '',
+    tenKhach: '',
+    maSP: ''
+});
+
+// KHỞI TẠO BIẾN MẢNG CHỨA DỮ LIỆU NHÀ CUNG CẤP TỪ ĐƠN VỊ
+const listNhaCungCap = computed(() => {
+    if (!Array.isArray(listDonVi.value)) return [];
+    return listDonVi.value.filter(dv => {
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
+        return loai === 1; // NCC
+    });
+});
+
 const showEditModal = ref(false);
 const loadingEditDetails = ref(false);
 const isSavingEdit = ref(false);
@@ -316,7 +353,8 @@ const newItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 });
 const editRowIndex = ref(-1);
 const editRowData = ref({ donGia: 0, soLuong: 1, trangThai: 1 });
 
-// --- KHỞI TẠO DATA ---
+const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
+
 const setupPhanQuyen = async () => {
     const role = localStorage.getItem('userRole');
     let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
@@ -324,16 +362,19 @@ const setupPhanQuyen = async () => {
     if (role === 'ADMIN') { isAdmin.value = true; filterMaKho.value = 0; }
     else { isAdmin.value = false; filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0; }
     
-    // Tải master data cho chức năng sửa
     try {
-        const [k, sp, tt] = await Promise.all([
+        const [k, sp, tt, d, ht] = await Promise.all([
             api.get('/kho'),
             api.get('/san-pham/list'),
-            api.get('/trang-thai')
+            api.get('/trang-thai'),
+            api.get('/don-vi?size=1000'),
+            api.get('/hinh-thuc-nhap')
         ]);
-        listKho.value = k.data;
-        listSanPham.value = sp.data.content || sp.data; 
-        listTrangThai.value = tt.data.content || tt.data;
+        listKho.value = getDataSafe(k);
+        listSanPham.value = getDataSafe(sp); 
+        listTrangThai.value = getDataSafe(tt);
+        listDonVi.value = getDataSafe(d);
+        listHinhThuc.value = getDataSafe(ht);
     } catch(e) { console.error("Lỗi load danh mục:", e); }
 };
 
@@ -345,7 +386,6 @@ const layDanhSach = async () => {
     } catch (e) { console.error("Lỗi data:", e); } finally { loading.value = false; }
 };
 
-// --- LOGIC MODAL SỬA TOÀN DIỆN ---
 const formatForInput = (dateArray) => {
     if (!dateArray) return '';
     if (Array.isArray(dateArray)) {
@@ -391,7 +431,6 @@ const xoaDongSua = (index) => { listSuaChiTiet.value.splice(index, 1); if(editRo
 
 const tongTienSua = computed(() => listSuaChiTiet.value.reduce((s, i) => s + (parseFloat(i.donGia||0) * parseInt(i.soLuong||0)), 0));
 
-// GỌI API SỬA MỚI (LƯU TOÀN DIỆN)
 const luuCapNhatToanDien = async () => { 
     if(editRowIndex.value !== -1) return alert("Vui lòng Lưu hoặc Hủy thao tác sửa dòng đang dang dở!");
     if(!confirm("Hành động này sẽ thay thế TOÀN BỘ danh sách sản phẩm trong phiếu.\nTiếp tục?")) return;
@@ -413,12 +452,26 @@ const luuCapNhatToanDien = async () => {
     }
 };
 
-// --- CÁC HÀM TIỆN ÍCH DÙNG CHUNG ---
+// LOGIC LỌC PHIẾU
 const filteredList = computed(() => {
-    if (!searchQuery.value) return danhSachPhieu.value;
-    const query = searchQuery.value.toLowerCase();
-    return danhSachPhieu.value.filter(item => item.soPhieu.toLowerCase().includes(query) || (item.ghiChu && item.ghiChu.toLowerCase().includes(query)));
+    let result = danhSachPhieu.value;
+    
+    if (filters.keyword) {
+        const kw = filters.keyword.toLowerCase();
+        result = result.filter(item => item.soPhieu.toLowerCase().includes(kw) || (item.ghiChu && item.ghiChu.toLowerCase().includes(kw)));
+    }
+    if (filters.maHT) {
+        result = result.filter(item => item.tenHinhThuc === filters.maHT);
+    }
+    if (filters.tenKhach) {
+        result = result.filter(item => item.tenKhachHang === filters.tenKhach);
+    }
+    if (filters.maSP) {
+        result = result.filter(item => item.tomTatSanPham && item.tomTatSanPham.includes(`[${filters.maSP}]`));
+    }
+    return result;
 });
+
 watch(filteredList, (newVal) => { pagination.total = newVal.length; pagination.totalPages = Math.ceil(newVal.length / pagination.size); pagination.page = 0; }, { immediate: true });
 const paginatedData = computed(() => { const start = pagination.page * pagination.size; const end = start + pagination.size; return filteredList.value.slice(start, end); });
 const changePage = (pageIndex) => { if (pageIndex >= 0 && pageIndex < pagination.totalPages) pagination.page = pageIndex; };

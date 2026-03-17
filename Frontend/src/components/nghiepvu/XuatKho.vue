@@ -9,19 +9,41 @@
                         <option :value="0">-- Tất cả kho --</option>
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
-
-                    <input type="text" class="form-control form-control-sm my-input" style="max-width: 200px;" 
-                           v-model="searchQuery" 
-                           placeholder="🔍 Tìm phiếu...">
                     
                     <router-link to="/xuat-kho/tao-moi" class="btn btn-dark btn-sm fw-bold d-flex align-items-center btn-fix-height">
-                        <i class="fas fa-plus me-1"></i> Tạo
+                        <i class="fas fa-plus me-1"></i> Tạo Mới
                     </router-link>
                 </div>
             </div>
         </div>
         
         <div class="card-body p-2">
+            <div class="bg-light border rounded p-2 mb-2">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm border-warning" v-model="filters.keyword" placeholder="🔍 Tìm mã phiếu, ghi chú...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-warning" v-model="filters.maHT">
+                            <option value="">-- Lọc theo Hình thức --</option>
+                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.tenHT">{{ ht.tenHT }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-warning" v-model="filters.tenKhach">
+                            <option value="">-- Lọc theo Khách hàng --</option>
+                            <option v-for="kh in listKhachHang" :key="kh.maDonVi" :value="kh.tenDonVi">{{ kh.tenDonVi }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm border-warning" v-model="filters.maSP">
+                            <option value="">-- Lọc theo Model máy --</option>
+                            <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">{{ sp.maSP }} - {{ sp.tenSP }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="loading" class="text-center py-3">
                 <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
                 <span class="ms-2 small">Đang tải...</span>
@@ -37,10 +59,10 @@
                                 <th>Ngày Xuất</th>
                                 <th>Kho Xuất</th>
                                 <th>Khách Hàng</th>
-                                <th width="25%">Hình Thức</th>
+                                <th width="20%">Hình Thức Xuất</th>
                                 <th>Tổng SL</th>
                                 <th>Tổng Tiền</th>
-                                <th width="180px">Thao tác</th>
+                                <th width="120px">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -50,29 +72,26 @@
                                 <td>{{ formatDate(item.ngayXuat) }}</td>
                                 <td>{{ item.tenKho }}</td>
                                 <td class="fw-bold text-truncate" style="max-width: 150px;">{{ item.tenKhachHang || '---' }}</td>
-                                <td class="text-center fw-bold text-success">{{ item.tenHinhThuc || '---' }}</td>
+                                <td class="text-center">
+                                    <span class="fw-bold text-success">{{ item.tenHinhThuc || '---' }}</span>
+                                    <div v-if="item.ghiChu" class="text-muted fst-italic text-truncate mt-1" style="max-width: 150px; margin: 0 auto;">
+                                        ({{ item.ghiChu }})
+                                    </div>
+                                </td>
                                 <td class="text-center fw-bold">{{ item.tongSoLuong }}</td>
                                 <td class="text-end text-danger fw-bold">{{ formatCurrency(item.tongTien) }}</td>
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-info" @click="moChiTiet(item.soPhieu)" title="Xem">
+                                        <button class="btn btn-outline-info" @click="moChiTiet(item.soPhieu)" title="Xem chi tiết">
                                             Chi tiết
                                         </button>
-                                        <button class="btn btn-outline-warning" @click="moModalSua(item)" title="Sửa ngày & ghi chú">
-                                            Sửa
-                                        </button>
-                                        <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger" @click="huyPhieu(item.soPhieu)">
+                                        <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger" @click="huyPhieu(item.soPhieu)" title="Xóa phiếu">
                                             Xóa
-                                        </button>
-                                        <button v-else class="btn btn-secondary disabled">
-                                            <i class="fas fa-lock"></i>
                                         </button>
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="paginatedData.length === 0">
-                                <td colspan="9" class="text-center text-muted">Không tìm thấy dữ liệu phù hợp.</td>
-                            </tr>
+                            <tr v-if="paginatedData.length === 0"><td colspan="9" class="text-center text-muted py-3">Không tìm thấy dữ liệu phù hợp với bộ lọc.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -89,21 +108,14 @@
                             </div>
 
                             <div class="mb-2" style="font-size: 12px;">
-                                <div class="text-truncate fw-bold text-dark mb-1">
-                                    <i class="bi bi-shop me-1 text-muted"></i> {{ item.tenKho }}
-                                </div>
-                                <div class="text-truncate text-muted">
-                                    <i class="bi bi-person-badge me-1"></i> {{ item.tenKhachHang }}
-                                </div>
+                                <div class="text-truncate fw-bold text-dark mb-1"><i class="bi bi-shop me-1 text-muted"></i> {{ item.tenKho }}</div>
+                                <div class="text-truncate text-muted"><i class="bi bi-person-badge me-1"></i> {{ item.tenKhachHang }}</div>
+                                <div class="text-truncate text-success fw-bold mt-1"><i class="bi bi-tag-fill me-1 text-muted"></i> {{ item.tenHinhThuc || '---' }}</div>
                             </div>
 
                             <div class="bg-light rounded p-2 mb-2 product-summary">
-                                <div class="fw-bold text-success mb-1" style="font-size: 12px;">
-                                     {{ item.tenHinhThuc || 'Chưa xác định hình thức' }}
-                                </div>
-                                <div v-if="item.ghiChu" class="text-muted fst-italic mt-1" style="font-size: 11px;">
-                                    📝 {{ item.ghiChu }}
-                                </div>
+                                <div v-if="item.ghiChu" class="text-muted fst-italic" style="font-size: 11px;">📝 {{ item.ghiChu }}</div>
+                                <div v-else class="text-muted fst-italic" style="font-size: 11px;">Không có ghi chú</div>
                             </div>
 
                             <div class="d-flex justify-content-between align-items-end">
@@ -113,18 +125,17 @@
                                 </div>
                                 
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-info px-2" @click="moChiTiet(item.soPhieu)">Chi Tiết</button>
-                                    
-                                    <button class="btn btn-outline-warning px-2" @click="moModalSua(item)">Sửa</button>
-
-                                    <button v-if="!isYearLocked(item.ngayXuat)" 
-                                            class="btn btn-outline-danger px-2" @click="huyPhieu(item.soPhieu)">Xóa</button>
-                                    <button v-else class="btn btn-secondary px-2 disabled"><i class="fas fa-lock"></i></button>
+                                    <button class="btn btn-outline-info px-2" @click="moChiTiet(item.soPhieu)">
+                                        Chi tiết
+                                    </button>
+                                    <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger px-2" @click="huyPhieu(item.soPhieu)">
+                                        Xóa
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div v-if="paginatedData.length === 0" class="text-center text-muted small py-2">Không có dữ liệu.</div>
+                    <div v-if="paginatedData.length === 0" class="text-center text-muted small py-3">Không có dữ liệu.</div>
                 </div>
 
                 <div class="d-flex justify-content-center mt-2 px-1" v-if="pagination.total > 0">
@@ -137,33 +148,7 @@
             </div>
         </div>
 
-        <XuatKhoChiTiet v-if="showModal" :soPhieu="selectedSoPhieu" @close="showModal = false" />
-
-        <div v-if="showEditModal" class="modal d-block" style="background: rgba(0,0,0,0.5)">
-            <div class="modal-dialog modal-dialog-centered modal-sm">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning p-2">
-                        <h6 class="modal-title small fw-bold">Sửa Thông Tin Phiếu Xuất</h6>
-                        <button type="button" class="btn-close small" @click="showEditModal = false"></button>
-                    </div>
-                    <div class="modal-body p-2">
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold mb-1">Ngày Xuất</label>
-                            <input type="datetime-local" class="form-control form-control-sm border-warning" v-model="editItem.ngayTaoPhieu">
-                        </div>
-                        <div>
-                            <label class="form-label small fw-bold mb-1">Ghi Chú</label>
-                            <textarea class="form-control form-control-sm border-warning" rows="3" v-model="editItem.ghiChu"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer p-1">
-                        <button class="btn btn-secondary btn-sm" @click="showEditModal = false">Hủy</button>
-                        <button class="btn btn-primary btn-sm" @click="luuCapNhat">Lưu</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        <XuatKhoChiTiet v-if="showModal" :soPhieu="selectedSoPhieu" @close="showModal = false" @update-success="layDanhSach" />
     </div>
 </template>
 
@@ -175,24 +160,56 @@ import XuatKhoChiTiet from './XuatKhoChiTiet.vue';
 const API_URL = '/kho/xuat'; 
 const danhSachPhieu = ref([]);
 const listKho = ref([]); 
+const listHinhThuc = ref([]);
+const listSanPham = ref([]);
+const listDonVi = ref([]);
+
 const loading = ref(false);
 const showModal = ref(false);
-const showEditModal = ref(false); 
 const selectedSoPhieu = ref(null);
-const editItem = ref({ soPhieu: '', ghiChu: '', ngayTaoPhieu: '' }); 
-const searchQuery = ref("");
 const isAdmin = ref(false);
 const filterMaKho = ref(0); 
 const pagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
-const setupPhanQuyen = async () => {
-    const role = localStorage.getItem('userRole');
-    let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
-    if (!userMaKho) { const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}'); userMaKho = userInfo.maKho; }
-    if (role === 'ADMIN') { isAdmin.value = true; filterMaKho.value = 0; await loadDanhSachKho(); } 
-    else { isAdmin.value = false; filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0; }
+// BỘ LỌC ĐA NĂNG
+const filters = reactive({
+    keyword: '',
+    maHT: '',
+    tenKhach: '',
+    maSP: ''
+});
+
+const listKhachHang = computed(() => {
+    if (!Array.isArray(listDonVi.value)) return [];
+    return listDonVi.value.filter(dv => {
+        const loai = (dv.loaiDonVi && typeof dv.loaiDonVi === 'object') ? dv.loaiDonVi.loaiDonVi : dv.loaiDonVi;
+        return loai === 2;
+    });
+});
+
+const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
+
+const loadMasterData = async () => {
+    try {
+        const [k, d, s, ht] = await Promise.all([
+            api.get('/kho'),
+            api.get('/don-vi?size=1000'),
+            api.get('/san-pham/list'),
+            api.get('/hinh-thuc-xuat')
+        ]);
+        listKho.value = getDataSafe(k);
+        listDonVi.value = getDataSafe(d);
+        listSanPham.value = getDataSafe(s);
+        listHinhThuc.value = getDataSafe(ht);
+
+        const role = localStorage.getItem('userRole');
+        let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+        if (!userMaKho) { const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}'); userMaKho = userInfo.maKho; }
+        if (role === 'ADMIN') { isAdmin.value = true; filterMaKho.value = 0; await layDanhSach(); } 
+        else { isAdmin.value = false; filterMaKho.value = userMaKho ? parseInt(userMaKho) : 0; await layDanhSach(); }
+    } catch (e) { console.error(e); }
 };
-const loadDanhSachKho = async () => { try { const res = await api.get('/kho'); listKho.value = res.data; } catch (e) { console.error(e); } };
+
 const layDanhSach = async () => {
     loading.value = true;
     try {
@@ -200,57 +217,38 @@ const layDanhSach = async () => {
         const res = await api.get(API_URL, { params }); danhSachPhieu.value = res.data;
     } catch (error) { console.error(error); } finally { loading.value = false; }
 };
+
+// LOGIC LỌC PHIẾU
 const filteredList = computed(() => {
-    if (!searchQuery.value) return danhSachPhieu.value;
-    const query = searchQuery.value.toLowerCase();
-    // Bổ sung logic tìm kiếm theo tên hình thức nếu cần
-    return danhSachPhieu.value.filter(item => item.soPhieu.toLowerCase().includes(query) || (item.tenKhachHang && item.tenKhachHang.toLowerCase().includes(query)) || (item.ghiChu && item.ghiChu.toLowerCase().includes(query)) || (item.tenHinhThuc && item.tenHinhThuc.toLowerCase().includes(query)));
+    let result = danhSachPhieu.value;
+    
+    if (filters.keyword) {
+        const kw = filters.keyword.toLowerCase();
+        result = result.filter(item => item.soPhieu.toLowerCase().includes(kw) || (item.ghiChu && item.ghiChu.toLowerCase().includes(kw)));
+    }
+    if (filters.maHT) {
+        result = result.filter(item => item.tenHinhThuc === filters.maHT);
+    }
+    if (filters.tenKhach) {
+        result = result.filter(item => item.tenKhachHang === filters.tenKhach);
+    }
+    if (filters.maSP) {
+        result = result.filter(item => item.tomTatSanPham && item.tomTatSanPham.includes(`[${filters.maSP}]`));
+    }
+    return result;
 });
+
 watch(filteredList, (newVal) => { pagination.total = newVal.length; pagination.totalPages = Math.ceil(newVal.length / pagination.size); pagination.page = 0; }, { immediate: true });
 const paginatedData = computed(() => { const start = pagination.page * pagination.size; const end = start + pagination.size; return filteredList.value.slice(start, end); });
 const changePage = (pageIndex) => { if (pageIndex >= 0 && pageIndex < pagination.totalPages) pagination.page = pageIndex; };
 const moChiTiet = (soPhieu) => { selectedSoPhieu.value = soPhieu; showModal.value = true; };
 
-const formatForInput = (dateArray) => {
-    if (!dateArray) return '';
-    if (Array.isArray(dateArray)) {
-        const [year, month, day, hour, minute] = dateArray;
-        const f = (n) => n < 10 ? '0' + n : n;
-        return `${year}-${f(month)}-${f(day)}T${f(hour || 0)}:${f(minute || 0)}`;
-    }
-    return new Date(dateArray).toISOString().slice(0, 16);
-};
-
-const moModalSua = (item) => { 
-    editItem.value = { 
-        soPhieu: item.soPhieu, 
-        ghiChu: item.ghiChu,
-        ngayTaoPhieu: formatForInput(item.ngayXuat) 
-    }; 
-    showEditModal.value = true; 
-};
-
-const luuCapNhat = async () => { 
-    try { 
-        await api.put(`${API_URL}/${editItem.value.soPhieu}`, { 
-            soPhieu: editItem.value.soPhieu, 
-            ghiChu: editItem.value.ghiChu,
-            ngayTaoPhieu: editItem.value.ngayTaoPhieu 
-        }); 
-        alert("Cập nhật thành công!"); 
-        showEditModal.value = false; 
-        layDanhSach(); 
-    } catch (e) { 
-        alert("Lỗi: " + (e.response?.data?.message || e.message)); 
-    } 
-};
-
-const huyPhieu = async (soPhieu) => { if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho (Có thể bán lại). Tiếp tục?`)) return; try { await api.delete(`${API_URL}/${soPhieu}`); alert("Đã hủy phiếu và hoàn trả kho thành công!"); layDanhSach(); } catch (error) { alert("Lỗi: " + (error.response?.data?.message || error.message)); } };
+const huyPhieu = async (soPhieu) => { if(!confirm(`CẢNH BÁO: Hủy phiếu ${soPhieu} sẽ hoàn trả toàn bộ máy về trạng thái Tồn Kho. Tiếp tục?`)) return; try { await api.delete(`${API_URL}/${soPhieu}`); alert("Đã hủy phiếu và hoàn trả kho thành công!"); layDanhSach(); } catch (error) { alert("Lỗi: " + (error.response?.data?.message || error.message)); } };
 const isYearLocked = (dateInput) => { if (!dateInput) return false; let year = Array.isArray(dateInput) ? dateInput[0] : new Date(dateInput).getFullYear(); return year < new Date().getFullYear(); };
-const splitSummary = (str) => str ? str.split(', ') : []; // Không dùng đến nhưng vẫn giữ theo yêu cầu
 const formatDate = (dateArray) => { if (!dateArray) return ''; if (Array.isArray(dateArray)) { const f = (n) => n < 10 ? '0' + n : n; return `${f(dateArray[2])}/${f(dateArray[1])}/${dateArray[0]}`; } return new Date(dateArray).toLocaleDateString('vi-VN'); };
 const formatCurrency = (v) => { if(!v) return '0 đ'; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v); };
-onMounted(async () => { await setupPhanQuyen(); layDanhSach(); });
+
+onMounted(() => { loadMasterData(); });
 </script>
 
 <style scoped>

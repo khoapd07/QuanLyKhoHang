@@ -9,7 +9,7 @@
         <div class="card-body p-2">
             <div class="bg-light border rounded p-2 mb-3">
                 <div class="row g-2">
-                    <div class="col-12 col-md-3 custom-col">
+                    <div class="col-12 col-md-2 custom-col">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">KHO NHẬP (*)</label>
                         <select class="form-select form-select-sm shadow-none" v-model="phieuNhap.maKho" :disabled="!isAdmin">
                             <option :value="null" disabled>-- Chọn Kho --</option>
@@ -43,8 +43,16 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-md-3 custom-col">
-                        <label class="form-label small mb-0 fw-bold text-muted small-label">NGÀY NHẬP (Tùy chỉnh)</label>
+                    <div class="col-12 col-md-2 custom-col">
+                        <label class="form-label small mb-0 fw-bold text-muted small-label">HÌNH THỨC (*)</label>
+                        <select class="form-select form-select-sm shadow-none border-success" v-model="phieuNhap.maHT">
+                            <option :value="null" disabled>-- Chọn Lý do --</option>
+                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-2 custom-col">
+                        <label class="form-label small mb-0 fw-bold text-muted small-label">NGÀY NHẬP</label>
                         <input type="datetime-local" class="form-control form-control-sm shadow-none" v-model="phieuNhap.ngayTaoPhieu">
                     </div>
                     <div class="col-12 col-md-3 custom-col">
@@ -169,8 +177,9 @@ const listKho = ref([]);
 const listSanPham = ref([]);
 const listDonVi = ref([]); 
 const listTrangThai = ref([]); 
+const listHinhThuc = ref([]); // Mới
 
-const phieuNhap = ref({ maKho: null, maDonVi: '', ghiChu: '', ngayTaoPhieu: '' });
+const phieuNhap = ref({ maKho: null, maDonVi: '', maHT: null, ghiChu: '', ngayTaoPhieu: '' }); // Thêm maHT
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 }); 
 const listHienThi = ref([]);
 const isAdmin = ref(false);
@@ -229,17 +238,19 @@ const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.conte
 
 const loadData = async () => {
     try {
-        const [k, s, d, tt] = await Promise.all([
+        const [k, s, d, tt, ht] = await Promise.all([
             api.get('/kho'), 
             api.get('/san-pham/list'), // Lấy toàn bộ sản phẩm
             api.get('/don-vi?size=1000'), // Ép lấy 1000 đơn vị (Bao trọn toàn bộ danh sách mà ko sợ lỗi API list)
-            api.get('/trang-thai')
+            api.get('/trang-thai'),
+            api.get('/hinh-thuc-nhap') // GỌI API LẤY DANH SÁCH HÌNH THỨC
         ]);
         
         listKho.value = getDataSafe(k);
         listSanPham.value = getDataSafe(s); 
         listDonVi.value = getDataSafe(d);
         listTrangThai.value = getDataSafe(tt); 
+        listHinhThuc.value = ht.data; // LƯU VÀO BIẾN
 
         const role = localStorage.getItem('userRole');
         let userMaKho = localStorage.getItem('maKho') || (JSON.parse(localStorage.getItem('userInfo') || '{}').maKho);
@@ -263,13 +274,15 @@ const themDong = () => {
 
 const luuPhieu = async () => {
     if(!phieuNhap.value.maKho || !phieuNhap.value.maDonVi) return alert("Chọn Kho & NCC!");
+    if(!phieuNhap.value.maHT) return alert("Vui lòng chọn Hình Thức Nhập!"); // KIỂM TRA BẮT BUỘC CHỌN
     if(listHienThi.value.length === 0) return alert("Chưa có SP!");
     
     isSaving.value = true;
     try {
         await api.post('/kho/nhap', { 
             maKho: phieuNhap.value.maKho, 
-            maDonVi: phieuNhap.value.maDonVi, 
+            maDonVi: phieuNhap.value.maDonVi,
+            maHT: phieuNhap.value.maHT, // GỬI LÊN SERVER
             ghiChu: phieuNhap.value.ghiChu, 
             ngayTaoPhieu: phieuNhap.value.ngayTaoPhieu || null,
             chiTietPhieuNhap: listHienThi.value 

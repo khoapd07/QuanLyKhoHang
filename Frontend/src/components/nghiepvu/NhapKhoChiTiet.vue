@@ -14,11 +14,19 @@
                             <label class="fw-bold text-muted mb-1 fs-6">Kho Nhập</label>
                             <div class="fw-bold text-primary fs-5">{{ chiTiet.khoNhap?.tenKho }}</div>
                         </div>
+                        
+                        <div class="col-md-2">
+                            <label class="fw-bold text-muted mb-1 fs-6">Hình Thức Nhập</label>
+                            <select class="form-select border-primary fw-bold" v-model="editThongTin.maHT">
+                                <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                            </select>
+                        </div>
+
                         <div class="col-md-3">
                             <label class="fw-bold text-muted mb-1 fs-6">Ngày Nhập</label>
                             <input type="datetime-local" class="form-control border-primary fw-bold" v-model="editThongTin.ngayTaoPhieu">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
                             <label class="fw-bold text-muted mb-1 fs-6">Ghi Chú</label>
                             <input type="text" class="form-control border-primary fw-bold" v-model="editThongTin.ghiChu">
                         </div>
@@ -207,9 +215,10 @@ const emit = defineEmits(['close', 'update-success']);
 
 const chiTiet = ref(null);
 const listSanPham = ref([]);
+const listHinhThuc = ref([]); // Mới
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
-const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '' });
+const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '', maHT: null }); // Thêm maHT
 const isSavingInfo = ref(false);
 
 const selectedItems = ref([]);
@@ -219,7 +228,6 @@ const isDeleting = ref(false);
 const editingMaSP = ref(null);
 const editPrice = ref(0);
 
-// --- LOGIC CHỌN NHANH THEO MODEL (NÂNG CẤP CHECKBOX) ---
 const danhSachModelTrongPhieu = computed(() => {
     if (!chiTiet.value || !chiTiet.value.danhSachChiTiet) return [];
     const map = new Map();
@@ -237,7 +245,6 @@ const danhSachModelTrongPhieu = computed(() => {
     return Array.from(map.values());
 });
 
-// Kiểm tra xem 1 Model đã được chọn HẾT tất cả máy chưa
 const isModelSelected = (maSP) => {
     const listIDCuaModel = chiTiet.value.danhSachChiTiet
         .filter(ct => ct.sanPham?.maSP === maSP && ct.mayIn?.tonKho === true)
@@ -247,22 +254,18 @@ const isModelSelected = (maSP) => {
     return listIDCuaModel.every(id => selectedItems.value.includes(id));
 };
 
-// Xử lý khi Tích/Bỏ tick 1 Model
 const toggleModelSelection = (maSP, isChecked) => {
     const listIDCuaModel = chiTiet.value.danhSachChiTiet
         .filter(ct => ct.sanPham?.maSP === maSP && ct.mayIn?.tonKho === true)
         .map(ct => ct.maCTPN);
 
     if (isChecked) {
-        // Gộp thêm vào
         const newSelected = new Set([...selectedItems.value, ...listIDCuaModel]);
         selectedItems.value = Array.from(newSelected);
     } else {
-        // Bỏ ra khỏi mảng
         selectedItems.value = selectedItems.value.filter(id => !listIDCuaModel.includes(id));
     }
 };
-// --------------------------------------------------------
 
 const searchProductTextNew = ref("");
 const filteredProductsNew = computed(() => {
@@ -293,12 +296,14 @@ const formatForInput = (dateArray) => {
 
 const luuThongTinChung = async () => {
     if(!editThongTin.value.ngayTaoPhieu) return alert("Vui lòng chọn ngày!");
+    if(!editThongTin.value.maHT) return alert("Vui lòng chọn Hình thức Nhập!");
     isSavingInfo.value = true;
     try {
         await api.put(`/kho/nhap/${props.soPhieu}`, { 
             soPhieu: props.soPhieu,
             ghiChu: editThongTin.value.ghiChu,
-            ngayTaoPhieu: editThongTin.value.ngayTaoPhieu 
+            ngayTaoPhieu: editThongTin.value.ngayTaoPhieu,
+            maHT: editThongTin.value.maHT // LƯU HÌNH THỨC
         });
         alert("Lưu thông tin thành công!");
         loadChiTiet();
@@ -401,6 +406,7 @@ const loadChiTiet = async () => {
         chiTiet.value = res.data;
         editThongTin.value.ngayTaoPhieu = formatForInput(res.data.ngayNhap); 
         editThongTin.value.ghiChu = res.data.ghiChu;
+        editThongTin.value.maHT = res.data.hinhThucNhap?.maHT || null; // GÁN HÌNH THỨC CŨ VÀO FORM SỬA
     } catch (e) { 
         alert("Lỗi tải chi tiết: " + (e.response?.data?.message || e.message));
     }
@@ -408,8 +414,12 @@ const loadChiTiet = async () => {
 
 const loadSanPham = async () => {
     try {
-        const res = await api.get('/san-pham/list');
-        listSanPham.value = res.data.content || res.data;
+        const [s, ht] = await Promise.all([ 
+            api.get('/san-pham/list'),
+            api.get('/hinh-thuc-nhap') // GỌI API LẤY DANH SÁCH HÌNH THỨC
+        ]);
+        listSanPham.value = s.data.content || s.data;
+        listHinhThuc.value = ht.data; // LƯU VÀO BIẾN
     } catch (e) { console.error(e); }
 };
 
