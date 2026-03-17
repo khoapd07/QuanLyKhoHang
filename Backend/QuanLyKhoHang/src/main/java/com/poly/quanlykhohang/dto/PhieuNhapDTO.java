@@ -13,4 +13,5 @@ public class PhieuNhapDTO {
     private LocalDateTime ngayTaoPhieu;
     private List<ChiTietNhapDTO> chiTietPhieuNhap;
     private Integer maHT;
+    private String soPhieuXuatNoiBo;
 }

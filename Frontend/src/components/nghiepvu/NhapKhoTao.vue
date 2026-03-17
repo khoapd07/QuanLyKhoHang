@@ -1,6 +1,6 @@
 <template>
-    <div class="card shadow-sm">
-        <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
+    <div class="card shadow-sm border-primary">
+        <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
             <h6 class="mb-0 fw-bold header-title"><i class="fas fa-download me-1"></i> NHẬP KHO MỚI</h6>
             <button class="btn btn-sm btn-light text-success fw-bold py-0 px-2 back-btn" @click="$router.push('/nhap-kho')">
                 <i class="fas fa-arrow-left"></i> Quay lại
@@ -17,7 +17,15 @@
                         </select>
                     </div>
 
-                    <div class="col-12 col-md-3 custom-col">
+                    <div class="col-12 col-md-2 custom-col">
+                        <label class="form-label small mb-0 fw-bold text-muted small-label">HÌNH THỨC (*)</label>
+                        <select class="form-select form-select-sm shadow-none border-primary" v-model="phieuNhap.maHT">
+                            <option :value="null" disabled>-- Chọn Lý do --</option>
+                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-3 custom-col" v-if="!isNhapNoiBo">
                         <label class="form-label small mb-0 fw-bold text-muted small-label">NHÀ CUNG CẤP (*)</label>
                         <div class="dropdown">
                             <button class="form-select form-select-sm shadow-none text-start" 
@@ -43,11 +51,13 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-md-2 custom-col">
-                        <label class="form-label small mb-0 fw-bold text-muted small-label">HÌNH THỨC (*)</label>
-                        <select class="form-select form-select-sm shadow-none border-success" v-model="phieuNhap.maHT">
-                            <option :value="null" disabled>-- Chọn Lý do --</option>
-                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                    <div class="col-12 col-md-3 custom-col" v-else>
+                        <label class="form-label small mb-0 fw-bold text-danger small-label">PHIẾU CHỜ NHẬP (*)</label>
+                        <select class="form-select form-select-sm shadow-none border-danger" v-model="selectedPhieuXuatNoiBo" @change="onChonPhieuXuatNoiBo">
+                            <option value="">-- Chọn Phiếu Xuất Nội Bộ --</option>
+                            <option v-for="px in listPhieuXuatNoiBo" :key="px.soPhieu" :value="px.soPhieu">
+                                {{ px.soPhieu }} (Từ: {{ px.tenKho }} - SL: {{ px.tongSoLuong }})
+                            </option>
                         </select>
                     </div>
 
@@ -62,7 +72,7 @@
                 </div>
             </div>
 
-            <div class="card border-success mb-3 shadow-sm">
+            <div class="card border-success mb-3 shadow-sm" v-if="!isNhapNoiBo">
                 <div class="card-body p-2 bg-white">
                     <div class="row g-2 align-items-end">
                         <div class="col-12 col-md-5">
@@ -119,6 +129,10 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="alert alert-warning mb-3 fw-bold shadow-sm" v-else>
+                 <i class="fas fa-lock me-2"></i> Chế độ Nhập Nội Bộ: Không thể thêm tay. Sản phẩm và Số lượng sẽ được lấy trực tiếp từ Phiếu Xuất!
+            </div>
 
             <div class="table-responsive border rounded bg-white" v-if="listHienThi.length > 0">
                 <table class="table table-sm table-bordered align-middle mb-0 small" style="font-size: 13px;">
@@ -129,7 +143,7 @@
                             <th width="120px">Giá</th>
                             <th width="60px">SL</th>
                             <th width="150px">Tiền</th>
-                            <th width="50px">#</th>
+                            <th width="50px" v-if="!isNhapNoiBo">#</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -139,7 +153,7 @@
                             <td class="text-end">{{ formatCurrency(item.donGia) }}</td>
                             <td class="text-center fw-bold">{{ item.soLuong }}</td>
                             <td class="text-end text-primary">{{ formatCurrency(item.donGia * item.soLuong) }}</td>
-                            <td class="text-center p-0">
+                            <td class="text-center p-0" v-if="!isNhapNoiBo">
                                 <button class="btn btn-link btn-sm text-danger text-decoration-none fw-bold" @click="listHienThi.splice(index, 1)">
                                     Xóa
                                 </button>
@@ -151,7 +165,7 @@
                             <td colspan="3" class="text-end border-end-0">TỔNG CỘNG:</td>
                             <td class="text-center text-primary fs-6 border-start-0">{{ tongSoLuongPhieu }}</td>
                             <td class="text-end text-danger fs-6">{{ formatCurrency(tongTienPhieu) }}</td>
-                            <td></td>
+                            <td v-if="!isNhapNoiBo"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -168,7 +182,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+// [GIỮ NGUYÊN CÁC IMPORT CŨ]
+import { ref, onMounted, computed, watch } from 'vue';
 import api from '@/utils/axios';
 import { useRouter } from 'vue-router';
 
@@ -177,15 +192,73 @@ const listKho = ref([]);
 const listSanPham = ref([]);
 const listDonVi = ref([]); 
 const listTrangThai = ref([]); 
-const listHinhThuc = ref([]); // Mới
+const listHinhThuc = ref([]);
 
-const phieuNhap = ref({ maKho: null, maDonVi: '', maHT: null, ghiChu: '', ngayTaoPhieu: '' }); // Thêm maHT
+const phieuNhap = ref({ maKho: null, maDonVi: '', maHT: null, ghiChu: '', ngayTaoPhieu: '' });
 const currentItem = ref({ maSP: '', donGia: 0, soLuong: 1, trangThai: 1 }); 
 const listHienThi = ref([]);
 const isAdmin = ref(false);
 const isSaving = ref(false);
 
-// --- LOGIC TÌM KIẾM NHÀ CUNG CẤP ---
+// [CODE MỚI]: THEO DÕI HÌNH THỨC ĐỂ XỬ LÝ NỘI BỘ
+const isNhapNoiBo = computed(() => {
+    const ht = listHinhThuc.value.find(h => h.maHT === phieuNhap.value.maHT);
+    return ht && ht.tenHT.toLowerCase().includes('nội bộ');
+});
+
+const listPhieuXuatNoiBo = ref([]);
+const selectedPhieuXuatNoiBo = ref('');
+
+const loadPhieuXuatNoiBoChoNhap = async (maKhoNhan) => {
+    try {
+        const res = await api.get('/kho/xuat/noi-bo/cho-nhap', { params: { maKhoNhan }});
+        listPhieuXuatNoiBo.value = res.data;
+    } catch(e) { console.error(e); }
+};
+
+watch(() => phieuNhap.value.maKho, (newMaKho) => {
+    if (isNhapNoiBo.value && newMaKho) {
+        loadPhieuXuatNoiBoChoNhap(newMaKho);
+    }
+});
+
+watch(isNhapNoiBo, (newVal) => {
+    if (newVal) {
+        phieuNhap.value.maDonVi = null; 
+        listHienThi.value = [];
+        if (phieuNhap.value.maKho) loadPhieuXuatNoiBoChoNhap(phieuNhap.value.maKho);
+    } else {
+        selectedPhieuXuatNoiBo.value = '';
+        listHienThi.value = [];
+    }
+});
+
+const onChonPhieuXuatNoiBo = async () => {
+    if (!selectedPhieuXuatNoiBo.value) return;
+    try {
+        const res = await api.get(`/kho/xuat/${selectedPhieuXuatNoiBo.value}`);
+        const px = res.data;
+
+        // Sinh ghi chú tự động (Cấm để trống)
+        const d = phieuNhap.value.ngayTaoPhieu ? new Date(phieuNhap.value.ngayTaoPhieu) : new Date();
+        const f = n => n < 10 ? '0'+n : n;
+        phieuNhap.value.ghiChu = `Đã nhập ngày ${f(d.getDate())}/${f(d.getMonth()+1)}/${d.getFullYear()} - `;
+
+        // Lấy chi tiết máy gom lại
+        const map = new Map();
+        px.danhSachChiTiet.forEach(ct => {
+            const key = `${ct.sanPham.maSP}_${ct.donGia}`;
+            if (!map.has(key)) {
+                map.set(key, { maSP: ct.sanPham.maSP, donGia: ct.donGia, soLuong: 0, trangThai: 1 });
+            }
+            map.get(key).soLuong++;
+        });
+        listHienThi.value = Array.from(map.values());
+
+    } catch(e) { console.error(e); }
+};
+
+// [PHẦN CÒN LẠI GIỮ NGUYÊN 100%]
 const searchNccText = ref("");
 
 const listNhaCungCap = computed(() => {
@@ -212,7 +285,6 @@ const selectNcc = (ma) => {
 
 const getTenNCC = (ma) => listNhaCungCap.value.find(n => n.maDonVi === ma)?.tenDonVi || ma;
 
-// --- LOGIC TÌM KIẾM SẢN PHẨM ---
 const searchProductText = ref("");
 
 const filteredProducts = computed(() => {
@@ -229,28 +301,26 @@ const selectProduct = (maSP) => {
     searchProductText.value = ""; 
 };
 
-// --- TÍNH TỔNG CỘNG ---
 const tongSoLuongPhieu = computed(() => listHienThi.value.reduce((sum, item) => sum + parseInt(item.soLuong || 0), 0));
 const tongTienPhieu = computed(() => listHienThi.value.reduce((sum, item) => sum + (parseFloat(item.donGia || 0) * parseInt(item.soLuong || 0)), 0));
 
-// --- LOAD DỮ LIỆU ---
 const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
 
 const loadData = async () => {
     try {
         const [k, s, d, tt, ht] = await Promise.all([
             api.get('/kho'), 
-            api.get('/san-pham/list'), // Lấy toàn bộ sản phẩm
-            api.get('/don-vi?size=1000'), // Ép lấy 1000 đơn vị (Bao trọn toàn bộ danh sách mà ko sợ lỗi API list)
+            api.get('/san-pham/list'),
+            api.get('/don-vi?size=1000'), 
             api.get('/trang-thai'),
-            api.get('/hinh-thuc-nhap') // GỌI API LẤY DANH SÁCH HÌNH THỨC
+            api.get('/hinh-thuc-nhap') 
         ]);
         
         listKho.value = getDataSafe(k);
         listSanPham.value = getDataSafe(s); 
         listDonVi.value = getDataSafe(d);
         listTrangThai.value = getDataSafe(tt); 
-        listHinhThuc.value = ht.data; // LƯU VÀO BIẾN
+        listHinhThuc.value = getDataSafe(ht); 
 
         const role = localStorage.getItem('userRole');
         let userMaKho = localStorage.getItem('maKho') || (JSON.parse(localStorage.getItem('userInfo') || '{}').maKho);
@@ -272,19 +342,25 @@ const themDong = () => {
     currentItem.value.soLuong = 1;
 };
 
+// CẬP NHẬT KIỂM TRA LƯU PHIẾU
 const luuPhieu = async () => {
-    if(!phieuNhap.value.maKho || !phieuNhap.value.maDonVi) return alert("Chọn Kho & NCC!");
-    if(!phieuNhap.value.maHT) return alert("Vui lòng chọn Hình Thức Nhập!"); // KIỂM TRA BẮT BUỘC CHỌN
+    if(!phieuNhap.value.maKho) return alert("Chọn Kho!");
+    if(!isNhapNoiBo.value && !phieuNhap.value.maDonVi) return alert("Chọn NCC!");
+    if(!phieuNhap.value.maHT) return alert("Chọn Hình Thức Nhập!");
+    if(isNhapNoiBo.value && !selectedPhieuXuatNoiBo.value) return alert("Bạn chưa chọn phiếu xuất nội bộ nào!");
+    if(isNhapNoiBo.value && (!phieuNhap.value.ghiChu || phieuNhap.value.ghiChu.trim() === '')) return alert("Không được để trống ghi chú khi nhập nội bộ!");
+
     if(listHienThi.value.length === 0) return alert("Chưa có SP!");
     
     isSaving.value = true;
     try {
         await api.post('/kho/nhap', { 
             maKho: phieuNhap.value.maKho, 
-            maDonVi: phieuNhap.value.maDonVi,
-            maHT: phieuNhap.value.maHT, // GỬI LÊN SERVER
+            maDonVi: phieuNhap.value.maDonVi, 
+            maHT: phieuNhap.value.maHT, 
             ghiChu: phieuNhap.value.ghiChu, 
             ngayTaoPhieu: phieuNhap.value.ngayTaoPhieu || null,
+            soPhieuXuatNoiBo: isNhapNoiBo.value ? selectedPhieuXuatNoiBo.value : null, // GỬI LÊN SERVER ĐỂ ĐÓNG PHIẾU
             chiTietPhieuNhap: listHienThi.value 
         });
         alert("Thành công!"); router.push('/nhap-kho');

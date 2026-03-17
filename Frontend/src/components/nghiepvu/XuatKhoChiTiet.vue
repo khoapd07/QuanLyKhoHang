@@ -17,8 +17,11 @@
                         
                         <div class="col-md-2">
                             <label class="fw-bold text-muted mb-1 fs-6">Hình Thức</label>
-                            <select class="form-select border-warning fw-bold" v-model="editThongTin.maHT">
-                                <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                            <select class="form-select border-warning fw-bold" v-model="editThongTin.maHT" :disabled="isNoiBoGoc">
+                                <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT" 
+                                        :disabled="!isNoiBoGoc && ht.tenHT.toLowerCase().includes('nội bộ')">
+                                    {{ ht.tenHT }}
+                                </option>
                             </select>
                         </div>
                         
@@ -28,7 +31,8 @@
                         </div>
                         <div class="col-md-3">
                             <label class="fw-bold text-muted mb-1 fs-6">Ghi Chú</label>
-                            <input type="text" class="form-control border-warning fw-bold" v-model="editThongTin.ghiChu">
+                            <input type="text" class="form-control border-warning fw-bold" v-model="editThongTin.ghiChu" 
+                                   :disabled="isNoiBoGoc" :placeholder="isNoiBoGoc ? 'Bị khóa đối với xuất nội bộ' : ''">
                         </div>
                         <div class="col-md-2 text-end">
                             <label class="fw-bold text-muted mb-1 fs-6">&nbsp;</label>
@@ -91,9 +95,8 @@
                                     <th width="70px">#</th>
                                     <th width="150px">Mã SP</th>
                                     <th>Sản Phẩm (Model)</th>
-                                    <th width="250px">Mã Máy (Hệ thống)</th>
-                                    <th width="150px">Trạng Thái</th> 
-                                    <th width="220px">Đơn Giá</th>
+                                    <th width="250px">Mã Máy (Hệ thống) / Serial</th>
+                                    <th width="220px">Giá Bán</th>
                                     <th width="220px">Hành động</th>
                                 </tr>
                             </thead>
@@ -113,12 +116,7 @@
                                     
                                     <td class="fw-bold text-secondary">{{ item.sanPham?.maSP }}</td>
                                     <td class="text-start fw-bold text-primary fs-5">{{ item.sanPham?.tenSP }}</td>
-                                    <td class="font-monospace fw-bold">{{ item.mayIn?.maMay }}</td>
-                                    
-                                    <td>
-                                        <span v-if="item.mayIn?.tonKho === false" class="badge bg-secondary p-2 fs-6 w-100">Đã Xuất</span>
-                                        <span v-else class="badge bg-success p-2 fs-6 w-100">Tồn Kho</span>
-                                    </td>
+                                    <td class="font-monospace fw-bold">{{ item.mayIn?.soSeri || item.mayIn?.maMay }}</td>
                                     
                                     <td class="text-end">
                                         <div v-if="editingMaSP === item.sanPham?.maSP" class="input-group">
@@ -128,24 +126,22 @@
                                     </td>
 
                                     <td>
-                                        <template v-if="item.mayIn?.tonKho === true">
-                                            <div v-if="editingMaSP === item.sanPham?.maSP" class="d-flex justify-content-center gap-2">
-                                                <button class="btn btn-success fw-bold px-3 fs-6" @click="luuGiaTheoSP(item.sanPham?.maSP)">Lưu Giá</button>
-                                                <button class="btn btn-secondary fw-bold px-3 fs-6" @click="editingMaSP = null">Hủy</button>
-                                            </div>
-                                            
-                                            <div v-else class="d-flex justify-content-center gap-2">
-                                                <button class="btn btn-outline-warning fw-bold px-3 fs-6" @click="batDauSuaGia(item)" :disabled="isDeleting">
-                                                    Sửa Giá
-                                                </button>
-                                                <button class="btn btn-outline-danger fw-bold px-4 fs-6" @click="xoaDong(item.maCTPX)" :disabled="isDeleting" title="Thu hồi máy này về kho">
-                                                    Xóa
-                                                </button>
-                                            </div>
-                                        </template>
-                                        <span v-else class="text-muted fw-bold fst-italic">Đã bán (Khóa)</span>
+                                        <div v-if="editingMaSP === item.sanPham?.maSP" class="d-flex justify-content-center gap-2">
+                                            <button class="btn btn-success fw-bold px-3 fs-6" @click="luuGiaTheoSP(item.sanPham?.maSP)">Lưu Giá</button>
+                                            <button class="btn btn-secondary fw-bold px-3 fs-6" @click="editingMaSP = null">Hủy</button>
+                                        </div>
+                                        
+                                        <div v-else class="d-flex justify-content-center gap-2">
+                                            <button class="btn btn-outline-warning fw-bold px-3 fs-6" @click="batDauSuaGia(item)" :disabled="isDeleting">
+                                                Sửa Giá
+                                            </button>
+                                            <button class="btn btn-outline-danger fw-bold px-4 fs-6" @click="xoaDong(item.maCTPX)" :disabled="isDeleting" title="Thu hồi máy này về kho">
+                                                Thu Hồi
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
+                                <tr v-if="chiTiet.danhSachChiTiet.length === 0"><td colspan="7" class="py-3 text-muted">Phiếu rỗng.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -161,7 +157,7 @@
                                     <div class="dropdown">
                                         <button class="form-select form-select-lg fs-6 text-start" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                             <span class="text-truncate">
-                                                {{ newItem.maSP ? getTenSP(newItem.maSP) : '-- Chọn SP (Gõ để tìm) --' }}
+                                                {{ newItem.maSP ? getTenSP(newItem.maSP) : '-- Chọn Sản Phẩm (Gõ để tìm) --' }}
                                             </span>
                                         </button>
                                         <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 350px; overflow-y: auto;">
@@ -171,7 +167,7 @@
                                                     <strong class="text-primary">{{ sp.maSP }}</strong> - {{ sp.tenSP }}
                                                 </button>
                                             </div>
-                                            <div v-else class="text-center text-muted py-2 small">Không tìm thấy.</div>
+                                            <div v-else class="text-center text-muted py-2 small">Không tìm thấy sản phẩm.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -235,10 +231,10 @@ const emit = defineEmits(['close', 'update-success']);
 
 const chiTiet = ref(null);
 const listSanPham = ref([]);
-const listHinhThuc = ref([]); // CHÈN BIẾN LƯU DANH SÁCH HÌNH THỨC
+const listHinhThuc = ref([]);
 const newItem = ref({ maSP: '', donGia: 0 });
 
-const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '', maHT: null }); // CHÈN BIẾN maHT
+const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '', maHT: null });
 const isSavingInfo = ref(false);
 
 const selectedItems = ref([]);
@@ -252,6 +248,12 @@ const availableSerials = ref([]);
 const selectedSerials = ref([]);  
 const searchSerialText = ref(""); 
 let lastCheckedIndexSerial = -1;
+
+// --- CHECK XEM CÓ PHẢI NỘI BỘ KHÔNG ĐỂ KHÓA INPUT ---
+const isNoiBoGoc = computed(() => {
+    if (!chiTiet.value || !chiTiet.value.hinhThucXuat || !chiTiet.value.hinhThucXuat.tenHT) return false;
+    return chiTiet.value.hinhThucXuat.tenHT.toLowerCase().includes('nội bộ');
+});
 
 const danhSachModelTrongPhieu = computed(() => {
     if (!chiTiet.value || !chiTiet.value.danhSachChiTiet) return [];
@@ -309,14 +311,14 @@ const formatForInput = (dateArray) => {
 
 const luuThongTinChung = async () => {
     if(!editThongTin.value.ngayTaoPhieu) return alert("Vui lòng chọn ngày!");
-    if(!editThongTin.value.maHT) return alert("Vui lòng chọn Hình thức xuất!"); // Kiểm tra hình thức
+    if(!editThongTin.value.maHT) return alert("Vui lòng chọn Hình thức xuất!");
     isSavingInfo.value = true;
     try {
         await api.put(`/kho/xuat/${props.soPhieu}`, { 
             soPhieu: props.soPhieu,
             ghiChu: editThongTin.value.ghiChu,
             ngayTaoPhieu: editThongTin.value.ngayTaoPhieu,
-            maHT: editThongTin.value.maHT // Gửi hình thức lên server
+            maHT: editThongTin.value.maHT 
         });
         alert("Lưu thông tin thành công!");
         loadChiTiet();
@@ -469,18 +471,15 @@ const loadChiTiet = async () => {
         chiTiet.value = res.data;
         editThongTin.value.ngayTaoPhieu = formatForInput(res.data.ngayXuat); 
         editThongTin.value.ghiChu = res.data.ghiChu;
-        editThongTin.value.maHT = res.data.hinhThucXuat?.maHT || null; // Lấy Hình thức cũ
+        editThongTin.value.maHT = res.data.hinhThucXuat?.maHT || null; 
     } catch (e) { alert("Lỗi tải chi tiết: " + (e.response?.data?.message || e.message)); }
 };
 
 const loadMasterData = async () => {
     try {
-        const [s, ht] = await Promise.all([
-            api.get('/san-pham/list'),
-            api.get('/hinh-thuc-xuat') // GỌI API LẤY HÌNH THỨC XUẤT
-        ]);
+        const [s, ht] = await Promise.all([ api.get('/san-pham/list'), api.get('/hinh-thuc-xuat') ]);
         listSanPham.value = s.data.content || s.data;
-        listHinhThuc.value = ht.data; // GÁN VÀO BIẾN
+        listHinhThuc.value = ht.data; 
     } catch (e) { console.error(e); }
 };
 
@@ -498,7 +497,7 @@ const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency'
 
 onMounted(() => { 
     loadChiTiet(); 
-    loadMasterData(); // GỌI LOAD MASTER DATA
+    loadMasterData(); 
 });
 </script>
 

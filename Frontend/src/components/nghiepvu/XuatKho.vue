@@ -23,23 +23,53 @@
                     <div class="col-md-3">
                         <input type="text" class="form-control form-control-sm border-warning" v-model="filters.keyword" placeholder="🔍 Tìm mã phiếu, ghi chú...">
                     </div>
+                    
                     <div class="col-md-3">
-                        <select class="form-select form-select-sm border-warning" v-model="filters.maHT">
-                            <option value="">-- Lọc theo Hình thức --</option>
-                            <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.tenHT">{{ ht.tenHT }}</option>
-                        </select>
+                        <div class="dropdown">
+                            <button class="form-select form-select-sm text-start bg-white border-warning shadow-none" type="button" data-bs-toggle="dropdown">
+                                <span class="text-truncate">{{ filters.maHT || '-- Lọc theo Hình thức --' }}</span>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control form-control-sm mb-2 border-warning" v-model="searchFilterHT" placeholder="🔍 Tìm hình thức..." @click.stop>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" @click="filters.maHT = ''">-- Tất cả --</button>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" 
+                                        v-for="ht in filteredListHT" :key="ht.maHT" @click="filters.maHT = ht.tenHT">
+                                    {{ ht.tenHT }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div class="col-md-3">
-                        <select class="form-select form-select-sm border-warning" v-model="filters.tenKhach">
-                            <option value="">-- Lọc theo Khách hàng --</option>
-                            <option v-for="kh in listKhachHang" :key="kh.maDonVi" :value="kh.tenDonVi">{{ kh.tenDonVi }}</option>
-                        </select>
+                        <div class="dropdown">
+                            <button class="form-select form-select-sm text-start bg-white border-warning shadow-none" type="button" data-bs-toggle="dropdown">
+                                <span class="text-truncate">{{ filters.tenKhach || '-- Lọc theo Khách hàng --' }}</span>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control form-control-sm mb-2 border-warning" v-model="searchFilterKhach" placeholder="🔍 Tìm khách hàng..." @click.stop>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" @click="filters.tenKhach = ''">-- Tất cả --</button>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" 
+                                        v-for="kh in filteredListKhach" :key="kh.maDonVi" @click="filters.tenKhach = kh.tenDonVi">
+                                    {{ kh.tenDonVi }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div class="col-md-3">
-                        <select class="form-select form-select-sm border-warning" v-model="filters.maSP">
-                            <option value="">-- Lọc theo Model máy --</option>
-                            <option v-for="sp in listSanPham" :key="sp.maSP" :value="sp.maSP">{{ sp.maSP }} - {{ sp.tenSP }}</option>
-                        </select>
+                        <div class="dropdown">
+                            <button class="form-select form-select-sm text-start bg-white border-warning shadow-none" type="button" data-bs-toggle="dropdown">
+                                <span class="text-truncate">{{ filters.maSP || '-- Lọc theo Model máy --' }}</span>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control form-control-sm mb-2 border-warning" v-model="searchFilterSP" placeholder="🔍 Tìm Model máy..." @click.stop>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" @click="filters.maSP = ''">-- Tất cả --</button>
+                                <button type="button" class="dropdown-item small py-2 border-bottom text-wrap hover-bg" 
+                                        v-for="sp in filteredListSP" :key="sp.maSP" @click="filters.maSP = sp.maSP">
+                                    <strong>{{ sp.maSP }}</strong> - {{ sp.tenSP }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -125,12 +155,8 @@
                                 </div>
                                 
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-info px-2" @click="moChiTiet(item.soPhieu)">
-                                        Chi tiết
-                                    </button>
-                                    <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger px-2" @click="huyPhieu(item.soPhieu)">
-                                        Xóa
-                                    </button>
+                                    <button class="btn btn-outline-info px-2" @click="moChiTiet(item.soPhieu)">Chi Tiết</button>
+                                    <button v-if="!isYearLocked(item.ngayXuat)" class="btn btn-outline-danger px-2" @click="huyPhieu(item.soPhieu)">Xóa</button>
                                 </div>
                             </div>
                         </div>
@@ -179,6 +205,11 @@ const filters = reactive({
     maSP: ''
 });
 
+// BIẾN TÌM KIẾM TRONG DROPDOWN LỌC
+const searchFilterHT = ref('');
+const searchFilterKhach = ref('');
+const searchFilterSP = ref('');
+
 const listKhachHang = computed(() => {
     if (!Array.isArray(listDonVi.value)) return [];
     return listDonVi.value.filter(dv => {
@@ -186,6 +217,23 @@ const listKhachHang = computed(() => {
         return loai === 2;
     });
 });
+
+const filteredListHT = computed(() => {
+    if (!searchFilterHT.value) return listHinhThuc.value;
+    return listHinhThuc.value.filter(ht => ht.tenHT.toLowerCase().includes(searchFilterHT.value.toLowerCase()));
+});
+
+const filteredListKhach = computed(() => {
+    if (!searchFilterKhach.value) return listKhachHang.value;
+    return listKhachHang.value.filter(kh => kh.tenDonVi.toLowerCase().includes(searchFilterKhach.value.toLowerCase()));
+});
+
+const filteredListSP = computed(() => {
+    if (!searchFilterSP.value) return listSanPham.value;
+    const kw = searchFilterSP.value.toLowerCase();
+    return listSanPham.value.filter(sp => sp.tenSP.toLowerCase().includes(kw) || sp.maSP.toLowerCase().includes(kw));
+});
+
 
 const getDataSafe = (res) => (res?.data?.content && Array.isArray(res.data.content)) ? res.data.content : (Array.isArray(res?.data) ? res.data : []);
 
@@ -252,6 +300,7 @@ onMounted(() => { loadMasterData(); });
 </script>
 
 <style scoped>
+.dropdown-toggle::after { display: none !important; }
 @media (min-width: 768px) {
     .btn-fix-height { height: 31px; display: flex; align-items: center; justify-content: center; }
 }

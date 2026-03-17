@@ -17,8 +17,11 @@
                         
                         <div class="col-md-2">
                             <label class="fw-bold text-muted mb-1 fs-6">Hình Thức Nhập</label>
-                            <select class="form-select border-primary fw-bold" v-model="editThongTin.maHT">
-                                <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                            <select class="form-select border-primary fw-bold" v-model="editThongTin.maHT" :disabled="isNoiBoGoc">
+                                <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT"
+                                        :disabled="!isNoiBoGoc && ht.tenHT.toLowerCase().includes('nội bộ')">
+                                    {{ ht.tenHT }}
+                                </option>
                             </select>
                         </div>
 
@@ -39,12 +42,16 @@
                         </div>
                     </div>
 
+                    <div class="alert alert-warning fw-bold shadow-sm" v-if="isNoiBoGoc">
+                        <i class="fas fa-lock me-1"></i> Đây là phiếu Nhập Nội Bộ. Bạn không thể thêm, xóa hoặc sửa đơn giá của máy.
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
                         <h4 class="text-primary m-0 fw-bold">Danh sách máy trong phiếu</h4>
                         <div class="d-flex align-items-center gap-4">
                             <div class="fs-5">Tổng số lượng: <span class="badge bg-primary fs-5">{{ chiTiet.tongSoLuong }}</span></div>
                             <div class="fs-5">Tổng thành tiền: <span class="text-danger fw-bold fs-5">{{ formatCurrency(chiTiet.tongTien) }}</span></div>
-                            <button class="btn btn-danger fw-bold px-4 py-2 shadow-sm fs-6 ms-3" 
+                            <button v-if="!isNoiBoGoc" class="btn btn-danger fw-bold px-4 py-2 shadow-sm fs-6 ms-3" 
                                     :disabled="selectedItems.length === 0 || isDeleting" 
                                     @click="xoaNhieuDong">
                                 <span v-if="isDeleting">Đang xử lý...</span>
@@ -53,7 +60,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-light p-2 mb-2 border rounded d-flex align-items-center gap-3">
+                    <div class="bg-light p-2 mb-2 border rounded d-flex align-items-center gap-3" v-if="!isNoiBoGoc">
                         <span class="fw-bold text-muted">Chọn nhanh máy theo Model để xóa:</span>
                         <div class="dropdown flex-grow-1" style="max-width: 400px;">
                             <button class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center bg-white shadow-none" 
@@ -81,7 +88,7 @@
                         <table class="table table-bordered table-hover text-center align-middle mb-0" style="font-size: 1.1rem;">
                             <thead class="table-secondary">
                                 <tr>
-                                    <th width="60px">
+                                    <th width="60px" v-if="!isNoiBoGoc">
                                         <input class="form-check-input cursor-pointer" type="checkbox" 
                                                style="width: 22px; height: 22px;"
                                                :checked="isAllSelected" 
@@ -94,14 +101,14 @@
                                     <th width="250px">Mã Máy (Hệ thống)</th>
                                     <th width="150px">Trạng Thái</th> 
                                     <th width="220px">Đơn Giá</th>
-                                    <th width="220px">Hành động</th>
+                                    <th width="220px" v-if="!isNoiBoGoc">Hành động</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in chiTiet.danhSachChiTiet" :key="item.maCTPN" 
                                     :class="{'table-warning': selectedItems.includes(item.maCTPN)}">
                                     
-                                    <td>
+                                    <td v-if="!isNoiBoGoc">
                                         <input class="form-check-input cursor-pointer" type="checkbox" 
                                                style="width: 22px; height: 22px;"
                                                v-if="item.mayIn?.tonKho === true"
@@ -122,13 +129,13 @@
                                     </td>
                                     
                                     <td class="text-end">
-                                        <div v-if="editingMaSP === item.sanPham?.maSP" class="input-group">
+                                        <div v-if="editingMaSP === item.sanPham?.maSP && !isNoiBoGoc" class="input-group">
                                             <input type="number" class="form-control text-end border-warning fw-bold fs-5" v-model="editPrice" min="0">
                                         </div>
                                         <span v-else class="fw-bold text-danger fs-5">{{ formatCurrency(item.donGia) }}</span>
                                     </td>
 
-                                    <td>
+                                    <td v-if="!isNoiBoGoc">
                                         <template v-if="item.mayIn?.tonKho === true">
                                             <div v-if="editingMaSP === item.sanPham?.maSP" class="d-flex justify-content-center gap-2">
                                                 <button class="btn btn-success fw-bold px-3 fs-6" @click="luuGiaTheoSP(item.sanPham?.maSP)">Lưu Giá</button>
@@ -151,7 +158,7 @@
                         </table>
                     </div>
 
-                    <div class="card border-success shadow-sm">
+                    <div class="card border-success shadow-sm" v-if="!isNoiBoGoc">
                         <div class="card-header bg-success text-white py-3 fs-5 fw-bold">
                             Bổ sung thêm máy vào phiếu
                         </div>
@@ -215,10 +222,10 @@ const emit = defineEmits(['close', 'update-success']);
 
 const chiTiet = ref(null);
 const listSanPham = ref([]);
-const listHinhThuc = ref([]); // Mới
+const listHinhThuc = ref([]); 
 const newItem = ref({ maSP: '', donGia: 0, soLuong: 1 });
 
-const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '', maHT: null }); // Thêm maHT
+const editThongTin = ref({ ngayTaoPhieu: '', ghiChu: '', maHT: null }); 
 const isSavingInfo = ref(false);
 
 const selectedItems = ref([]);
@@ -227,6 +234,12 @@ const isDeleting = ref(false);
 
 const editingMaSP = ref(null);
 const editPrice = ref(0);
+
+// KIỂM TRA NỘI BỘ
+const isNoiBoGoc = computed(() => {
+    if (!chiTiet.value || !chiTiet.value.hinhThucNhap || !chiTiet.value.hinhThucNhap.tenHT) return false;
+    return chiTiet.value.hinhThucNhap.tenHT.toLowerCase().includes('nội bộ');
+});
 
 const danhSachModelTrongPhieu = computed(() => {
     if (!chiTiet.value || !chiTiet.value.danhSachChiTiet) return [];
@@ -297,13 +310,19 @@ const formatForInput = (dateArray) => {
 const luuThongTinChung = async () => {
     if(!editThongTin.value.ngayTaoPhieu) return alert("Vui lòng chọn ngày!");
     if(!editThongTin.value.maHT) return alert("Vui lòng chọn Hình thức Nhập!");
+    
+    // BẮT LỖI GHI CHÚ NỘI BỘ
+    if (isNoiBoGoc.value && (!editThongTin.value.ghiChu || editThongTin.value.ghiChu.trim() === '')) {
+        return alert("Lỗi: Phiếu nhập nội bộ không được phép để trống ghi chú!");
+    }
+
     isSavingInfo.value = true;
     try {
         await api.put(`/kho/nhap/${props.soPhieu}`, { 
             soPhieu: props.soPhieu,
             ghiChu: editThongTin.value.ghiChu,
             ngayTaoPhieu: editThongTin.value.ngayTaoPhieu,
-            maHT: editThongTin.value.maHT // LƯU HÌNH THỨC
+            maHT: editThongTin.value.maHT 
         });
         alert("Lưu thông tin thành công!");
         loadChiTiet();
@@ -406,7 +425,7 @@ const loadChiTiet = async () => {
         chiTiet.value = res.data;
         editThongTin.value.ngayTaoPhieu = formatForInput(res.data.ngayNhap); 
         editThongTin.value.ghiChu = res.data.ghiChu;
-        editThongTin.value.maHT = res.data.hinhThucNhap?.maHT || null; // GÁN HÌNH THỨC CŨ VÀO FORM SỬA
+        editThongTin.value.maHT = res.data.hinhThucNhap?.maHT || null; 
     } catch (e) { 
         alert("Lỗi tải chi tiết: " + (e.response?.data?.message || e.message));
     }
@@ -416,10 +435,10 @@ const loadSanPham = async () => {
     try {
         const [s, ht] = await Promise.all([ 
             api.get('/san-pham/list'),
-            api.get('/hinh-thuc-nhap') // GỌI API LẤY DANH SÁCH HÌNH THỨC
+            api.get('/hinh-thuc-nhap') 
         ]);
         listSanPham.value = s.data.content || s.data;
-        listHinhThuc.value = ht.data; // LƯU VÀO BIẾN
+        listHinhThuc.value = ht.data; 
     } catch (e) { console.error(e); }
 };
 
@@ -459,12 +478,11 @@ onMounted(() => {
 .modal { z-index: 1050; display: block; }
 .cursor-pointer { cursor: pointer; }
 
-/* Mở rộng chiều rộng tối đa của Modal cho thoáng */
 .custom-modal-size {
     max-width: 95%;
 }
 .hover-bg:hover { background-color: #f8f9fa; }
-/* Ẩn mũi tên mặc định của dropdown */
+
 .dropdown-toggle::after {
     display: none !important;
 }

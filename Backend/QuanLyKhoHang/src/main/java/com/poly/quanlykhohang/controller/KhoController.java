@@ -182,6 +182,10 @@ public class KhoController {
             return ResponseEntity.badRequest().body(createError(e.getMessage()));
         }
     }
+    @GetMapping("/xuat/noi-bo/cho-nhap")
+    public ResponseEntity<?> layDanhSachXuatNoiBoChoNhap(@RequestParam Integer maKhoNhan) {
+        return ResponseEntity.ok(giaoDichService.layDanhSachXuatNoiBoChoNhap(maKhoNhan));
+    }
 
     // ==================================================
     // 3. QUẢN LÝ KHO (CRUD) & TRA CỨU
