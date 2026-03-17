@@ -17,4 +17,4 @@ public class HinhThucNhapController {
     public ResponseEntity<?> getAll() {
         return ResponseEntity.ok(hinhThucNhapDAO.findAll());
     }
-}
+}//
