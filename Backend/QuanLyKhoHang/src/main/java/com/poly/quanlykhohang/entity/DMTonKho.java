@@ -10,11 +10,10 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@IdClass(DMTonKhoID.class) // [QUAN TRỌNG] Khai báo class khóa chính vừa tạo ở trên
+@IdClass(DMTonKhoID.class)
 public class DMTonKho {
 
     // --- 4 CỘT KHÓA CHÍNH (COMPOSITE KEY) ---
-    // Phải đánh dấu @Id cho TẤT CẢ 4 cột này
 
     @Id
     @Column(name = "Nam")
@@ -32,11 +31,11 @@ public class DMTonKho {
     @Column(name = "MaTrangThai")
     private Integer maTrangThai;
 
-    // --- CÁC CỘT DỮ LIỆU ---
+    // --- CÁC CỘT DỮ LIỆU ĐÃ ĐƯỢC ĐỒNG BỘ VỚI SQL ---
 
-    @Column(name = "SoLuongDau")
-    private Long soLuongDau; // Dùng Long cho an toàn, SQL Count trả về số lớn
+    @Column(name = "SoLuong") // Đã đổi từ SoLuongDau -> SoLuong
+    private Integer soLuong;  // Đổi thành Integer cho khớp chuẩn kiểu INT trong SQL
 
-    @Column(name = "GiaTriDau")
-    private BigDecimal giaTriDau;
+    @Column(name = "GiaTri")  // Đã đổi từ GiaTriDau -> GiaTri
+    private BigDecimal giaTri;
 }
