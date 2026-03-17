@@ -28,4 +28,9 @@ public interface DMTonKhoDAO extends JpaRepository<DMTonKho, DMTonKhoID> {
     @Transactional
     @Query(value = "EXEC sp_ChotSoTonDauNam :nam, :maKho", nativeQuery = true)
     void chotSoDauNam(@Param("nam") Integer nam, @Param("maKho") Integer maKho);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DMTonKho d WHERE d.nam = :nam AND d.maKho = :maKho")
+    void deleteByNamAndMaKho(Integer nam, Integer maKho);
 }

@@ -42,12 +42,13 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/api/admin/tai-khoan").permitAll()
                         // 1. PUBLIC: Không cần đăng nhập
-                        .requestMatchers("/api/auth/**", "/api/upload/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/upload/**", "/error","/api/hinh-thuc-nhap/**","/api/hinh-thuc-xuat/**").permitAll()
 
                         // 2. ADMIN ONLY: Quản lý Tài khoản & Quản lý Kho (Thêm/Sửa/Xóa Kho)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/chi-nhanh/**").hasRole("ADMIN") // Khớp với API_URL trong KhoChiNhanh.vue
                         .requestMatchers("/api/kho/tao-moi").hasRole("ADMIN")  // API tạo kho trong Controller
+
 
                         // Lưu ý: API "/api/kho" (GET danh sách kho) phải để Staff truy cập
                         // để hiển thị dropdown chọn kho khi Nhập/Xuất.

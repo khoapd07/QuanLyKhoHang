@@ -18,4 +18,6 @@ public interface PhieuXuatDAO extends JpaRepository<PhieuXuat, String> {
 
     @Query("SELECT p FROM PhieuXuat p WHERE p.khoXuat.maKho = :maKho ORDER BY p.ngayXuat DESC")
     List<PhieuXuat> findByMaKhoOrderByNgayXuatDesc(@Param("maKho") Integer maKho);
+
+    boolean existsByHinhThucXuat_MaHT(Integer hinhThucXuatMaHT);
 }

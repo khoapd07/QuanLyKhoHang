@@ -15,13 +15,21 @@
                         <option v-for="k in listKho" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Hình Thức (*)</label>
+                    <select class="form-select border-warning" v-model="phieuXuat.maHT">
+                        <option :value="null" disabled>-- Chọn Lý do --</option>
+                        <option v-for="ht in sortedListHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                    </select>
+                </div>
 
-                <div class="col-md-3">
+                <div class="col-md-3" v-if="!isXuatNoiBo">
                     <label class="form-label fw-bold">Khách Hàng (*)</label>
                     <div class="dropdown">
                         <button class="form-select text-start bg-white" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <span class="text-truncate">
-                                {{ phieuXuat.maDonVi ? getTenKhach(phieuXuat.maDonVi) : '-- Chọn KH (Gõ để tìm) --' }}
+                                {{ phieuXuat.maDonVi ? getTenKhach(phieuXuat.maDonVi) : '-- Chọn Khách Hàng (Gõ để tìm) --' }}
                             </span>
                         </button>
                         <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 300px; overflow-y: auto;">
@@ -37,22 +45,21 @@
                     </div>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">Hình Thức (*)</label>
-                    <select class="form-select border-warning" v-model="phieuXuat.maHT">
-                        <option :value="null" disabled>-- Chọn Lý do --</option>
-                        <option v-for="ht in listHinhThuc" :key="ht.maHT" :value="ht.maHT">{{ ht.tenHT }}</option>
+                <div class="col-md-3" v-else>
+                    <label class="form-label fw-bold text-primary">Kho Nhận (*)</label>
+                    <select class="form-select border-primary" v-model="phieuXuat.khoNhan">
+                        <option :value="null" disabled>-- Chọn Kho Đích --</option>
+                        <option v-for="k in listKho.filter(x => x.maKho !== phieuXuat.maKho)" :key="k.maKho" :value="k.maKho">{{ k.tenKho }}</option>
                     </select>
                 </div>
 
                 <div class="col-md-2">
-                    <label class="form-label fw-bold">Ngày Xuất (Tùy chỉnh)</label>
+                    <label class="form-label fw-bold">Ngày Xuất</label>
                     <input type="datetime-local" class="form-control" v-model="phieuXuat.ngayTaoPhieu">
                 </div>
-
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Ghi Chú</label>
-                    <input type="text" class="form-control" v-model="phieuXuat.ghiChu" placeholder="Lý do xuất...">
+                    <input type="text" class="form-control" v-model="phieuXuat.ghiChu" :disabled="isXuatNoiBo" :placeholder="isXuatNoiBo ? 'Đã khóa đối với xuất nội bộ' : 'Lý do xuất...'">
                 </div>
             </div>
 
@@ -88,7 +95,7 @@
 
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Giá Bán</label>
-                            <input type="number" class="form-control" v-model="currentItem.donGia">
+                            <input type="number" class="form-control" v-model="currentItem.donGia" min="0">
                         </div>
 
                         <div class="col-md-4">
@@ -107,13 +114,12 @@
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                                 
-                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 400px; overflow-y: auto;">
+                                <div class="dropdown-menu w-100 p-2 shadow" style="max-height: 400px; overflow-y: auto;" @click.stop>
                                     <input type="text" class="form-control mb-2" v-model="searchText" placeholder="🔍 Tìm serial (hoặc gõ Shift)...">
                                     
                                     <div class="d-flex align-items-center px-2 py-2 mb-2 bg-light rounded border" v-if="filteredSerials.length > 0">
-                                        <input class="form-check-input m-0 me-2" type="checkbox" id="selectAllXuat" 
-                                               :checked="isAllSelected" 
-                                               @change="toggleSelectAll" style="cursor: pointer;">
+                                        <input class="form-check-input m-0 me-2 cursor-pointer" type="checkbox" id="selectAllXuat" 
+                                               :checked="isAllSelected" @change="toggleSelectAll">
                                         <label class="form-check-label fw-bold cursor-pointer w-100" for="selectAllXuat">
                                             Chọn tất cả ({{ filteredSerials.length }})
                                         </label>
@@ -121,18 +127,11 @@
                                     
                                     <div v-if="filteredSerials.length > 0">
                                         <div class="d-flex align-items-center py-1 px-2 hover-bg rounded" v-for="(seri, index) in filteredSerials" :key="seri">
-                                            <input class="form-check-input m-0 me-2" type="checkbox" 
-                                                   :value="seri" :id="seri" 
-                                                   v-model="selectedSerials"
-                                                   @click="handleShiftClick($event, index)" style="cursor: pointer;">
-                                            
-                                            <label class="form-check-label w-100 cursor-pointer text-break" :for="seri">
-                                                {{ seri }}
-                                            </label>
+                                            <input class="form-check-input m-0 me-2 cursor-pointer" type="checkbox" 
+                                                   :value="seri" :id="seri" v-model="selectedSerials"
+                                                   @click="handleShiftClick($event, index)">
+                                            <label class="form-check-label w-100 cursor-pointer text-break" :for="seri">{{ seri }}</label>
                                         </div>
-                                    </div>
-                                    <div v-else class="text-center text-muted py-2 small">
-                                        Không tìm thấy máy phù hợp.
                                     </div>
                                 </div>
                             </div>
@@ -197,7 +196,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, reactive } from 'vue';
+// ĐÃ BỔ SUNG watch VÀO IMPORT
+import { ref, onMounted, computed, watch } from 'vue';
 import api from '@/utils/axios'; 
 import { useRouter } from 'vue-router';
 
@@ -207,7 +207,7 @@ const listDonVi = ref([]);
 const listSanPham = ref([]);
 const listHinhThuc = ref([]);
 
-const phieuXuat = ref({ maKho: null, maDonVi: null, maHT: null, ghiChu: '', ngayTaoPhieu: '', chiTietPhieuXuat: [] });
+const phieuXuat = ref({ maKho: null, maDonVi: null, maHT: null, khoNhan: null, ghiChu: '', ngayTaoPhieu: '', chiTietPhieuXuat: [] }); 
 const currentItem = ref({ maSP: '', donGia: 0 });
 const listHienThi = ref([]);
 
@@ -218,6 +218,34 @@ const isAdmin = ref(false);
 let lastCheckedIndex = -1;
 
 const searchKhachText = ref("");
+
+// ĐẨY MỤC NỘI BỘ LÊN ĐẦU
+const sortedListHinhThuc = computed(() => {
+    let thuong = [];
+    let noiBo = [];
+    listHinhThuc.value.forEach(ht => {
+        if (ht.tenHT.toLowerCase().includes('nội bộ')) {
+            noiBo.push(ht);
+        } else {
+            thuong.push(ht);
+        }
+    });
+    return [...noiBo, ...thuong]; // Đổi chỗ noiBo lên trước thuong
+});
+
+const isXuatNoiBo = computed(() => {
+    const ht = listHinhThuc.value.find(h => h.maHT === phieuXuat.value.maHT);
+    return ht && ht.tenHT.toLowerCase().includes('nội bộ');
+});
+
+watch(isXuatNoiBo, (newVal) => {
+    if (newVal) {
+        phieuXuat.value.maDonVi = null;
+        phieuXuat.value.ghiChu = '';
+    } else {
+        phieuXuat.value.khoNhan = null;
+    }
+});
 
 const listKhachHang = computed(() => {
     if (!Array.isArray(listDonVi.value)) return [];
@@ -310,23 +338,11 @@ const getDataSafe = (response) => {
 };
 
 const onChonSanPham = async () => {
-    selectedSerials.value = [];
-    availableSerials.value = [];
-    searchText.value = "";
-    lastCheckedIndex = -1;
-    
-    if (!phieuXuat.value.maKho) {
-        alert("Vui lòng chọn Kho Xuất trước!");
-        currentItem.value.maSP = ""; 
-        return;
-    }
-
+    selectedSerials.value = []; availableSerials.value = []; searchText.value = ""; lastCheckedIndex = -1;
+    if (!phieuXuat.value.maKho) { alert("Vui lòng chọn Kho Xuất trước!"); currentItem.value.maSP = ""; return; }
     try {
         const res = await api.get('/kho/may-in/kha-dung', {
-            params: {
-                maSP: currentItem.value.maSP,
-                maKho: phieuXuat.value.maKho
-            }
+            params: { maSP: currentItem.value.maSP, maKho: phieuXuat.value.maKho }
         });
         availableSerials.value = res.data;
     } catch (e) {
@@ -336,11 +352,7 @@ const onChonSanPham = async () => {
 };
 
 const resetSelection = () => {
-    currentItem.value.maSP = "";
-    availableSerials.value = [];
-    selectedSerials.value = [];
-    listHienThi.value = []; 
-    lastCheckedIndex = -1;
+    currentItem.value.maSP = ""; availableSerials.value = []; selectedSerials.value = []; listHienThi.value = []; lastCheckedIndex = -1; searchProductText.value = ""; searchKhachText.value = "";
 };
 
 const removeSerial = (s) => {
@@ -352,45 +364,24 @@ const loadMasterData = async () => {
         const [k, d, s, ht] = await Promise.all([
              api.get('/kho'),      
              api.get('/don-vi?size=1000'), 
-             api.get('/san-pham/list'), 
+             api.get('/san-pham/list'),
              api.get('/hinh-thuc-xuat')
         ]);
         
-        listKho.value = getDataSafe(k);
-        listDonVi.value = getDataSafe(d);
-        listSanPham.value = getDataSafe(s);
-        listHinhThuc.value = getDataSafe(ht);
+        listKho.value = getDataSafe(k); listDonVi.value = getDataSafe(d); listSanPham.value = getDataSafe(s); listHinhThuc.value = getDataSafe(ht);
 
         const role = localStorage.getItem('userRole');
         let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
-        
-        if (!userMaKho) {
-             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-             userMaKho = userInfo.maKho;
-        }
-
-        if (role === 'ADMIN') {
-             isAdmin.value = true;
-        } else {
-             isAdmin.value = false;
-             if (userMaKho) {
-                 phieuXuat.value.maKho = parseInt(userMaKho);
-             } else {
-                 if (listKho.value.length > 0) phieuXuat.value.maKho = listKho.value[0].maKho;
-             }
-        }
-
+        if (!userMaKho) { const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}'); userMaKho = userInfo.maKho; }
+        if (role === 'ADMIN') { isAdmin.value = true; } 
+        else { isAdmin.value = false; if (userMaKho) { phieuXuat.value.maKho = parseInt(userMaKho); } else { if (listKho.value.length > 0) phieuXuat.value.maKho = listKho.value[0].maKho; } }
     } catch (e) { console.error(e); }
 };
 
 const themDongChiTiet = () => {
     if (!currentItem.value.maSP) return alert("Chưa chọn sản phẩm");
     if (selectedSerials.value.length === 0) return alert("Chưa chọn máy nào để xuất!");
-
-    if (currentItem.value.donGia < 0) {
-        alert("Đơn giá phải lớn hơn hoặc bằng 0");
-        return;
-    }
+    if (currentItem.value.donGia < 0) return alert("Đơn giá phải lớn hơn hoặc bằng 0");
 
     listHienThi.value.push({
         maSP: currentItem.value.maSP,
@@ -399,19 +390,20 @@ const themDongChiTiet = () => {
         danhSachSeri: [...selectedSerials.value] 
     });
 
-    selectedSerials.value = [];
-    searchText.value = "";
-    lastCheckedIndex = -1;
+    selectedSerials.value = []; searchText.value = ""; lastCheckedIndex = -1; currentItem.value.maSP = "";
 };
 
 const luuPhieuXuat = async () => {
-    if (!phieuXuat.value.maKho || !phieuXuat.value.maDonVi) return alert("Vui lòng chọn Kho và Khách hàng");
+    if (!phieuXuat.value.maKho) return alert("Vui lòng chọn Kho xuất!");
     if (!phieuXuat.value.maHT) return alert("Vui lòng chọn Hình thức xuất!");
+    if (isXuatNoiBo.value && !phieuXuat.value.khoNhan) return alert("Vui lòng chọn Kho Nhận!");
+    if (!isXuatNoiBo.value && !phieuXuat.value.maDonVi) return alert("Vui lòng chọn Khách hàng!");
     
     const payload = {
         maKho: phieuXuat.value.maKho,
         maDonVi: phieuXuat.value.maDonVi,
         maHT: phieuXuat.value.maHT,
+        khoNhan: phieuXuat.value.khoNhan, 
         ghiChu: phieuXuat.value.ghiChu,
         ngayTaoPhieu: phieuXuat.value.ngayTaoPhieu || null,
         chiTietPhieuXuat: listHienThi.value

@@ -46,4 +46,8 @@ public class PhieuXuat {
     @ManyToOne
     @JoinColumn(name = "MaHT")
     private HinhThucXuat hinhThucXuat;
+
+    @ManyToOne
+    @JoinColumn(name = "KhoNhan")
+    private Kho khoNhan;
 }

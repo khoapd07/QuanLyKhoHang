@@ -92,6 +92,22 @@
                 <p>Trạng thái máy</p>
               </router-link>
             </li>
+
+            <li class="nav-item">
+              <router-link to="/hinh-thuc-nhap" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-arrow-down-square"></i>
+                <p>Hình thức nhập</p>
+              </router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/hinh-thuc-xuat" class="nav-link" active-class="active">
+                <i class="nav-icon bi bi-arrow-up-square"></i>
+                <p>Hình thức xuất</p>
+              </router-link>
+            </li>
+
+
             <li class="nav-item">
               <router-link to="/danh-muc-may" class="nav-link" active-class="active">
                 <i class="nav-icon bi bi-upc-scan"></i>
