@@ -337,10 +337,10 @@ onMounted(() => {
                 <td class="small text-muted">{{ sp.moTa }}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-outline-warning me-2" @click="openEditModal(sp)" title="Sửa">
-                        <i class="fas fa-edit"></i>
+                        <i class="fas fa-edit"></i>Sửa
                     </button>
                     <button class="btn btn-sm btn-outline-danger" @click="deleteData(sp.maSP)" title="Xóa">
-                        <i class="fas fa-trash-alt"></i>
+                        <i class="fas fa-trash-alt"></i>Xóa
                     </button>
                 </td>
                 </tr>

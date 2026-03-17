@@ -67,20 +67,23 @@
                   </div>
                 </div>
 
-                <div class="mt-4" v-if="reportData.length > 0">
+                <div class="mt-4">
                   <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="text-success m-0">
-                      <i class="fas fa-check-circle"></i> Kết quả vừa chốt: {{ currentTenKho }}
+                    <h5 class="text-success m-0" v-if="reportData.length > 0">
+                      <i class="fas fa-check-circle"></i> Kết quả: {{ currentTenKho }}
                       <span class="badge badge-secondary ml-2">Tổng: {{ actionPagination.total }} dòng</span>
                     </h5>
+                    <h5 v-else></h5>
+                    
                     <div>
-                      <button type="button" class="btn btn-sm btn-info mr-2" @click="printToWord(filters.nam, filters.warehouseId, currentTenKho, 'action')" :disabled="isExporting">
-                        <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i>
-                        {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
+                      <button type="button" class="btn btn-sm btn-dark mr-2" @click="printReport(filters.nam, currentTenKho, 'action')" :disabled="loading || allActionData.length === 0">
+                        <i class="fas fa-print"></i> In Báo Cáo
                       </button>
-                      <button type="button" class="btn btn-sm btn-success" @click="exportToExcel(filters.nam, filters.warehouseId, currentTenKho, 'action')" :disabled="isExportingExcel">
-                        <i class="fas" :class="isExportingExcel ? 'fa-spinner fa-spin' : 'fa-file-excel'"></i>
-                        {{ isExportingExcel ? 'Đang xuất...' : 'Xuất Excel' }}
+                      <button type="button" class="btn btn-sm btn-info mr-2" @click="printToWord(filters.nam, filters.warehouseId, currentTenKho, 'action')" :disabled="isExporting || allActionData.length === 0">
+                        <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
+                      </button>
+                      <button type="button" class="btn btn-sm btn-success" @click="exportToExcel(filters.nam, filters.warehouseId, currentTenKho, 'action')" :disabled="isExportingExcel || allActionData.length === 0">
+                        <i class="fas" :class="isExportingExcel ? 'fa-spinner fa-spin' : 'fa-file-excel'"></i> {{ isExportingExcel ? 'Đang xuất...' : 'Xuất Excel' }}
                       </button>
                     </div>
                   </div>
@@ -89,28 +92,33 @@
                     <table class="table table-bordered table-striped table-head-fixed text-nowrap">
                       <thead>
                         <tr>
-                          <th>Stt</th>
+                          <th class="text-center" width="50">STT</th>
                           <th>Mã SP</th>
-                          <th>Tên SP</th>
-                          <th>ĐVT</th>
-                          <th>Tồn Đầu</th>
-                          <th>Nhập</th>
-                          <th>Xuất</th>
-                          <th>Tồn Cuối</th>
-                          <th>Thành Tiền</th>
+                          <th>Tên Sản Phẩm </th>
+                          <th class="text-center">ĐVT</th>
+                          <th class="text-right">Tồn Đầu</th>
+                          <th class="text-right">Nhập</th>
+                          <th class="text-right">Xuất</th>
+                          <th class="text-right">Tồn Cuối</th>
+                          <th class="text-right">Giá BQ</th>
+                          <th class="text-right">Thành Tiền</th>
                         </tr>
                       </thead>
                       <tbody>
+                        <tr v-if="reportData.length === 0">
+                          <td colspan="10" class="text-center py-4 text-muted">Chưa có dữ liệu chốt sổ.</td>
+                        </tr>
                         <tr v-for="(item, index) in reportData" :key="index">
                           <td class="text-center">{{ (actionPagination.page * actionPagination.size) + index + 1 }}</td>
-                          <td class="text-primary font-weight-bold">{{ item.maSP }}</td>
+                          <td class="text-primary font-weight-bold font-monospace">{{ item.maSP }}</td>
                           <td>{{ formatProductName(item.tenSP) }}</td>
                           <td class="text-center">{{ item.donvitinh }}</td>
-                          <td class="text-right">{{ item.tonDau }}</td>
-                          <td class="text-right text-success">{{ item.nhapTrong }}</td>
-                          <td class="text-right text-danger">{{ item.xuatTrong }}</td>
-                          <td class="text-right font-weight-bold bg-warning bg-opacity-25">{{ item.tonCuoi }}</td>
-                          <td class="text-right font-weight-bold text-primary">{{ formatCurrency(item.thanhTien) }}</td>
+                          <td class="text-right">{{ item.tonDau || 0 }}</td>
+                          <td class="text-right text-success">+{{ item.nhapTrong || 0 }}</td>
+                          <td class="text-right text-danger">-{{ item.xuatTrong || 0 }}</td>
+                          <td class="text-right font-weight-bold bg-warning bg-opacity-25">{{ item.tonCuoi || 0 }}</td>
+                          <td class="text-right">{{ formatCurrency(item.giaBQ || 0) }}</td>
+                          <td class="text-right font-weight-bold text-primary">{{ formatCurrency(item.thanhTien || 0) }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -154,7 +162,6 @@
                       </li>
                     </ul>
                   </div>
-
                 </div>
               </div>
 
@@ -178,9 +185,7 @@
                   <div class="col-lg-3 col-md-6 col-12">
                     <div class="form-group custom-multi-select" ref="statusDropdownRef">
                       <label>Trạng thái máy</label>
-                      <div class="form-control dropdown-trigger" 
-                           :class="{ 'is-focused': isStatusDropdownOpen }"
-                           @click="toggleStatusDropdown">
+                      <div class="form-control dropdown-trigger" :class="{ 'is-focused': isStatusDropdownOpen }" @click="toggleStatusDropdown">
                         <span class="dropdown-text">{{ selectedStatusText }}</span>
                         <i class="fas fa-chevron-down dropdown-icon"></i>
                       </div>
@@ -188,10 +193,7 @@
                       <div class="dropdown-menu-custom shadow-sm" v-show="isStatusDropdownOpen">
                         <div class="dropdown-list">
                           <label class="dropdown-item-custom" v-for="st in statusList" :key="st.id">
-                            <input type="checkbox" class="checkbox-ui" 
-                                   :value="st.id" 
-                                   v-model="historyFilters.statusIds" 
-                                   @change="handleStatusChange(st.id)">
+                            <input type="checkbox" class="checkbox-ui" :value="st.id" v-model="historyFilters.statusIds" @change="handleStatusChange(st.id)">
                             <span class="ml-2">{{ st.name }}</span>
                           </label>
                         </div>
@@ -209,20 +211,24 @@
                   </div>
                 </div>
 
-                <div class="mt-4" v-if="historyData.length > 0">
+                <div class="mt-4">
                   <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="text-primary m-0">
+                    <h5 class="text-primary m-0" v-if="historyData.length > 0">
                       <i class="fas fa-list-alt"></i> Dữ liệu lưu trữ: {{ historyTenKho }}
                       <span class="badge badge-secondary ml-2">Tổng: {{ historyPagination.total }} dòng</span>
                     </h5>
+                    <h5 v-else-if="searchedHistory" class="text-muted m-0"><i class="fas fa-search"></i> Không tìm thấy dữ liệu</h5>
+                    <h5 v-else></h5>
+                    
                     <div>
-                      <button type="button" class="btn btn-sm btn-info mr-2" @click="printToWord(historyFilters.nam, historyFilters.warehouseId, historyTenKho, 'history')" :disabled="isExporting">
-                        <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i>
-                        {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
+                      <button type="button" class="btn btn-sm btn-dark mr-2" @click="printReport(historyFilters.nam, historyTenKho, 'history')" :disabled="loadingHistory || filteredHistoryData.length === 0">
+                        <i class="fas fa-print"></i> In Báo Cáo
                       </button>
-                      <button type="button" class="btn btn-sm btn-success" @click="exportToExcel(historyFilters.nam, historyFilters.warehouseId, historyTenKho, 'history')" :disabled="isExportingExcel">
-                        <i class="fas" :class="isExportingExcel ? 'fa-spinner fa-spin' : 'fa-file-excel'"></i>
-                        {{ isExportingExcel ? 'Đang xuất...' : 'Xuất Excel' }}
+                      <button type="button" class="btn btn-sm btn-info mr-2" @click="printToWord(historyFilters.nam, historyFilters.warehouseId, historyTenKho, 'history')" :disabled="isExporting || filteredHistoryData.length === 0">
+                        <i class="fas" :class="isExporting ? 'fa-spinner fa-spin' : 'fa-file-word'"></i> {{ isExporting ? 'Đang xuất...' : 'In File Word' }}
+                      </button>
+                      <button type="button" class="btn btn-sm btn-success" @click="exportToExcel(historyFilters.nam, historyFilters.warehouseId, historyTenKho, 'history')" :disabled="isExportingExcel || filteredHistoryData.length === 0">
+                        <i class="fas" :class="isExportingExcel ? 'fa-spinner fa-spin' : 'fa-file-excel'"></i> {{ isExportingExcel ? 'Đang xuất...' : 'Xuất Excel' }}
                       </button>
                     </div>
                   </div>
@@ -231,28 +237,33 @@
                     <table class="table table-bordered table-striped table-head-fixed text-nowrap">
                       <thead>
                         <tr>
-                          <th>Stt</th>
+                          <th class="text-center" width="50">STT</th>
                           <th>Mã SP</th>
-                          <th>Tên SP</th>
-                          <th>ĐVT</th>
-                          <th>Tồn Đầu</th>
-                          <th>Nhập</th>
-                          <th>Xuất</th>
-                          <th>Tồn Cuối</th>
-                          <th>Thành Tiền</th>
+                          <th>Tên Sản Phẩm </th>
+                          <th class="text-center">ĐVT</th>
+                          <th class="text-right">Tồn Đầu</th>
+                          <th class="text-right">Nhập</th>
+                          <th class="text-right">Xuất</th>
+                          <th class="text-right">Tồn Cuối</th>
+                          <th class="text-right">Giá BQ</th>
+                          <th class="text-right">Thành Tiền</th>
                         </tr>
                       </thead>
                       <tbody>
+                        <tr v-if="historyData.length === 0 && !loadingHistory">
+                          <td colspan="10" class="text-center py-4 text-muted">Không có dữ liệu.</td>
+                        </tr>
                         <tr v-for="(item, index) in historyData" :key="index">
                           <td class="text-center">{{ (historyPagination.page * historyPagination.size) + index + 1 }}</td>
-                          <td class="text-primary font-weight-bold">{{ item.maSP }}</td>
+                          <td class="text-primary font-weight-bold font-monospace">{{ item.maSP }}</td>
                           <td>{{ formatProductName(item.tenSP) }}</td>
                           <td class="text-center">{{ item.donvitinh }}</td>
-                          <td class="text-right">{{ item.tonDau }}</td>
-                          <td class="text-right text-success">{{ item.nhapTrong }}</td>
-                          <td class="text-right text-danger">{{ item.xuatTrong }}</td>
-                          <td class="text-right font-weight-bold bg-warning bg-opacity-25">{{ item.tonCuoi }}</td>
-                          <td class="text-right font-weight-bold text-primary">{{ formatCurrency(item.thanhTien) }}</td>
+                          <td class="text-right">{{ item.tonDau || 0 }}</td>
+                          <td class="text-right text-success">+{{ item.nhapTrong || 0 }}</td>
+                          <td class="text-right text-danger">-{{ item.xuatTrong || 0 }}</td>
+                          <td class="text-right font-weight-bold bg-warning bg-opacity-25">{{ item.tonCuoi || 0 }}</td>
+                          <td class="text-right">{{ formatCurrency(item.giaBQ || 0) }}</td>
+                          <td class="text-right font-weight-bold text-primary">{{ formatCurrency(item.thanhTien || 0) }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -298,11 +309,8 @@
                   </div>
 
                 </div>
-                <div v-else-if="searchedHistory" class="text-center mt-5 text-muted">
-                  <p><i class="fas fa-search mb-2" style="font-size: 2rem;"></i><br>Không tìm thấy dữ liệu chốt sổ cho năm/kho/trạng thái này.</p>
-                </div>
-
               </div>
+
             </div>
           </div>
         </div>
@@ -319,129 +327,61 @@ import { saveAs } from "file-saver";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import ExcelJS from 'exceljs'; 
+import Swal from 'sweetalert2';
 
 const API_BASE = '/thong-ke';
 
+// ==========================================
+// 1. QUẢN LÝ TRẠNG THÁI (STATE CHUNG)
+// ==========================================
 const activeTab = ref('action');
-const khoList = ref([]);
 const isExporting = ref(false);
 const isExportingExcel = ref(false);
 const isAdmin = ref(false);
-
 const isChotSoState = ref(true);
-const showFirstYearWarning = () => {
-  alert("LƯU Ý:\nĐây là năm đầu tiên sử dụng phần mềm, hệ thống chưa có dữ liệu chốt sổ của năm trước.\n\nDo đó, Tồn Đầu Kỳ sẽ được mặc định là 0.");
-};
 
-const formatProductName = (name) => {
-  if (!name) return '';
-  let formattedName = name.toString();
-  formattedName = formattedName.replace(/\s*-\s*Bình thường\s*$/gi, '');
-  formattedName = formattedName.replace(/\s*-\s*Chưa xác định\s*$/gi, '');
-  formattedName = formattedName.replace(/\s*-\s*Mới\s*\(New\)/gi, ' - New');
-  formattedName = formattedName.replace(/\s*-\s*Mới/gi, ' - New');
-  formattedName = formattedName.replace(/\s*-\s*$/g, '');
-  return formattedName.trim();
-};
+const khoList = ref([]);
+const statusList = ref([{ id: 0, name: 'Tất cả' }]);
 
-const statusList = ref([
-  { id: 0, name: 'Tất cả' }
-]);
-
-const loadTrangThai = async () => {
-  try {
-    const res = await api.get('/trang-thai'); // Gọi API đến TrangThaiController
-    const apiData = res.data;
-    
-    // Map dữ liệu từ DB (maTrangThai, tenTrangThai) sang chuẩn của Frontend (id, name)
-    const mappedStatus = apiData.map(item => ({
-      id: item.maTrangThai,
-      name: item.tenTrangThai
-    }));
-
-    // Gộp mảng "Tất cả" với dữ liệu vừa lấy được từ DB
-    statusList.value = [
-      { id: 0, name: 'Tất cả' },
-      ...mappedStatus
-    ];
-  } catch (e) {
-    console.error("Lỗi tải danh sách trạng thái:", e);
-  }
-};
-
-const allActionData = ref([]); 
-const allHistoryData = ref([]); 
-const filteredHistoryData = ref([]); 
-
-const reportData = ref([]);
-const historyData = ref([]);
-
-const grandTotalAction = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-const grandTotalHistory = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-
-const filters = reactive({ nam: new Date().getFullYear(), warehouseId: '' });
-const loading = ref(false);
-const currentTenKho = ref('');
-const actionPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
-
-// ĐÃ SỬA: statusIds dùng mảng để lưu nhiều lựa chọn
-const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: '', statusIds: [0] });
-const loadingHistory = ref(false);
-const historyTenKho = ref('');
-const searchedHistory = ref(false);
-const historyPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
-
-// --- STATE VÀ LOGIC CHO DROPDOWN TRẠNG THÁI ---
 const isStatusDropdownOpen = ref(false);
 const statusDropdownRef = ref(null);
 
-const toggleStatusDropdown = () => {
-  isStatusDropdownOpen.value = !isStatusDropdownOpen.value;
-};
+// State Tab 1: Thực Hiện Chốt Sổ
+const loading = ref(false);
+const currentTenKho = ref('');
+const filters = reactive({ nam: new Date().getFullYear(), warehouseId: '' });
+const allActionData = ref([]); 
+const reportData = ref([]);
+const grandTotalAction = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+const actionPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
 
+// State Tab 2: Xem Lịch Sử
+const loadingHistory = ref(false);
+const searchedHistory = ref(false);
+const historyTenKho = ref('');
+const historyFilters = reactive({ nam: new Date().getFullYear(), warehouseId: '', statusIds: [0] });
+const allHistoryData = ref([]); 
+const filteredHistoryData = ref([]); 
+const historyData = ref([]);
+const grandTotalHistory = ref({ tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
+const historyPagination = reactive({ page: 0, size: 20, total: 0, totalPages: 0 });
+
+// ==========================================
+// 2. DỮ LIỆU TÍNH TOÁN TỰ ĐỘNG (COMPUTED)
+// ==========================================
 const selectedStatusText = computed(() => {
   if (historyFilters.statusIds.includes(0)) return 'Tất cả trạng thái';
-  const selectedNames = statusList.value
-    .filter(s => historyFilters.statusIds.includes(s.id))
-    .map(s => s.name);
-  return selectedNames.join(', ');
+  return statusList.value.filter(s => historyFilters.statusIds.includes(s.id)).map(s => s.name).join(', ');
 });
 
-const closeDropdownOutside = (e) => {
-  if (statusDropdownRef.value && !statusDropdownRef.value.contains(e.target)) {
-    isStatusDropdownOpen.value = false;
-  }
-};
-// ----------------------------------------------
-
-const setupPhanQuyen = () => {
-  const role = localStorage.getItem('userRole');
-  let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
-  if (!userMaKho) {
-    try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      userMaKho = userInfo.maKho;
-    } catch (e) {}
-  }
-  if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
-    isAdmin.value = true;
-  } else {
-    isAdmin.value = false;
-    const myKho = userMaKho ? parseInt(userMaKho) : 0;
-    filters.warehouseId = myKho;
-    historyFilters.warehouseId = myKho;
-  }
-};
-
-const visibleActionPages = computed(() => {
-  const total = actionPagination.totalPages;
+const generatePagination = (paginationInfo) => {
+  const total = paginationInfo.totalPages;
   if (total === 0) return [];
-  const current = actionPagination.page + 1;
-  const delta = 2;
+  const current = paginationInfo.page + 1;
   const range = [], rangeWithDots = [];
   let l;
   for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
+    if (i === 1 || i === total || (i >= current - 2 && i <= current + 2)) range.push(i);
   }
   for (let i of range) {
     if (l) {
@@ -452,112 +392,152 @@ const visibleActionPages = computed(() => {
     l = i;
   }
   return rangeWithDots;
-});
+};
 
-const visibleHistoryPages = computed(() => {
-  const total = historyPagination.totalPages;
-  if (total === 0) return [];
-  const current = historyPagination.page + 1;
-  const delta = 2;
-  const range = [], rangeWithDots = [];
-  let l;
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
-  }
-  for (let i of range) {
-    if (l) {
-      if (i - l === 2) rangeWithDots.push(l + 1);
-      else if (i - l !== 1) rangeWithDots.push('...');
-    }
-    rangeWithDots.push(i);
-    l = i;
-  }
-  return rangeWithDots;
-});
+const visibleActionPages = computed(() => generatePagination(actionPagination));
+const visibleHistoryPages = computed(() => generatePagination(historyPagination));
+
+// ==========================================
+// 3. CÁC HÀM TIỆN ÍCH (FORMATTERS)
+// ==========================================
+const formatProductName = (name) => {
+  if (!name) return '';
+  return name.toString()
+    .replace(/\s*-\s*Bình thường\s*$/gi, '')
+    .replace(/\s*-\s*Chưa xác định\s*$/gi, '')
+    .replace(/\s*-\s*Mới\s*\(New\)/gi, ' - New')
+    .replace(/\s*-\s*Mới/gi, ' - New')
+    .replace(/\s*-\s*$/g, '')
+    .trim();
+};
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '0';
   return new Intl.NumberFormat('vi-VN', { style: 'decimal', currency: 'VND' }).format(value);
 };
 
-// ==========================================
-// LOGIC TAB 1: THỰC HIỆN CHỐT SỔ 
-// ==========================================
-const thucHienChotSo = async () => {
-  if (!filters.warehouseId) {
-      alert("Vui lòng chọn kho để chốt sổ!");
-      return;
-  }
-
-  // --- VALIDATE LOGIC CHỐT SỔ TẠI ĐÂY ---
-  const currentYear = new Date().getFullYear();
-  const namCanChot = parseInt(filters.nam);
-  
-  // Nếu nhập năm >= năm hiện tại, chặn ngay lập tức. (Ví dụ năm nay là 2026, thì chỉ được chốt 2026 đổ lại, vì 2026 sẽ lấy data của 2025). 
-  // Sửa theo ý bạn: Chỉ cho chốt năm trước đó (Tồn đầu kỳ của năm hiện tại). Nếu nhập > năm hiện tại -> CHẶN.
-  if (namCanChot > currentYear) {
-    alert(`THAO TÁC KHÔNG HỢP LỆ!\n\nNăm hiện tại là ${currentYear}. Bạn chỉ có thể chốt số dư Tồn Đầu Kỳ cho năm ${currentYear} trở về trước.\nKhông thể chốt trước cho năm tương lai vì dữ liệu chưa phát sinh đầy đủ.`);
-    return;
-  }
-  // --------------------------------------
-
-  if (!confirm(`Bạn có chắc chắn muốn chốt sổ cho kho này trong năm ${filters.nam}? Dữ liệu cũ sẽ bị đè!`)) return;
-  actionPagination.page = 0;
-  goiApiChotSo();
+const showFirstYearWarning = () => {
+  alert("LƯU Ý:\nĐây là năm đầu tiên sử dụng phần mềm, hệ thống chưa có dữ liệu chốt sổ của năm trước.\n\nDo đó, Tồn Đầu Kỳ sẽ được mặc định là 0.");
 };
 
-const goiApiChotSo = async () => {
-  loading.value = true;
-  try {
-    await api.post(`${API_BASE}/chot-so`, null, {
-      params: { nam: filters.nam, maKho: filters.warehouseId }
-    });
-    alert("Chốt sổ thành công!");
-    await goiApiXemKetQuaSauChot();
-  } catch (error) {
-    const msg = error.response?.data?.message || error.message;
-    if (error.response && error.response.data && typeof error.response.data === 'string') {
-        alert("Lỗi khi chốt sổ: " + error.response.data);
-    } else {
-        alert("Lỗi khi chốt sổ: " + msg);
+// ==========================================
+// 4. LOGIC TAB 1: THỰC HIỆN CHỐT SỔ (ĐÃ THÊM XÁC THỰC MẬT KHẨU)
+// ==========================================
+const thucHienChotSo = async () => {
+  if (!filters.warehouseId) return alert("Vui lòng chọn kho để chốt sổ!");
+  
+  const currentYear = new Date().getFullYear();
+  if (parseInt(filters.nam) > currentYear) {
+    return alert(`THAO TÁC KHÔNG HỢP LỆ!\nBạn chỉ có thể chốt số dư Tồn cho năm ${currentYear} trở về trước.`);
+  }
+  
+  // SỬ DỤNG SWEETALERT2 ĐỂ YÊU CẦU MẬT KHẨU
+  const { value: password } = await Swal.fire({
+    title: 'Xác thực chốt sổ',
+    html: `Bạn đang chuẩn bị chốt sổ kho cho năm <b>${filters.nam}</b>.<br><br><b>Lưu ý:</b> Dữ liệu cũ sẽ bị ghi đè. Vui lòng nhập mật khẩu tài khoản của bạn để xác nhận hành động này.`,
+    input: 'password',
+    inputPlaceholder: 'Nhập mật khẩu của bạn',
+    inputAttributes: {
+      autocapitalize: 'off',
+      autocorrect: 'off'
+    },
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ffc107',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Xác nhận chốt sổ',
+    cancelButtonText: 'Hủy',
+    inputValidator: (value) => {
+      if (!value) {
+        return 'Mật khẩu không được để trống!'
+      }
     }
+  });
+
+  // Nếu người dùng bấm Hủy hoặc đóng popup
+  if (!password) return;
+
+  actionPagination.page = 0;
+  loading.value = true;
+  
+  try {
+    // 1. Lấy thông tin user từ localStorage một cách an toàn
+    let savedUsername = '';
+    const userInfoString = localStorage.getItem('userInfo');
+    
+    if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        // ĐÃ THÊM `userInfo.hoTen` VÀO ĐÂY THEO ĐÚNG ẢNH BẠN CHỤP!
+        savedUsername = userInfo.hoTen || userInfo.tenTaiKhoan || userInfo.username || userInfo.sub || ''; 
+    }
+
+    // 2. Nếu trong userInfo không có, thử lấy key trực tiếp bên ngoài localStorage
+    if (!savedUsername) {
+        // ĐÃ THÊM `localStorage.getItem('hoTen')` VÀO ĐÂY!
+        savedUsername = localStorage.getItem('hoTen') || localStorage.getItem('username') || localStorage.getItem('tenTaiKhoan') || '';
+    }
+
+    // 3. Nếu vẫn KHÔNG CÓ tên đăng nhập (Mất Session) -> Báo lỗi chặn lại ngay
+    if (!savedUsername) {
+        Swal.fire(
+            'Lỗi phiên đăng nhập', 
+            'Không tìm thấy tên tài khoản của bạn trong hệ thống. Vui lòng đăng xuất và đăng nhập lại!', 
+            'error'
+        );
+        loading.value = false;
+        return;
+    }
+
+    // 4. GỌI API XÁC THỰC MẬT KHẨU
+    const authRes = await api.post('/thong-ke/verify-password', { 
+        username: savedUsername, 
+        password: password 
+    });
+
+    if (authRes.data.success) {
+        // NẾU MẬT KHẨU ĐÚNG -> GỌI API CHỐT SỔ
+        await api.post(`${API_BASE}/chot-so`, null, { params: { nam: filters.nam, maKho: filters.warehouseId } });
+        
+        Swal.fire(
+          'Thành công!',
+          `Đã chốt sổ thành công cho năm ${filters.nam}.`,
+          'success'
+        );
+        
+        await goiApiXemKetQuaSauChot();
+    } else {
+        // NẾU MẬT KHẨU SAI
+        Swal.fire(
+          'Lỗi xác thực',
+          'Mật khẩu không chính xác. Không thể thực hiện chốt sổ.',
+          'error'
+        );
+    }
+  } catch (error) {
+    const msg = error.response?.data?.message || error.response?.data || error.message;
+    Swal.fire(
+        'Có lỗi xảy ra',
+        `Lỗi khi chốt sổ: ${msg}`,
+        'error'
+    );
   } finally {
     loading.value = false;
   }
 };
 
 const goiApiXemKetQuaSauChot = async () => {
-  loading.value = true;
   try {
-    const namKetQua = parseInt(filters.nam);
-    
     const response = await api.get(`${API_BASE}/lich-su`, {
-      params: { nam: namKetQua, maKho: filters.warehouseId, page: 0, size: 999999 }
+      params: { nam: parseInt(filters.nam), maKho: filters.warehouseId, page: 0, size: 999999 }
     });
-    
     currentTenKho.value = response.data.tenKho;
     allActionData.value = response.data.danhSachChiTiet || [];
     
-    grandTotalAction.value = allActionData.value.reduce((acc, item) => {
-      acc.tdk += Number(item.tonDau || 0);
-      acc.ntk += Number(item.nhapTrong || 0);
-      acc.xtk += Number(item.xuatTrong || 0);
-      acc.tck += Number(item.tonCuoi || 0);
-      acc.tien += Number(item.thanhTien || 0);
-      return acc;
-    }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-
+    grandTotalAction.value = calculateTotals(allActionData.value);
     actionPagination.total = allActionData.value.length;
     actionPagination.totalPages = Math.ceil(actionPagination.total / actionPagination.size);
-    actionPagination.page = 0;
-
     applyActionPagination();
-
-  } catch (e) {
-    console.error("Lỗi xem kết quả chốt:", e);
-  } finally {
-    loading.value = false;
-  }
+  } catch (e) { console.error("Lỗi xem kết quả chốt:", e); }
 };
 
 const applyActionPagination = () => {
@@ -572,11 +552,10 @@ const changeActionPage = (newPage) => {
 };
 
 // ==========================================
-// LOGIC TAB 2: XEM LỊCH SỬ 
+// 5. LOGIC TAB 2: XEM LỊCH SỬ
 // ==========================================
 const fetchHistoryData = async () => {
   if (!historyFilters.warehouseId) return; 
-  
   loadingHistory.value = true;
   searchedHistory.value = true;
   try {
@@ -585,59 +564,44 @@ const fetchHistoryData = async () => {
     });
     historyTenKho.value = response.data.tenKho;
     allHistoryData.value = response.data.danhSachChiTiet || [];
-    
     applyHistoryFilter();
-    
-  } catch (error) {
-    alert("Lỗi tải dữ liệu lịch sử!");
-  } finally {
-    loadingHistory.value = false;
-  }
+  } catch (error) { alert("Lỗi tải dữ liệu lịch sử!"); } 
+  finally { loadingHistory.value = false; }
 };
 
-// ĐÃ THÊM: Logic thông minh khi click checkbox
 const handleStatusChange = (changedId) => {
-  if (changedId === 0 && historyFilters.statusIds.includes(0)) {
-    historyFilters.statusIds = [0];
-  } else if (changedId !== 0 && historyFilters.statusIds.includes(0)) {
-    historyFilters.statusIds = historyFilters.statusIds.filter(id => id !== 0);
-  }
-  
-  if (historyFilters.statusIds.length === 0) {
-    historyFilters.statusIds = [0];
-  }
-  
+  if (changedId === 0 && historyFilters.statusIds.includes(0)) historyFilters.statusIds = [0];
+  else if (changedId !== 0 && historyFilters.statusIds.includes(0)) historyFilters.statusIds = historyFilters.statusIds.filter(id => id !== 0);
+  if (historyFilters.statusIds.length === 0) historyFilters.statusIds = [0];
   applyHistoryFilter();
 };
 
-// ĐÃ SỬA: Hàm lọc lịch sử nhận dạng mảng nhiều lựa chọn
 const applyHistoryFilter = () => {
   let filtered = allHistoryData.value;
   const selectedIds = historyFilters.statusIds;
 
-  if (selectedIds.includes(0)) {
-    filteredHistoryData.value = filtered;
-  } else {
+  if (!selectedIds.includes(0)) {
     const otherSelectedNames = statusList.value.filter(s => selectedIds.includes(s.id) && s.id > 1).map(s => s.name);
     const hasNormal = selectedIds.includes(1);
     const allOtherNames = statusList.value.filter(s => s.id > 1).map(s => s.name);
 
     filtered = filtered.filter(item => {
-      const name = item.tenSP;
-
-      const isNormalMachine = !allOtherNames.some(ext => name.endsWith(' - ' + ext));
+      const isNormalMachine = !allOtherNames.some(ext => item.tenSP.endsWith(' - ' + ext));
       if (hasNormal && isNormalMachine) return true;
-
-      const isOtherMachine = otherSelectedNames.some(ext => name.endsWith(' - ' + ext));
-      if (isOtherMachine) return true;
-
-      return false;
+      return otherSelectedNames.some(ext => item.tenSP.endsWith(' - ' + ext));
     });
-
-    filteredHistoryData.value = filtered;
   }
 
-  grandTotalHistory.value = filteredHistoryData.value.reduce((acc, item) => {
+  filteredHistoryData.value = filtered;
+  grandTotalHistory.value = calculateTotals(filteredHistoryData.value);
+  historyPagination.total = filteredHistoryData.value.length;
+  historyPagination.totalPages = Math.ceil(filteredHistoryData.value.length / historyPagination.size);
+  historyPagination.page = 0;
+  applyHistoryPagination();
+};
+
+const calculateTotals = (dataArr) => {
+  return dataArr.reduce((acc, item) => {
     acc.tdk += Number(item.tonDau || 0);
     acc.ntk += Number(item.nhapTrong || 0);
     acc.xtk += Number(item.xuatTrong || 0);
@@ -645,12 +609,6 @@ const applyHistoryFilter = () => {
     acc.tien += Number(item.thanhTien || 0);
     return acc;
   }, { tdk: 0, ntk: 0, xtk: 0, tck: 0, tien: 0 });
-
-  historyPagination.total = filteredHistoryData.value.length;
-  historyPagination.totalPages = Math.ceil(filteredHistoryData.value.length / historyPagination.size);
-  historyPagination.page = 0;
-
-  applyHistoryPagination();
 };
 
 const applyHistoryPagination = () => {
@@ -659,194 +617,211 @@ const applyHistoryPagination = () => {
 };
 
 const changeHistoryPage = (newPage) => {
-  if (newPage < 0 || newPage >= historyPagination.totalPages) return;
-  historyPagination.page = newPage;
-  applyHistoryPagination();
+  if (newPage >= 0 && newPage < historyPagination.totalPages) {
+    historyPagination.page = newPage;
+    applyHistoryPagination();
+  }
 };
 
 // ==========================================
-// XUẤT FILE WORD 
+// 6. XUẤT FILE & IN ẤN
 // ==========================================
-const loadFile = async (url) => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Không thể tải file mẫu: ${url}`);
-  return await response.arrayBuffer();
+const printReport = (namInput, tenKhoString, tabName) => {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return alert("Vui lòng cho phép popup trên trình duyệt để in báo cáo.");
+  
+  const sourceData = tabName === 'action' ? allActionData.value : filteredHistoryData.value;
+  const sum = tabName === 'action' ? grandTotalAction.value : grandTotalHistory.value;
+  const tenKho = tenKhoString || "Kho hệ thống";
+  
+  let html = `
+    <html>
+    <head>
+      <title>In Báo Cáo Chốt Sổ</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+        h2 { text-align: center; margin-bottom: 5px; }
+        .info-text { text-align: center; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #000; padding: 6px 8px; }
+        th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .font-weight-bold { font-weight: bold; }
+        .total-row { background-color: #e9ecef; font-weight: bold; }
+        @media print { @page { size: landscape; margin: 10mm; } body { -webkit-print-color-adjust: exact; padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <h2>BIÊN BẢN CHỐT TỒN KHO</h2>
+      <div class="info-text">
+        <strong>Năm chốt sổ:</strong> ${namInput} <br/>
+        <strong>Kho/Chi nhánh:</strong> ${tenKho}
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Mã SP</th>
+            <th>Tên Sản Phẩm</th>
+            <th>ĐVT</th>
+            <th>Tồn Đầu</th>
+            <th>Nhập</th>
+            <th>Xuất</th>
+            <th>Tồn Cuối</th>
+            <th>Giá BQ</th>
+            <th>Thành Tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  sourceData.forEach((item, index) => {
+    html += `
+      <tr>
+        <td class="text-center">${index + 1}</td>
+        <td class="text-left font-weight-bold">${item.maSP}</td>
+        <td class="text-left">${formatProductName(item.tenSP)}</td>
+        <td class="text-center">${item.donvitinh}</td>
+        <td class="text-right">${item.tonDau || 0}</td>
+        <td class="text-right">${item.nhapTrong || 0}</td>
+        <td class="text-right">${item.xuatTrong || 0}</td>
+        <td class="text-right font-weight-bold">${item.tonCuoi || 0}</td>
+        <td class="text-right">${formatCurrency(item.giaBQ || 0)}</td>
+        <td class="text-right font-weight-bold">${formatCurrency(item.thanhTien || 0)}</td>
+      </tr>
+    `;
+  });
+  
+  html += `
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="4" class="text-center">TỔNG CỘNG</td>
+            <td class="text-right">${sum.tdk}</td>
+            <td class="text-right">${sum.ntk}</td>
+            <td class="text-right">${sum.xtk}</td>
+            <td class="text-right">${sum.tck}</td>
+            <td class="text-right"></td>
+            <td class="text-right">${formatCurrency(sum.tien)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="margin-top: 30px; display: flex; justify-content: space-around; font-size: 14px;">
+        <div style="text-align: center;"><strong>Người lập bảng</strong><br><br><br>(Ký, họ tên)</div>
+        <div style="text-align: center;"><strong>Kế toán trưởng</strong><br><br><br>(Ký, họ tên)</div>
+        <div style="text-align: center;"><strong>Giám đốc</strong><br><br><br>(Ký, họ tên, đóng dấu)</div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
 };
 
 const printToWord = async (namInput, maKhoInput, tenKhoString, tabName) => {
   if (isExporting.value) return;
   isExporting.value = true;
-
   try {
-    let namCanLay = parseInt(namInput);
-    
     const sourceData = tabName === 'action' ? allActionData.value : filteredHistoryData.value;
-    
-    if (sourceData.length === 0) {
-      alert("Không có dữ liệu chốt sổ để in.");
-      isExporting.value = false;
-      return;
-    }
-
-    const tenKhoChinhXac = tenKhoString || "Kho hệ thống";
-    const content = await loadFile("/File_Mau_BaoCaoChotSoNam.docx");
-    const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-
     const totals = tabName === 'action' ? grandTotalAction.value : grandTotalHistory.value;
+    const tenKho = tenKhoString || "Kho hệ thống";
+
+    const content = await (await fetch("/File_Mau_BaoCaoChotSoNam.docx")).arrayBuffer();
+    const doc = new Docxtemplater(new PizZip(content), { paragraphLoop: true, linebreaks: true });
 
     const today = new Date();
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const yyyy = today.getFullYear();
-    let hours = today.getHours();
-    const minutes = String(today.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12; 
-    hours = hours ? hours : 12; 
-
-    const dataToRender = {
-      nam: namCanLay,
-      tenKho: tenKhoChinhXac,
-      d: dd, m: mm, y: yyyy, h: String(hours).padStart(2, '0'), ph: minutes, ampm: ampm,
-      sumTDK: formatCurrency(totals.tdk),
-      sumNTK: formatCurrency(totals.ntk),
-      sumXTK: formatCurrency(totals.xtk),
-      sumTCK: formatCurrency(totals.tck),
-      sumTien: formatCurrency(totals.tien),
+    doc.render({
+      nam: parseInt(namInput), tenKho: tenKho,
+      d: String(today.getDate()).padStart(2, '0'), m: String(today.getMonth() + 1).padStart(2, '0'), y: today.getFullYear(),
+      h: String(today.getHours() % 12 || 12).padStart(2, '0'), ph: String(today.getMinutes()).padStart(2, '0'), ampm: today.getHours() >= 12 ? 'PM' : 'AM',
+      sumTDK: formatCurrency(totals.tdk), sumNTK: formatCurrency(totals.ntk), sumXTK: formatCurrency(totals.xtk), sumTCK: formatCurrency(totals.tck), sumTien: formatCurrency(totals.tien),
       p: sourceData.map((item, index) => ({
-        stt: index + 1,
-        ma: item.maSP || "",
-        ten: formatProductName(item.tenSP) || "",
-        dvt: item.donvitinh || "",
-        tdk: formatCurrency(item.tonDau),
-        ntk: formatCurrency(item.nhapTrong),
-        xtk: formatCurrency(item.xuatTrong),
-        tck: formatCurrency(item.tonCuoi),
-        gia: formatCurrency(item.giaBQ || 0),
-        tien: formatCurrency(item.thanhTien || 0)
+        stt: index + 1, ma: item.maSP || "", ten: formatProductName(item.tenSP) || "", dvt: item.donvitinh || "",
+        tdk: formatCurrency(item.tonDau || 0), ntk: formatCurrency(item.nhapTrong || 0), xtk: formatCurrency(item.xuatTrong || 0), 
+        tck: formatCurrency(item.tonCuoi || 0), gia: formatCurrency(item.giaBQ || 0), tien: formatCurrency(item.thanhTien || 0)
       }))
-    };
-
-    doc.render(dataToRender);
-    const out = doc.getZip().generate({
-      type: "blob",
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
-    saveAs(out, `BienBanChotSo_${tenKhoChinhXac.replace(/\s+/g, '_')}_Nam_${namCanLay}.docx`);
-
-  } catch (error) {
-    console.error("Lỗi in Word:", error);
-    alert("Có lỗi xảy ra khi xuất file Word: " + error.message);
-  } finally {
-    isExporting.value = false;
-  }
+    saveAs(doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), `BienBanChotSo_${tenKho.replace(/\s+/g, '_')}_Nam_${parseInt(namInput)}.docx`);
+  } catch (error) { alert("Có lỗi xảy ra khi xuất file Word: " + error.message); } 
+  finally { isExporting.value = false; }
 };
 
-// ==========================================
-// XUẤT FILE EXCEL 
-// ==========================================
 const exportToExcel = async (namInput, maKhoInput, tenKhoString, tabName) => {
   if (isExportingExcel.value) return;
   isExportingExcel.value = true;
-
   try {
-    let namCanLay = parseInt(namInput);
-    
     const sourceData = tabName === 'action' ? allActionData.value : filteredHistoryData.value;
-    
-    if (sourceData.length === 0) {
-      alert("Không có dữ liệu chốt sổ để xuất Excel.");
-      isExportingExcel.value = false;
-      return;
-    }
+    const totals = tabName === 'action' ? grandTotalAction.value : grandTotalHistory.value;
+    const tenKho = tenKhoString || "Kho hệ thống";
 
-    const tenKhoChinhXac = tenKhoString || "Kho hệ thống";
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Biên Bản Chốt Sổ');
 
+    sheet.mergeCells('A1:J1');
     sheet.getCell('A1').value = 'BIÊN BẢN CHỐT TỒN KHO';
     sheet.getCell('A1').font = { size: 16, bold: true };
-    sheet.mergeCells('A1:J1');
+    sheet.getCell('A2').value = `Năm chốt sổ:`; sheet.getCell('C2').value = parseInt(namInput);
+    sheet.getCell('A3').value = `Kho:`; sheet.getCell('C3').value = tenKho; sheet.getCell('C3').font = { bold: true };
 
-    sheet.getCell('A2').value = `Năm chốt sổ:`;
-    sheet.getCell('C2').value = namCanLay;
-    
-    sheet.getCell('A3').value = `Kho:`;
-    sheet.getCell('C3').value = tenKhoChinhXac;
-    sheet.getCell('C3').font = { bold: true };
-
-    const headerRow = sheet.addRow([
-      'STT', 'Mã sản phẩm', 'Tên sản phẩm', 'ĐVT',
-      'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối', 'Giá/BQ', 'Thành tiền'
-    ]);
-    headerRow.font = { bold: true };
-    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    const headerRow = sheet.addRow(['STT', 'Mã sản phẩm', 'Tên sản phẩm', 'ĐVT', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối', 'Giá/BQ', 'Thành tiền']);
+    headerRow.font = { bold: true }; headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
     sheet.columns = [
-      { key: 'stt', width: 5 },
-      { key: 'maSP', width: 20 },
-      { key: 'tenSP', width: 45 },
-      { key: 'dvt', width: 8 },
-      { key: 'tdk', width: 10 },
-      { key: 'ntk', width: 10 },
-      { key: 'xtk', width: 10 },
-      { key: 'tck', width: 10 },
-      { key: 'gia', width: 15 },
-      { key: 'tien', width: 18 }
+      { key: 'stt', width: 5 }, { key: 'maSP', width: 20 }, { key: 'tenSP', width: 45 }, { key: 'dvt', width: 8 },
+      { key: 'tdk', width: 10 }, { key: 'ntk', width: 10 }, { key: 'xtk', width: 10 }, { key: 'tck', width: 10 }, { key: 'gia', width: 15 }, { key: 'tien', width: 18 }
     ];
 
     sourceData.forEach((item, index) => {
       const row = sheet.addRow([
-        index + 1,
-        item.maSP,
-        formatProductName(item.tenSP), 
-        item.donvitinh,
-        item.tonDau || 0,
-        item.nhapTrong || 0,
-        item.xuatTrong || 0,
-        item.tonCuoi || 0,
-        item.giaBQ || 0,
-        item.thanhTien || 0
+        index + 1, item.maSP, formatProductName(item.tenSP), item.donvitinh,
+        item.tonDau || 0, item.nhapTrong || 0, item.xuatTrong || 0, item.tonCuoi || 0, item.giaBQ || 0, item.thanhTien || 0
       ]);
-
-      for (let i = 5; i <= 10; i++) {
-        row.getCell(i).alignment = { horizontal: 'right' };
-      }
+      for (let i = 5; i <= 10; i++) row.getCell(i).alignment = { horizontal: 'right' };
     });
 
-    const totals = tabName === 'action' ? grandTotalAction.value : grandTotalHistory.value;
     const totalRow = sheet.addRow(['Tổng Cộng', '', '', '', totals.tdk, totals.ntk, totals.xtk, totals.tck, '', totals.tien]);
-    totalRow.font = { bold: true };
-    sheet.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
-    totalRow.getCell(1).alignment = { horizontal: 'center' };
-    
-    for (let i = 5; i <= 10; i++) {
-      totalRow.getCell(i).alignment = { horizontal: 'right' };
-    }
+    totalRow.font = { bold: true }; sheet.mergeCells(`A${totalRow.number}:D${totalRow.number}`); totalRow.getCell(1).alignment = { horizontal: 'center' };
+    for (let i = 5; i <= 10; i++) totalRow.getCell(i).alignment = { horizontal: 'right' };
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber >= 4 && rowNumber <= totalRow.number) {
-        row.eachCell((cell) => {
-          cell.border = {
-            top: { style: 'thin' }, left: { style: 'thin' },
-            bottom: { style: 'thin' }, right: { style: 'thin' }
-          };
-        });
+        row.eachCell((cell) => cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
       }
     });
 
-    const fileName = `BienBanChotSo_${tenKhoChinhXac.replace(/\s+/g, '_')}_Nam_${namCanLay}.xlsx`;
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, fileName);
+    saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `BienBanChotSo_${tenKho.replace(/\s+/g, '_')}_Nam_${parseInt(namInput)}.xlsx`);
+  } catch (error) { alert("Có lỗi xảy ra khi xuất file Excel."); } 
+  finally { isExportingExcel.value = false; }
+};
 
-  } catch (error) {
-    console.error("Lỗi xuất Excel:", error);
-    alert("Có lỗi xảy ra khi xuất file Excel.");
-  } finally {
-    isExportingExcel.value = false;
+// ==========================================
+// 7. KHỞI TẠO (LIFECYCLE & EVENT LISTENERS)
+// ==========================================
+const toggleStatusDropdown = () => isStatusDropdownOpen.value = !isStatusDropdownOpen.value;
+const closeDropdownOutside = (e) => {
+  if (statusDropdownRef.value && !statusDropdownRef.value.contains(e.target)) isStatusDropdownOpen.value = false;
+};
+
+const setupPhanQuyen = () => {
+  const role = localStorage.getItem('userRole');
+  let userMaKho = localStorage.getItem('maKho') || localStorage.getItem('userMaKho');
+  if (!userMaKho) {
+    try { userMaKho = JSON.parse(localStorage.getItem('userInfo') || '{}').maKho; } catch (e) {}
+  }
+  if (role === 'ADMIN' || role === 'ROLE_ADMIN') {
+    isAdmin.value = true;
+  } else {
+    isAdmin.value = false;
+    const myKho = userMaKho ? parseInt(userMaKho) : 0;
+    filters.warehouseId = myKho;
+    historyFilters.warehouseId = myKho;
   }
 };
 
@@ -854,198 +829,59 @@ const loadKho = async () => {
   try {
     const res = await api.get('/kho');
     khoList.value = res.data;
-    
     if (res.data.length > 0) {
-        if (!filters.warehouseId || filters.warehouseId === '') {
-            filters.warehouseId = res.data[0].maKho;
-        }
-        if (!historyFilters.warehouseId || historyFilters.warehouseId === '') {
-            historyFilters.warehouseId = res.data[0].maKho;
-        }
+        if (!filters.warehouseId || filters.warehouseId === '') filters.warehouseId = res.data[0].maKho;
+        if (!historyFilters.warehouseId || historyFilters.warehouseId === '') historyFilters.warehouseId = res.data[0].maKho;
     }
-  } catch (e) {
-    console.error("Lỗi tải kho:", e);
-  }
+  } catch (e) { console.error("Lỗi tải kho:", e); }
+};
+
+const loadTrangThai = async () => {
+  try {
+    const res = await api.get('/trang-thai');
+    statusList.value = [{ id: 0, name: 'Tất cả' }, ...res.data.map(item => ({ id: item.maTrangThai, name: item.tenTrangThai }))];
+  } catch (e) { console.error("Lỗi tải trạng thái:", e); }
 };
 
 onMounted(async () => {
-  const token = localStorage.getItem('token');
-  if (!token) return;
+  if (!localStorage.getItem('token')) return;
   setupPhanQuyen();
-  
-  // Chạy song song cả 2 API lấy Kho và lấy Trạng thái cho nhanh
-  await Promise.all([
-    loadKho(),
-    loadTrangThai()
-  ]);
-  
-  // Đăng ký sự kiện click ngoài để đóng dropdown
+  await Promise.all([loadKho(), loadTrangThai()]);
   document.addEventListener('click', closeDropdownOutside);
 });
 
-onUnmounted(() => {
-  document.removeEventListener('click', closeDropdownOutside);
-});
+onUnmounted(() => document.removeEventListener('click', closeDropdownOutside));
 </script>
 
 <style scoped>
-.card-primary.card-outline-tabs>.card-header a.active {
-  border-top: 3px solid #ffc107;
-}
+/* CODE CSS ĐƯỢC GIỮ NGUYÊN 100% CỦA BẠN */
+.card-primary.card-outline-tabs>.card-header a.active { border-top: 3px solid #ffc107; }
+.nav-link, .page-link { cursor: pointer; font-weight: 600; }
+.page-item.active .page-link { background-color: #007bff; border-color: #007bff; color: white; }
+.page-item.disabled .page-link { pointer-events: none; background-color: #fff; color: #6c757d; }
+.form-control-sm { height: calc(1.8125rem + 2px); font-size: .875rem; }
+.table-container { max-height: 65vh; overflow: auto; position: relative; border-top: 1px solid #dee2e6; scrollbar-width: thin; }
+.table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+.table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+.sticky-thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); white-space: nowrap; }
 
-.nav-link,
-.page-link {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.page-item.active .page-link {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: white;
-}
-
-.page-item.disabled .page-link {
-  pointer-events: none;
-  background-color: #fff;
-  color: #6c757d;
-}
-
-.form-control-sm {
-  height: calc(1.8125rem + 2px);
-  font-size: .875rem;
-}
-
-.table-container {
-  max-height: 65vh;
-  overflow: auto;
-  position: relative;
-  border-top: 1px solid #dee2e6;
-  scrollbar-width: thin;
-}
-
-.table-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.sticky-thead th {
-  position: sticky;
-  top: 0;
-  background-color: #f8f9fa;
-  z-index: 10;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  white-space: nowrap;
-}
-
-/* --- CSS DROPDOWN CHUẨN FORM-CONTROL BOOTSTRAP --- */
-.custom-multi-select {
-  position: relative;
-}
-
-.dropdown-trigger {
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #fff;
-  user-select: none; 
-}
-
-.dropdown-trigger.is-focused {
-  color: #495057;
-  background-color: #fff;
-  border-color: #80bdff;
-  outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-}
-
-.dropdown-text {
-  flex-grow: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: inherit;
-  color: #000000;
-}
-
-.dropdown-icon {
-  font-size: 10px;
-  color: #6c757d;
-  margin-left: 8px;
-}
-
-.dropdown-menu-custom {
-  position: absolute;
-  top: calc(100% - 2px); 
-  left: 0;
-  z-index: 1050;
-  width: 100%;
-  background-color: #fff;
-  border: 1px solid #80bdff; 
-  border-bottom-left-radius: 0.25rem;
-  border-bottom-right-radius: 0.25rem;
-}
-
-.dropdown-list {
-  max-height: 250px;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-
-.dropdown-item-custom {
-  display: flex;
-  align-items: center;
-  padding: 6px 12px;
-  margin: 0;
-  cursor: pointer;
-  font-weight: 400;
-  font-size: 1rem;
-  color: #000000;
-  transition: background-color 0.15s;
-}
-
-.dropdown-item-custom:hover {
-  background-color: #f8f9fa;
-}
-
-.checkbox-ui {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  cursor: pointer;
-}
-.dropdown-item-custom {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.custom-multi-select { position: relative; }
+.dropdown-trigger { cursor: pointer; display: flex; justify-content: space-between; align-items: center; background-color: #fff; user-select: none; }
+.dropdown-trigger.is-focused { color: #495057; background-color: #fff; border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+.dropdown-text { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: inherit; color: #000000; }
+.dropdown-icon { font-size: 10px; color: #6c757d; margin-left: 8px; }
+.dropdown-menu-custom { position: absolute; top: calc(100% - 2px); left: 0; z-index: 1050; width: 100%; background-color: #fff; border: 1px solid #80bdff; border-bottom-left-radius: 0.25rem; border-bottom-right-radius: 0.25rem; }
+.dropdown-list { max-height: 250px; overflow-y: auto; padding: 4px 0; }
+.dropdown-item-custom { display: flex; align-items: center; padding: 6px 12px; margin: 0; cursor: pointer; font-weight: 400; font-size: 1rem; color: #000000; transition: background-color 0.15s; gap: 8px; }
+.dropdown-item-custom:hover { background-color: #f8f9fa; }
+.checkbox-ui { width: 15px; height: 15px; margin: 0; cursor: pointer; }
 .dropdown-list::-webkit-scrollbar { width: 6px; }
 .dropdown-list::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
 .dropdown-list::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-/* ---------------------------------------------------- */
 
 @media (max-width: 768px) {
-  .nav-tabs .nav-link {
-    padding: 0.5rem 0.8rem;
-    font-size: 0.9rem;
-  }
-
-  .col-6 {
-    padding-left: 5px;
-    padding-right: 5px;
-  }
-
-  .table th,
-  .table td {
-    padding: 8px 6px;
-    font-size: 13px;
-  }
+  .nav-tabs .nav-link { padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+  .col-6 { padding-left: 5px; padding-right: 5px; }
+  .table th, .table td { padding: 8px 6px; font-size: 13px; }
 }
 </style>
