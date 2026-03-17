@@ -70,4 +70,23 @@ INSERT INTO DMDonVi (MaDonVi, TenDonVi, LoaiDonVi) VALUES ('KH_MACDINH', N'Khác
 INSERT INTO DMHangSX (TenHang) VALUES (N'Ricoh'), (N'Toshiba'), (N'Konica'), (N'Epson'), (N'Fujitsu'), (N'Sindoh'), (N'Fujifilm'), (N'Dell');
 INSERT INTO LoaiSP (TenLoai) VALUES (N'Máy Văn Phòng'), (N'Laptop'), (N'Máy in');
 
+-- 2. Thêm dữ liệu mẫu theo yêu cầu của bạn
+INSERT INTO HinhThucXuat (TenHT) VALUES 
+(N'Xuất máy Bán bảo hành'), 
+(N'Xuất máy Bán Đại lý'), 
+(N'Xuất máy cho Thuê'), 
+(N'Xuất đổi máy thuê'), 
+(N'Xuất máy nội bộ'),
+(N'Xuất trả hàng NCC'),
+(N'Khác');
+GO
+
+-- 2. Thêm dữ liệu mẫu
+INSERT INTO HinhThucNhap (TenHT) VALUES 
+(N'Bình thường'), 
+(N'Nội bộ');
+GO
+
+
+
 

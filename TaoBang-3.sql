@@ -45,7 +45,7 @@ CREATE TABLE Kho (
 
 -- 4. Trạng Thái
 CREATE TABLE TrangThai (
-    MaTrangThai INT NOT NULL,
+    MaTrangThai INT IDENTITY(1,1), 
     TenTrangThai NVARCHAR(100),
     CONSTRAINT PK_TrangThai PRIMARY KEY (MaTrangThai)
 );
@@ -139,9 +139,6 @@ CREATE TABLE PhieuXuat (
     CONSTRAINT FK_PhieuXuat_DMDonVi FOREIGN KEY (MaDonVi) REFERENCES DMDonVi(MaDonVi)
 );
 
--- =======================================================
--- ĐÃ DỜI LÊN TRÊN: Tạo bảng DMMay trước khi tạo Chi tiết phiếu
--- =======================================================
 -- 12. Danh Mục Máy (Serial)
 CREATE TABLE DMMay (
     MaMay VARCHAR(50) NOT NULL,
@@ -161,11 +158,8 @@ CREATE TABLE DMMay (
     CONSTRAINT FK_DMMay_PhieuNhap FOREIGN KEY (SoPhieuNhap) REFERENCES PhieuNhap(SoPhieu)
 );
 
--- =======================================================
--- TẠO CÁC BẢNG CHI TIẾT SAU KHI ĐÃ CÓ BẢNG DMMAY
--- =======================================================
 
--- 13. Chi Tiết Phiếu Nhập
+-- 15. Chi Tiết Phiếu Nhập
 CREATE TABLE CTPhieuNhap (
     MaCTPN INT IDENTITY(1,1) NOT NULL,
     SoPhieu VARCHAR(50) NOT NULL,
@@ -184,7 +178,7 @@ CREATE TABLE CTPhieuNhap (
     CONSTRAINT UQ_CTPhieuNhap_MaMay UNIQUE (MaMay) 
 );
 
--- 14. Chi Tiết Phiếu Xuất
+-- 16. Chi Tiết Phiếu Xuất
 CREATE TABLE CTPhieuXuat (
     MaCTPX INT IDENTITY(1,1) NOT NULL,
     SoPhieu VARCHAR(50) NOT NULL,
@@ -204,7 +198,7 @@ CREATE TABLE CTPhieuXuat (
 );
 GO
 
--- 15. Tồn Kho (Lịch sử chốt sổ) - Đã gom gọn các cột
+-- 13. Tồn Kho (Lịch sử chốt sổ) - Đã gom gọn các cột
 CREATE TABLE DMTonKho (
     Nam INT NOT NULL,
     MaKho INT NOT NULL,
@@ -219,3 +213,36 @@ CREATE TABLE DMTonKho (
     CONSTRAINT FK_DMTonKho_Kho FOREIGN KEY (MaKho) REFERENCES Kho(MaKho),
     CONSTRAINT FK_DMTonKho_TrangThai FOREIGN KEY (MaTrangThai) REFERENCES TrangThai(MaTrangThai)
 );
+
+
+USE Nhat_Tien_Thanh_Kho;
+GO
+
+-- 1. Tạo bảng Hình Thức Xuất
+CREATE TABLE HinhThucXuat (
+    MaHT INT IDENTITY(1,1) NOT NULL,
+    TenHT NVARCHAR(255) NOT NULL,
+    CONSTRAINT PK_HinhThucXuat PRIMARY KEY (MaHT)
+);
+GO
+
+
+-- 3. Thêm cột MaHT vào bảng PhieuXuat và tạo khóa ngoại
+ALTER TABLE PhieuXuat ADD MaHT INT;
+GO
+ALTER TABLE PhieuXuat ADD CONSTRAINT FK_PhieuXuat_HinhThuc FOREIGN KEY (MaHT) REFERENCES HinhThucXuat(MaHT);
+GO
+
+-- 1. Tạo bảng Hình Thức Nhập
+CREATE TABLE HinhThucNhap (
+    MaHT INT IDENTITY(1,1) NOT NULL,
+    TenHT NVARCHAR(255) NOT NULL,
+    CONSTRAINT PK_HinhThucNhap PRIMARY KEY (MaHT)
+);
+GO
+
+-- 3. Thêm cột MaHT vào bảng PhieuNhap và tạo khóa ngoại
+ALTER TABLE PhieuNhap ADD MaHT INT;
+GO
+ALTER TABLE PhieuNhap ADD CONSTRAINT FK_PhieuNhap_HinhThuc FOREIGN KEY (MaHT) REFERENCES HinhThucNhap(MaHT);
+GO

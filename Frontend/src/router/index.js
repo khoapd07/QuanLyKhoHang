@@ -22,7 +22,7 @@ import XuatKho from '../components/nghiepvu/XuatKho.vue'
 import XuatKhoTao from '../components/nghiepvu/XuatKhoTao.vue' 
 
 import ImportExcel from '../components/nghiepvu/ImportExcel.vue'
-
+import DelTonkho from '../components/baocao/DelTonkho.vue'
 
 import BaoCaoTon from '../components/baocao/ThongKeTonKho.vue'
 
@@ -59,6 +59,7 @@ const routes = [
       { path: 'xuat-kho/tao-moi', name: 'TaoPhieuXuat', component: XuatKhoTao }, 
 
       { path: 'nhap-excel', name: 'ImportExcel', component: ImportExcel },
+      { path: 'xoa-du-lieu-ton-kho', name: 'DelTonkho', component: DelTonkho },
 
       // Báo cáo & Hệ thống
       { path: 'bao-cao-ton', name: 'BaoCaoTon', component: BaoCaoTon },
