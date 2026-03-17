@@ -32,4 +32,6 @@ public interface PhieuNhapDAO extends JpaRepository<PhieuNhap, String> {
     @Modifying
     @Query("DELETE FROM PhieuNhap p WHERE p.soPhieu = :soPhieu")
     void xoaPhieuNhapBangSoPhieu(@Param("soPhieu") String soPhieu);
+
+    boolean existsByHinhThucNhap_MaHT(Integer hinhThucNhapMaHT);
 }

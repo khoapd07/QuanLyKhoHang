@@ -5,4 +5,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface HinhThucNhapDAO extends JpaRepository<HinhThucNhap, Integer> {
+    boolean existsByTenHT(String tenHT);
+
+    HinhThucNhap findByTenHT(String tenHT);
 }

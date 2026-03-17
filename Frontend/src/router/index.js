@@ -12,6 +12,8 @@ import LoaiSP from '../components/danhmuc/LoaiSP.vue'
 import Hang from '../components/danhmuc/HangSanXuat.vue'
 import DMSanPham from '../components/danhmuc/DMSanPham.vue'
 import TrangThai from '../components/danhmuc/QLTrangThai.vue';
+import HinhThucNhap from '../components/danhmuc/HinhThucNhap.vue';
+import HinhThucXuat from '../components/danhmuc/HinhThucXuat.vue';
 // Nghiệp vụ NHẬP
 import NhapKho from '../components/nghiepvu/NhapKho.vue'
 import NhapKhoTao from '../components/nghiepvu/NhapKhoTao.vue'
@@ -49,6 +51,8 @@ const routes = [
       { path: 'hang-san-xuat', name: 'Hang', component: Hang },
       { path: 'danh-muc-san-pham', name: 'DMSanPham', component: DMSanPham },
       {path: 'trang-thai',name: 'TrangThai',component: TrangThai},
+      {path: 'hinh-thuc-nhap',name: 'HinhThucNhap',component: HinhThucNhap},
+      {path: 'hinh-thuc-xuat',name: 'HinhThucXuat',component: HinhThucXuat},
 
       // Nhập kho
       { path: 'nhap-kho', name: 'NhapKho', component: NhapKho },
