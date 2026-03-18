@@ -575,35 +575,35 @@ const applyHistoryFilter = () => {
   // Nếu người dùng KHÔNG chọn "Tất cả" (Tất cả có id = 0)
   if (!selectedIds.includes(0)) {
     
-    // 1. Sắp xếp các trạng thái đặc biệt theo ĐỘ DÀI TÊN GIẢM DẦN
-    // Mục đích: Phải check chữ "Like New" trước, rồi mới check chữ "New" sau
+    // Lấy các trạng thái đặc biệt: Bỏ ID 1 (Chưa xác định), Bỏ ID 2 (Bình thường)
+    // Sắp xếp ĐỘ DÀI TÊN GIẢM DẦN để check chữ dài ("Like New") trước chữ ngắn ("New")
     const sortedSpecialStatuses = statusList.value
-      .filter(s => s.id > 1)
+      .filter(s => s.id > 2) 
       .sort((a, b) => b.name.length - a.name.length);
 
     filtered = filtered.filter(item => {
       
-      // Nếu Backend có trả về thẳng mã trạng thái thì xài luôn cho chuẩn 100%
+      // Nếu Backend trả về chuẩn mã trạng thái -> Dùng luôn
       if (item.maTrangThai !== undefined && item.maTrangThai !== null) {
         return selectedIds.includes(item.maTrangThai);
       }
 
-      // Nếu Backend KHÔNG trả mã, ta bắt đầu lọc "thủ công" dựa vào Tên SP như ý bạn
+      // Nếu Backend thiếu mã -> Lọc theo tên hiển thị
       const tenSPNoSpace = item.tenSP ? item.tenSP.toLowerCase().replace(/\s+/g, '') : '';
       
-      let matchedStatusId = 1; // Mặc định tự hiểu là hàng "Bình Thường"
+      let matchedStatusId = 2; // Mặc định ID 2 là "Bình Thường"
 
-      // Dò xem Tên SP có chứa đuôi trạng thái nào không
+      // Dò tìm đuôi trạng thái
       for (const st of sortedSpecialStatuses) {
         const kwNoSpace = st.name.toLowerCase().replace(/\s+/g, '');
         
         if (tenSPNoSpace.includes(kwNoSpace)) {
           matchedStatusId = st.id; 
-          break; // Dừng ngay lập tức! (Tránh vụ bắt Likenew xong lại bắt nhầm New)
+          break; // Bắt được Like New là thoát vòng lặp ngay, không check chữ New nữa
         }
       }
 
-      // Kiểm tra xem ID trạng thái của máy này có nằm trong danh sách đang tick chọn không
+      // Cuối cùng: So sánh xem ID tìm được có nằm trong danh sách đang tick chọn không
       return selectedIds.includes(matchedStatusId);
     });
   }
