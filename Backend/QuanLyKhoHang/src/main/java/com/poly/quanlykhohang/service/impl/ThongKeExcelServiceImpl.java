@@ -5,14 +5,20 @@ import com.poly.quanlykhohang.dto.BaoCaoXuatNhapTonDTO;
 import com.poly.quanlykhohang.dto.SyncTonKhoDTO;
 import com.poly.quanlykhohang.entity.*;
 import com.poly.quanlykhohang.service.ThongKeExcelService;
+import com.poly.quanlykhohang.util.IdGenerator;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +43,24 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
 
     @Autowired
     private DMTonKhoDAO dmTonKhoDAO;
+
+    @Autowired
+    private PhieuNhapDAO phieuNhapDAO;
+
+    @Autowired
+    private ChiTietPhieuNhapDAO chiTietPhieuNhapDAO;
+
+    @Autowired
+    private MayInDAO mayInDAO;
+
+    @Autowired
+    private IdGenerator idGenerator;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -79,16 +103,10 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                 String c1 = cell1 != null ? dataFormatter.formatCellValue(cell1).trim() : "";
                 String c2 = cell2 != null ? dataFormatter.formatCellValue(cell2).trim() : "";
 
-                // ==============================================================
-                // FIX LỖI BỎ SÓT: Nhận diện điểm dừng an toàn hơn
-                // Chỉ dừng khi cột STT hoặc Mã SP chứa chữ "tổng",
-                // hoặc cột Tên SP ghi đích danh "tổng cộng" (Tránh cắt nhầm máy tên "Tổng...")
-                // ==============================================================
                 if (c0.contains("tổng") || c1.toLowerCase().contains("tổng") || c2.toLowerCase().startsWith("tổng cộng")) {
                     break;
                 }
 
-                // Nếu thiếu cả Mã SP và Tên SP thì bỏ qua (Tránh đọc các dòng trống)
                 if (c1.isEmpty() || c2.isEmpty() || c2.toLowerCase().contains("tên sản phẩm")) {
                     continue;
                 }
@@ -98,8 +116,8 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                     String donViTinhExcel = cell3 != null ? dataFormatter.formatCellValue(cell3).trim() : "Cái";
                     if (donViTinhExcel.isEmpty()) donViTinhExcel = "Cái";
 
-                    long tonCuoi = getNumericValueSafely(row.getCell(7)).longValue(); // Cột H
-                    BigDecimal thanhTien = getBigDecimalValueSafely(row.getCell(9));  // Cột J
+                    long tonCuoi = getNumericValueSafely(row.getCell(7)).longValue();
+                    BigDecimal thanhTien = getBigDecimalValueSafely(row.getCell(9));
 
                     if (tonCuoi < 0) {
                         throw new Exception("Tồn cuối bị ÂM (" + tonCuoi + "). Vui lòng kiểm tra lại Excel tại Mã SP: " + c1);
@@ -109,9 +127,6 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                     String tenExcelRaw = c2;
                     String tenExcelLower = tenExcelRaw.toLowerCase();
 
-                    // ==============================================================
-                    // 1. NHẬN DIỆN TRẠNG THÁI (Ưu tiên Likenew)
-                    // ==============================================================
                     int trangThaiMatch = 2; // Mặc định: 1 (Bình Thường)
                     String maExcelClean = maExcelRaw;
                     String tenExcelClean = tenExcelRaw;
@@ -156,26 +171,18 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                         }
                     }
 
-                    // Dọn dẹp các ký tự rác (dấu trừ, khoảng trắng) ở cuối tên
                     maExcelClean = maExcelClean.replaceAll("[^\\p{L}\\p{N}]+$", "").trim();
                     tenExcelClean = tenExcelClean.replaceAll("[^\\p{L}\\p{N}]+$", "").trim();
 
-                    // ==============================================================
-// 2. TÌM HOẶC TẠO SẢN PHẨM MỚI
-// ==============================================================
                     String matchedMaSP = null;
                     String maExcelUpper = maExcelClean.toUpperCase();
 
-// 1. Chỉ tìm khớp chính xác tuyệt đối (Equals)
                     for (SanPham sp : danhSachSanPhamDB) {
                         if (maExcelUpper.equals(sp.getMaSP().toUpperCase())) {
                             matchedMaSP = sp.getMaSP(); break;
                         }
                     }
 
-// KHÔNG DÙNG HÀM .contains() NỮA ĐỂ TRÁNH NHẬN DIỆN SAI MÃ CON VÀ MÃ CHA
-
-// 2. Nếu không khớp chính xác mã nào -> TẠO MỚI LUÔN
                     if (matchedMaSP == null) {
                         SanPham newSp = new SanPham();
                         newSp.setMaSP(maExcelClean);
@@ -195,32 +202,6 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                         matchedMaSP = maExcelClean;
                     }
 
-                    // ==============================================================
-                    // 3. LƯU CHỐT SỔ VÀO DATABASE (ĐÃ BỎ ĐỂ CHUYỂN SANG NÚT LƯU RIÊNG)
-                    // ==============================================================
-                    /*
-                    DMTonKhoID id = new DMTonKhoID(finalNam, matchedMaSP, finalMaKho, trangThaiMatch);
-                    Optional<DMTonKho> optTonKho = dmTonKhoDAO.findById(id);
-                    DMTonKho tonKho;
-
-                    if (optTonKho.isPresent()) {
-                        tonKho = optTonKho.get();
-                    } else {
-                        tonKho = new DMTonKho();
-                        tonKho.setNam(finalNam);
-                        tonKho.setMaSP(matchedMaSP);
-                        tonKho.setMaKho(finalMaKho);
-                        tonKho.setMaTrangThai(trangThaiMatch);
-                    }
-
-                    tonKho.setSoLuong((int) tonCuoi);
-                    tonKho.setGiaTri(thanhTien);
-                    dmTonKhoDAO.save(tonKho);
-                    */
-
-                    // ==============================================================
-                    // 4. TRẢ DỮ LIỆU LÊN GIAO DIỆN
-                    // ==============================================================
                     BaoCaoXuatNhapTonDTO dto = new BaoCaoXuatNhapTonDTO();
                     dto.setStt(list.size() + 1);
                     dto.setMaSP(matchedMaSP);
@@ -232,7 +213,7 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                     dto.setGiaBQ(getBigDecimalValueSafely(row.getCell(8)));
                     dto.setTonCuoi(tonCuoi);
                     dto.setThanhTien(thanhTien);
-                    dto.setMaTrangThai(trangThaiMatch); // Truyền trạng thái về frontend
+                    dto.setMaTrangThai(trangThaiMatch);
                     list.add(dto);
 
                 } catch (Exception ex) {
@@ -308,15 +289,47 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
         }
     }
 
-    // ==============================================================
-    // CÁC HÀM XỬ LÝ MỚI THÊM VÀO DƯỚI ĐÂY
-    // ==============================================================
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void syncToDMTonKho(List<SyncTonKhoDTO> payload) throws Exception {
+        if (payload == null || payload.isEmpty()) return;
+
+        Integer nam = payload.get(0).getNam();
+        Integer maKho = payload.get(0).getMaKho();
+        Kho khoDb = khoDAO.findById(maKho).orElseThrow(() -> new Exception("Không tìm thấy kho"));
+
+        String soPhieuNhapAo = "PN" + nam + "0000";
+        Optional<PhieuNhap> optPnCu = phieuNhapDAO.findById(soPhieuNhapAo);
+
+        if (optPnCu.isPresent()) {
+            for (ChiTietPhieuNhap ct : optPnCu.get().getDanhSachChiTiet()) {
+                SanPham sp = ct.getSanPham();
+                if (sp != null) {
+                    sp.setSoLuong(Math.max(0, sp.getSoLuong() - 1));
+                    sanPhamDAO.save(sp);
+                }
+            }
+            sanPhamDAO.flush();
+            jdbcTemplate.update("DELETE FROM CTPhieuNhap WHERE SoPhieu = ?", soPhieuNhapAo);
+            jdbcTemplate.update("DELETE FROM DMMay WHERE SoPhieuNhap = ?", soPhieuNhapAo);
+            jdbcTemplate.update("DELETE FROM PhieuNhap WHERE SoPhieu = ?", soPhieuNhapAo);
+            entityManager.clear(); // Ép hệ thống quên đi các dữ liệu rác vừa bị xóa
+        }
+
+        PhieuNhap phieuNhap = new PhieuNhap();
+        phieuNhap.setSoPhieu(soPhieuNhapAo);
+        phieuNhap.setKhoNhap(khoDb);
+        phieuNhap.setNgayNhap(LocalDateTime.of(nam, 1, 1, 0, 0));
+        phieuNhap.setGhiChu("Nhập tồn kho đầu kỳ năm " + nam);
+
+        phieuNhap = phieuNhapDAO.save(phieuNhap);
+        entityManager.flush(); // Lưu Phiếu nhập xuống DB ngay lập tức
+
+        int tongSoLuongPhieu = 0;
+        BigDecimal tongTienPhieu = BigDecimal.ZERO;
+        List<ChiTietPhieuNhap> dsChiTiet = new ArrayList<>();
+
         for (SyncTonKhoDTO item : payload) {
-            // SỬA SỐ 1 THÀNH SỐ 2 (ID 2 là Bình thường)
             int trangThai = (item.getMaTrangThai() != null) ? item.getMaTrangThai() : 2;
 
             DMTonKhoID id = new DMTonKhoID(item.getNam(), item.getMaSP(), item.getMaKho(), trangThai);
@@ -332,12 +345,63 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                 tonKho.setMaSP(item.getMaSP());
                 tonKho.setMaTrangThai(trangThai);
             }
-
-            // Cập nhật số lượng (tồn cuối) và giá trị
             tonKho.setSoLuong(item.getSoLuong());
             tonKho.setGiaTri(item.getGiaTri() != null ? item.getGiaTri() : BigDecimal.ZERO);
             dmTonKhoDAO.save(tonKho);
+
+            int slMay = item.getSoLuong() != null ? item.getSoLuong() : 0;
+            if (slMay > 0) {
+                SanPham sp = sanPhamDAO.findById(item.getMaSP()).orElse(null);
+                if (sp != null) {
+                    String prefixMaMay = sp.getMaSP();
+                    String lastMaMayInDB = mayInDAO.findLastId(prefixMaMay).orElse(null);
+
+                    BigDecimal giaTriRow = item.getGiaTri() != null ? item.getGiaTri() : BigDecimal.ZERO;
+                    BigDecimal donGiaBinhQuan = giaTriRow.divide(BigDecimal.valueOf(slMay), 2, RoundingMode.HALF_UP);
+
+                    for (int i = 0; i < slMay; i++) {
+                        String maMayMoi = idGenerator.generateNextId(prefixMaMay, lastMaMayInDB);
+                        lastMaMayInDB = maMayMoi;
+
+                        MayIn mayMoi = new MayIn();
+                        mayMoi.setMaMay(maMayMoi);
+                        mayMoi.setSoSeri(maMayMoi);
+                        mayMoi.setSanPham(sp);
+                        mayMoi.setKho(khoDb);
+                        mayMoi.setSoPhieuNhap(soPhieuNhapAo);
+                        mayMoi.setTrangThai(trangThai);
+                        mayMoi.setTonKho(true);
+                        mayMoi.setNgayTao(LocalDateTime.now());
+
+                        MayIn savedMay = mayInDAO.save(mayMoi);
+                        entityManager.flush(); // BẮT BUỘC CHỐT HẠ XUỐNG DB ĐỂ TRÁNH LỖI NULL
+
+                        ChiTietPhieuNhap ctEntity = new ChiTietPhieuNhap();
+                        ctEntity.setPhieuNhap(phieuNhap);
+                        ctEntity.setSanPham(sp);
+                        ctEntity.setMayIn(savedMay); // Móc khóa ngoại vào MayIn đã tồn tại dưới DB
+                        ctEntity.setDonGia(donGiaBinhQuan);
+                        ctEntity.setGhiChu("Tồn đầu kỳ " + nam);
+
+                        chiTietPhieuNhapDAO.save(ctEntity);
+                        entityManager.flush(); // BẮT BUỘC CHỐT HẠ XUỐNG DB TIẾP
+
+                        dsChiTiet.add(ctEntity);
+                    }
+
+                    tongSoLuongPhieu += slMay;
+                    tongTienPhieu = tongTienPhieu.add(giaTriRow);
+
+                    sp.setSoLuong((sp.getSoLuong() == null ? 0 : sp.getSoLuong()) + slMay);
+                    sanPhamDAO.save(sp);
+                }
+            }
         }
+
+        phieuNhap.setTongSoLuong(tongSoLuongPhieu);
+        phieuNhap.setTongTien(tongTienPhieu);
+        phieuNhap.setDanhSachChiTiet(dsChiTiet);
+        phieuNhapDAO.save(phieuNhap);
     }
 
     @Override

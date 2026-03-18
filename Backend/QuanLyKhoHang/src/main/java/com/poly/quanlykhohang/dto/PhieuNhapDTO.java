@@ -14,4 +14,5 @@ public class PhieuNhapDTO {
     private List<ChiTietNhapDTO> chiTietPhieuNhap;
     private Integer maHT;
     private String soPhieuXuatNoiBo;
+    private String soPhieu;
 }

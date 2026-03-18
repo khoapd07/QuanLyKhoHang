@@ -600,7 +600,6 @@ public class GiaoDichKhoService {
         ChiTietPhieuXuat ct = chiTietPhieuXuatDAO.findById(maCTPX).orElseThrow();
         PhieuXuat px = ct.getPhieuXuat();
 
-        // VALIDATE: KHÔNG CHO XÓA NẾU ĐÃ NHẬP NỘI BỘ
         if (px.getHinhThucXuat() != null && px.getHinhThucXuat().getTenHT().toLowerCase().contains("nội bộ")) {
             if (px.getGhiChu() != null && px.getGhiChu().contains("(Mã PN:")) {
                 throw new RuntimeException("Không thể thu hồi! Máy này đã được xác nhận nhập vào kho đích.");
