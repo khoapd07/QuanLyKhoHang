@@ -316,8 +316,8 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
     @Transactional(rollbackFor = Exception.class)
     public void syncToDMTonKho(List<SyncTonKhoDTO> payload) throws Exception {
         for (SyncTonKhoDTO item : payload) {
-            // Lấy mã trạng thái, nếu không truyền thì mặc định là 1
-            int trangThai = (item.getMaTrangThai() != null) ? item.getMaTrangThai() : 1;
+            // SỬA SỐ 1 THÀNH SỐ 2 (ID 2 là Bình thường)
+            int trangThai = (item.getMaTrangThai() != null) ? item.getMaTrangThai() : 2;
 
             DMTonKhoID id = new DMTonKhoID(item.getNam(), item.getMaSP(), item.getMaKho(), trangThai);
             Optional<DMTonKho> optTonKho = dmTonKhoDAO.findById(id);
@@ -331,11 +331,11 @@ public class ThongKeExcelServiceImpl implements ThongKeExcelService {
                 tonKho.setMaKho(item.getMaKho());
                 tonKho.setMaSP(item.getMaSP());
                 tonKho.setMaTrangThai(trangThai);
-                tonKho.setGiaTri(BigDecimal.ZERO);
             }
 
-            // Cập nhật số lượng (tồn cuối)
+            // Cập nhật số lượng (tồn cuối) và giá trị
             tonKho.setSoLuong(item.getSoLuong());
+            tonKho.setGiaTri(item.getGiaTri() != null ? item.getGiaTri() : BigDecimal.ZERO);
             dmTonKhoDAO.save(tonKho);
         }
     }

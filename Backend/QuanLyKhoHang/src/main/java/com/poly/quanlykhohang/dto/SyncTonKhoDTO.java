@@ -1,4 +1,6 @@
 package com.poly.quanlykhohang.dto;
+import java.math.BigDecimal;
+
 
 public class SyncTonKhoDTO {
     private Integer maKho;
@@ -6,6 +8,7 @@ public class SyncTonKhoDTO {
     private String maSP;
     private Integer soLuong;
     private Integer maTrangThai; // Chốt chặn trạng thái ở đây
+    private BigDecimal giaTri;
 
     // Getters and Setters
     public Integer getMaKho() { return maKho; }
@@ -22,4 +25,7 @@ public class SyncTonKhoDTO {
 
     public Integer getMaTrangThai() { return maTrangThai; }
     public void setMaTrangThai(Integer maTrangThai) { this.maTrangThai = maTrangThai; }
+
+    public BigDecimal getGiaTri() { return giaTri; }
+    public void setGiaTri(BigDecimal giaTri) { this.giaTri = giaTri; }
 }
